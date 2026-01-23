@@ -11,4 +11,24 @@ phase of irradiated U-Zr and U-Pu-Zr fuel."
 
 __version__ = "0.1.0"
 
-__all__ = []
+from .models.modelrk23 import GasSwellingModel
+from .params.parameters import (
+    MaterialParameters,
+    SimulationParameters,
+    create_default_parameters,
+    BOLTZMANN_CONSTANT_EV,
+    BOLTZMANN_CONSTANT_J,
+    GAS_CONSTANT,
+    AVOGADRO_CONSTANT
+)
+
+__all__ = [
+    'GasSwellingModel',
+    'MaterialParameters',
+    'SimulationParameters',
+    'create_default_parameters',
+    'BOLTZMANN_CONSTANT_EV',
+    'BOLTZMANN_CONSTANT_J',
+    'GAS_CONSTANT',
+    'AVOGADRO_CONSTANT'
+]
