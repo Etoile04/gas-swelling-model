@@ -1,17 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gas-swelling-model
 Version: 0.1.0
 Summary: A scientific computing package for modeling fission gas bubble evolution and void swelling behavior in irradiated metallic fuels
 Home-page: https://github.com/yourusername/gas-swelling-model
 Author: Gas Swelling Model Contributors
 Author-email: 
+Maintainer: Gas Swelling Model Contributors
 License: MIT
 Project-URL: Homepage, https://github.com/yourusername/gas-swelling-model
 Project-URL: Documentation, https://github.com/yourusername/gas-swelling-model/blob/main/README.md
 Project-URL: Repository, https://github.com/yourusername/gas-swelling-model
 Project-URL: Issues, https://github.com/yourusername/gas-swelling-model/issues
 Keywords: nuclear,fuel,swelling,fission-gas,metallic-fuel,u-zr,u-pu-zr,rate-theory,scientific-computing
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Physics
@@ -25,10 +25,21 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: plotting
-Provides-Extra: dev
-Provides-Extra: all
 License-File: LICENSE
+Requires-Dist: numpy>=1.20.0
+Requires-Dist: scipy>=1.7.0
+Provides-Extra: plotting
+Requires-Dist: matplotlib>=3.3.0; extra == "plotting"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: build>=0.10.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: gas-swelling-model[dev,plotting]; extra == "all"
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 # Gas Swelling Model
 
@@ -287,5 +298,3 @@ For questions, issues, or suggestions:
 ## Acknowledgments
 
 This package implements theoretical models developed by the nuclear fuel research community. We acknowledge the contributions of all researchers who have advanced the understanding of fission gas behavior in metallic fuels.
-
-

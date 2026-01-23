@@ -8,6 +8,8 @@ original paper of swelling rate theory.md
 pyproject.toml
 setup.py
 test4_run_rk23.py
+examples/__init__.py
+examples/run_simulation.py
 gas_swelling/__init__.py
 gas_swelling/models/__init__.py
 gas_swelling/models/modelrk23.py
@@ -19,3 +21,5 @@ gas_swelling_model.egg-info/dependency_links.txt
 gas_swelling_model.egg-info/not-zip-safe
 gas_swelling_model.egg-info/requires.txt
 gas_swelling_model.egg-info/top_level.txt
+tests/__init__.py
+tests/test_import.py
