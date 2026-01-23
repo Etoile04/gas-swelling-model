@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
 import logging
 import os
 
@@ -1627,8 +1627,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -1770,8 +1770,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -1937,8 +1937,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
