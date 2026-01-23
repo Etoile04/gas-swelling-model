@@ -3,7 +3,7 @@ from typing import Optional, cast
 from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
-from params.parameters import create_default_parameters
+from ..params.parameters import create_default_parameters
 
 class GasSwellingModel:
     """气体肿胀模型,实现公式1-25的数值求解, Ncb, Ncf 作为状态变量"""
@@ -833,7 +833,7 @@ from typing import Optional, cast
 from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
-from params.parameters import create_default_parameters
+from ..params.parameters import create_default_parameters
 
 class GasSwellingModel:
     """气体肿胀模型,实现公式1-25的数值求解, Ncb, Ncf 作为状态变量"""
@@ -1620,7 +1620,7 @@ if __name__ == '__main__':
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Dict, Tuple, List, Optional
-from params.parameters import create_default_parameters
+from ..params.parameters import create_default_parameters
 import logging
 import warnings
 
