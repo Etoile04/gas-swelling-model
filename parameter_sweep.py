@@ -31,6 +31,13 @@ except ImportError:
     TQDM_AVAILABLE = False
     logging.warning("tqdm not available, progress bars will not be displayed")
 
+try:
+    from netCDF4 import Dataset
+    NETCDF_AVAILABLE = True
+except ImportError:
+    NETCDF_AVAILABLE = False
+    logging.warning("netCDF4 not available, NetCDF export will be disabled")
+
 
 # 配置日志
 logging.basicConfig(
@@ -1231,6 +1238,337 @@ class ParameterSweep:
             logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
             raise
 
+    def export_netcdf(self, filepath: str, include_time_series: bool = True, compression: int = 4) -> None:
+        """
+        导出结果到NetCDF文件（多维数据格式）
+
+        NetCDF (Network Common Data Form) 是一种用于存储和共享科学数组数据的文件格式。
+        特别适合处理多维时间序列数据。
+
+        参数:
+            filepath: NetCDF文件路径 (.nc或.nc4)
+            include_time_series: 是否包含完整的时间序列数据
+            compression: 压缩级别 (0-9, 0=无压缩, 4=默认, 9=最大压缩)
+
+        异常:
+            ImportError: 当netCDF4库不可用时抛出
+            ValueError: 当results为空时
+            IOError: 当文件写入失败时
+
+        示例:
+            >>> sweep = ParameterSweep(params, config)
+            >>> results = sweep.run()
+            >>> sweep.export_netcdf('sweep_results.nc')
+            >>> sweep.export_netcdf('results.nc4', include_time_series=True, compression=6)
+        """
+        # 验证netCDF4可用性
+        if not NETCDF_AVAILABLE:
+            raise ImportError("netCDF4库不可用。请安装: pip install netCDF4")
+
+        # 验证filepath
+        if not filepath:
+            raise ValueError("filepath不能为空")
+
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+        # 检查目录是否存在
+        import os
+        file_dir = os.path.dirname(filepath)
+        if file_dir and not os.path.exists(file_dir):
+            try:
+                os.makedirs(file_dir, exist_ok=True)
+                logger.info(f"创建目录: {file_dir}")
+            except Exception as e:
+                raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+        # 检查是否有结果
+        if not self.results:
+            raise ValueError("没有结果可导出")
+
+        try:
+            # 创建NetCDF文件
+            with Dataset(filepath, 'w', format='NETCDF4') as nc:
+                # 添加全局属性
+                nc.title = 'Parameter Sweep Results'
+                nc.institution = 'Gas Swelling Model Simulation'
+                nc.source = 'parameter_sweep.ParameterSweep'
+                nc.history = f'Created {time.ctime(time.time())}'
+                nc.Conventions = 'CF-1.6'
+
+                # 添加配置元数据
+                nc.sim_time = self.config.sim_time
+                nc.sampling_method = self.config.sampling_method
+                nc.n_samples = getattr(self.config, 'n_samples', 0)
+                nc.parallel = self.config.parallel
+                nc.cache_enabled = self.config.cache_enabled
+                nc.total_simulations = len(self.results)
+                nc.successful_simulations = sum(1 for r in self.results if r.success)
+
+                # 定义维度
+                # n_simulations: 模拟次数
+                nc.createDimension('n_simulations', len(self.results))
+
+                # 收集所有参数名和变量名
+                all_param_names = set()
+                all_state_var_names = set()
+                all_derived_qty_names = set()
+                time_length = 0
+
+                for result in self.results:
+                    if result.success:
+                        all_param_names.update(result.parameters.keys())
+                        if result.state_variables:
+                            all_state_var_names.update(result.state_variables.keys())
+                        if result.derived_quantities:
+                            all_derived_qty_names.update(result.derived_quantities.keys())
+                        if len(result.time) > time_length:
+                            time_length = len(result.time)
+
+                # 如果有时间序列数据，创建time维度
+                if include_time_series and time_length > 0:
+                    nc.createDimension('time', time_length)
+                    time_var = nc.createVariable('time', 'f8', ('time',), zlib=True, complevel=compression)
+                    time_var.units = 'seconds'
+                    time_var.long_name = 'Simulation time'
+                    time_var.standard_name = 'time'
+                    # 使用第一个成功结果的时间数组（假设所有模拟的时间点相同）
+                    for result in self.results:
+                        if result.success and len(result.time) > 0:
+                            time_var[:] = result.time
+                            break
+
+                # 创建模拟索引变量
+                sim_idx_var = nc.createVariable('simulation_index', 'i4', ('n_simulations',), zlib=True, complevel=compression)
+                sim_idx_var[:] = np.arange(len(self.results))
+                sim_idx_var.long_name = 'Simulation index'
+
+                # 创建success标志变量
+                success_var = nc.createVariable('success', 'i1', ('n_simulations',), zlib=True, complevel=compression)
+                success_var[:] = np.array([int(r.success) for r in self.results], dtype='i1')
+                success_var.long_name = 'Simulation success flag'
+
+                # 创建运行时间变量
+                runtime_var = nc.createVariable('runtime', 'f8', ('n_simulations',), zlib=True, complevel=compression)
+                runtime_var[:] = np.array([r.metadata.get('runtime', np.nan) for r in self.results], dtype='f8')
+                runtime_var.units = 'seconds'
+                runtime_var.long_name = 'Simulation runtime'
+
+                # 创建缓存标志变量
+                cache_var = nc.createVariable('from_cache', 'i1', ('n_simulations',), zlib=True, complevel=compression)
+                cache_var[:] = np.array([int(r.metadata.get('from_cache', False)) for r in self.results], dtype='i1')
+                cache_var.long_name = 'Result from cache flag'
+
+                # 导出参数（每个参数作为一个变量）
+                param_names = sorted(all_param_names)
+                for param_name in param_names:
+                    # 创建变量
+                    var = nc.createVariable(
+                        f'param_{param_name}',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var.long_name = f'Parameter: {param_name}'
+
+                    # 填充数据
+                    data = []
+                    for result in self.results:
+                        if result.parameters and param_name in result.parameters:
+                            data.append(result.parameters[param_name])
+                        else:
+                            data.append(np.nan)
+                    var[:] = np.array(data, dtype='f8')
+
+                # 导出最终状态变量值
+                state_var_names = sorted(all_state_var_names)
+                for var_name in state_var_names:
+                    # 创建最终值变量
+                    var = nc.createVariable(
+                        f'state_{var_name}_final',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var.long_name = f'State variable final value: {var_name}'
+
+                    # 填充数据
+                    data = []
+                    for result in self.results:
+                        if result.success and result.state_variables and var_name in result.state_variables:
+                            var_data = result.state_variables[var_name]
+                            if len(var_data) > 0:
+                                data.append(float(var_data[-1]))
+                            else:
+                                data.append(np.nan)
+                        else:
+                            data.append(np.nan)
+                    var[:] = np.array(data, dtype='f8')
+
+                # 导出派生量
+                derived_qty_names = sorted(all_derived_qty_names)
+                for qty_name in derived_qty_names:
+                    # 创建最终值变量
+                    var = nc.createVariable(
+                        f'derived_{qty_name}_final',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var.long_name = f'Derived quantity final value: {qty_name}'
+
+                    # 填充数据
+                    data = []
+                    for result in self.results:
+                        if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                            qty_data = result.derived_quantities[qty_name]
+                            if len(qty_data) > 0:
+                                data.append(float(qty_data[-1]))
+                            else:
+                                data.append(np.nan)
+                        else:
+                            data.append(np.nan)
+                    var[:] = np.array(data, dtype='f8')
+
+                    # 如果需要，添加时间序列统计
+                    if include_time_series:
+                        # 最大值
+                        var_max = nc.createVariable(
+                            f'derived_{qty_name}_max',
+                            'f8',
+                            ('n_simulations',),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        var_max.long_name = f'Derived quantity maximum: {qty_name}'
+                        data_max = []
+                        for result in self.results:
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 0:
+                                    data_max.append(float(np.max(qty_data)))
+                                else:
+                                    data_max.append(np.nan)
+                            else:
+                                data_max.append(np.nan)
+                        var_max[:] = np.array(data_max, dtype='f8')
+
+                        # 最小值
+                        var_min = nc.createVariable(
+                            f'derived_{qty_name}_min',
+                            'f8',
+                            ('n_simulations',),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        var_min.long_name = f'Derived quantity minimum: {qty_name}'
+                        data_min = []
+                        for result in self.results:
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 0:
+                                    data_min.append(float(np.min(qty_data)))
+                                else:
+                                    data_min.append(np.nan)
+                            else:
+                                data_min.append(np.nan)
+                        var_min[:] = np.array(data_min, dtype='f8')
+
+                        # 平均值
+                        var_mean = nc.createVariable(
+                            f'derived_{qty_name}_mean',
+                            'f8',
+                            ('n_simulations',),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        var_mean.long_name = f'Derived quantity mean: {qty_name}'
+                        data_mean = []
+                        for result in self.results:
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 0:
+                                    data_mean.append(float(np.mean(qty_data)))
+                                else:
+                                    data_mean.append(np.nan)
+                            else:
+                                data_mean.append(np.nan)
+                        var_mean[:] = np.array(data_mean, dtype='f8')
+
+                        # 标准差
+                        var_std = nc.createVariable(
+                            f'derived_{qty_name}_std',
+                            'f8',
+                            ('n_simulations',),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        var_std.long_name = f'Derived quantity std: {qty_name}'
+                        data_std = []
+                        for result in self.results:
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 1:
+                                    data_std.append(float(np.std(qty_data)))
+                                else:
+                                    data_std.append(np.nan)
+                            else:
+                                data_std.append(np.nan)
+                        var_std[:] = np.array(data_std, dtype='f8')
+
+                    # 如果需要，添加完整的时间序列数据（多维变量）
+                    if include_time_series and time_length > 0:
+                        # 创建 (n_simulations, time) 维度的变量
+                        ts_var = nc.createVariable(
+                            f'derived_{qty_name}_timeseries',
+                            'f8',
+                            ('n_simulations', 'time'),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        ts_var.long_name = f'Derived quantity time series: {qty_name}'
+
+                        # 填充数据
+                        ts_data = np.full((len(self.results), time_length), np.nan, dtype='f8')
+                        for i, result in enumerate(self.results):
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 0:
+                                    # 截断或填充到time_length
+                                    actual_len = min(len(qty_data), time_length)
+                                    ts_data[i, :actual_len] = qty_data[:actual_len]
+
+                        ts_var[:] = ts_data
+
+            logger.info(f"结果已导出到NetCDF: {filepath}")
+            logger.info(f"  - 总结果数: {len(self.results)}")
+            logger.info(f"  - 成功: {sum(1 for r in self.results if r.success)}")
+            logger.info(f"  - 参数: {len(param_names)}")
+            logger.info(f"  - 状态变量: {len(state_var_names)}")
+            logger.info(f"  - 派生量: {len(derived_qty_names)}")
+            logger.info(f"  - 时间序列: {'是' if include_time_series else '否'}")
+            logger.info(f"  - 压缩级别: {compression}")
+
+        except PermissionError:
+            logger.error(f"文件权限错误，无法写入: {filepath}")
+            raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
+        except Exception as e:
+            logger.error(f"导出NetCDF失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+            raise
+
     def export_csv(self, filepath: str, include_time_series: bool = False) -> None:
         """
         导出结果到CSV文件
@@ -2016,6 +2354,380 @@ def export_results_csv(
         raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
     except Exception as e:
         logger.error(f"导出CSV失败: {e}")
+        import traceback
+        logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+        raise
+
+
+def export_results_netcdf(
+    results: List[SimulationResult],
+    filepath: str,
+    include_time_series: bool = True,
+    compression: int = 4,
+    metadata: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    导出模拟结果到NetCDF文件（便捷函数）
+
+    这是一个独立的便捷函数，用于将SimulationResult列表导出为NetCDF格式。
+    NetCDF特别适合存储多维科学数据，特别是带有时间序列的数据。
+
+    参数:
+        results: SimulationResult对象列表
+        filepath: NetCDF文件输出路径 (.nc或.nc4)
+        include_time_series: 是否包含完整的时间序列数据和统计信息
+        compression: 压缩级别 (0-9, 0=无压缩, 4=默认, 9=最大压缩)
+        metadata: 可选的元数据字典，将添加为全局属性
+
+    异常:
+        ImportError: 当netCDF4库不可用时抛出
+        ValueError: 当results为空时
+        IOError: 当文件写入失败时
+        TypeError: 当参数类型错误时
+
+    示例:
+        >>> from parameter_sweep import export_results_netcdf
+        >>> export_results_netcdf(results, 'sweep_results.nc')
+        >>> export_results_netcdf(results, 'results.nc4', include_time_series=True, compression=6)
+        >>> export_results_netcdf(results, 'output.nc', metadata={'author': 'Research Team'})
+    """
+    # 验证netCDF4可用性
+    if not NETCDF_AVAILABLE:
+        raise ImportError("netCDF4库不可用。请安装: pip install netCDF4")
+
+    # 验证参数
+    if not isinstance(results, list):
+        raise TypeError(f"results必须是列表，得到 {type(results)}")
+
+    if not results:
+        raise ValueError("results列表不能为空")
+
+    if not isinstance(filepath, str):
+        raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+    if not filepath:
+        raise ValueError("filepath不能为空")
+
+    if not isinstance(compression, int) or compression < 0 or compression > 9:
+        raise ValueError(f"compression必须是0-9的整数，得到 {compression}")
+
+    if metadata is not None and not isinstance(metadata, dict):
+        raise TypeError(f"metadata必须是字典或None，得到 {type(metadata)}")
+
+    # 检查目录是否存在
+    import os
+    file_dir = os.path.dirname(filepath)
+    if file_dir and not os.path.exists(file_dir):
+        try:
+            os.makedirs(file_dir, exist_ok=True)
+            logger.info(f"创建目录: {file_dir}")
+        except Exception as e:
+            raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+    try:
+        # 创建NetCDF文件
+        with Dataset(filepath, 'w', format='NETCDF4') as nc:
+            # 添加全局属性
+            nc.title = 'Parameter Sweep Results'
+            nc.institution = 'Gas Swelling Model Simulation'
+            nc.source = 'parameter_sweep.export_results_netcdf'
+            nc.history = f'Created {time.ctime(time.time())}'
+            nc.Conventions = 'CF-1.6'
+
+            # 添加用户提供的元数据
+            if metadata:
+                for key, value in metadata.items():
+                    try:
+                        # 设置全局属性（自动转换为字符串）
+                        nc.setncattr(key, str(value))
+                    except Exception as e:
+                        logger.warning(f"无法添加元数据 {key}: {e}")
+
+            # 添加基本统计元数据
+            nc.total_simulations = len(results)
+            nc.successful_simulations = sum(1 for r in results if r.success)
+            nc.failed_simulations = sum(1 for r in results if not r.success)
+
+            # 定义维度
+            nc.createDimension('n_simulations', len(results))
+
+            # 收集所有参数名和变量名
+            all_param_names = set()
+            all_state_var_names = set()
+            all_derived_qty_names = set()
+            time_length = 0
+
+            for result in results:
+                if result.success:
+                    all_param_names.update(result.parameters.keys())
+                    if result.state_variables:
+                        all_state_var_names.update(result.state_variables.keys())
+                    if result.derived_quantities:
+                        all_derived_qty_names.update(result.derived_quantities.keys())
+                    if len(result.time) > time_length:
+                        time_length = len(result.time)
+
+            # 如果有时间序列数据，创建time维度
+            if include_time_series and time_length > 0:
+                nc.createDimension('time', time_length)
+                time_var = nc.createVariable('time', 'f8', ('time',), zlib=True, complevel=compression)
+                time_var.units = 'seconds'
+                time_var.long_name = 'Simulation time'
+                time_var.standard_name = 'time'
+                # 使用第一个成功结果的时间数组
+                for result in results:
+                    if result.success and len(result.time) > 0:
+                        time_var[:] = result.time
+                        break
+
+            # 创建基本变量
+            # 模拟索引
+            sim_idx_var = nc.createVariable('simulation_index', 'i4', ('n_simulations',), zlib=True, complevel=compression)
+            sim_idx_var[:] = np.arange(len(results))
+            sim_idx_var.long_name = 'Simulation index'
+
+            # 成功标志
+            success_var = nc.createVariable('success', 'i1', ('n_simulations',), zlib=True, complevel=compression)
+            success_var[:] = np.array([int(r.success) for r in results], dtype='i1')
+            success_var.long_name = 'Simulation success flag'
+
+            # 运行时间
+            runtime_var = nc.createVariable('runtime', 'f8', ('n_simulations',), zlib=True, complevel=compression)
+            runtime_var[:] = np.array([r.metadata.get('runtime', np.nan) for r in results], dtype='f8')
+            runtime_var.units = 'seconds'
+            runtime_var.long_name = 'Simulation runtime'
+
+            # 缓存标志
+            cache_var = nc.createVariable('from_cache', 'i1', ('n_simulations',), zlib=True, complevel=compression)
+            cache_var[:] = np.array([int(r.metadata.get('from_cache', False)) for r in results], dtype='i1')
+            cache_var.long_name = 'Result from cache flag'
+
+            # 导出参数
+            param_names = sorted(all_param_names)
+            for param_name in param_names:
+                var = nc.createVariable(
+                    f'param_{param_name}',
+                    'f8',
+                    ('n_simulations',),
+                    zlib=True,
+                    complevel=compression,
+                    fill_value=np.nan
+                )
+                var.long_name = f'Parameter: {param_name}'
+
+                data = []
+                for result in results:
+                    if result.parameters and param_name in result.parameters:
+                        data.append(result.parameters[param_name])
+                    else:
+                        data.append(np.nan)
+                var[:] = np.array(data, dtype='f8')
+
+            # 导出状态变量最终值
+            state_var_names = sorted(all_state_var_names)
+            for var_name in state_var_names:
+                var = nc.createVariable(
+                    f'state_{var_name}_final',
+                    'f8',
+                    ('n_simulations',),
+                    zlib=True,
+                    complevel=compression,
+                    fill_value=np.nan
+                )
+                var.long_name = f'State variable final value: {var_name}'
+
+                data = []
+                for result in results:
+                    if result.success and result.state_variables and var_name in result.state_variables:
+                        var_data = result.state_variables[var_name]
+                        if len(var_data) > 0:
+                            data.append(float(var_data[-1]))
+                        else:
+                            data.append(np.nan)
+                    else:
+                        data.append(np.nan)
+                var[:] = np.array(data, dtype='f8')
+
+                # 如果需要，添加完整时间序列
+                if include_time_series and time_length > 0:
+                    ts_var = nc.createVariable(
+                        f'state_{var_name}_timeseries',
+                        'f8',
+                        ('n_simulations', 'time'),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    ts_var.long_name = f'State variable time series: {var_name}'
+
+                    ts_data = np.full((len(results), time_length), np.nan, dtype='f8')
+                    for i, result in enumerate(results):
+                        if result.success and result.state_variables and var_name in result.state_variables:
+                            var_data = result.state_variables[var_name]
+                            if len(var_data) > 0:
+                                actual_len = min(len(var_data), time_length)
+                                ts_data[i, :actual_len] = var_data[:actual_len]
+
+                    ts_var[:] = ts_data
+
+            # 导出派生量
+            derived_qty_names = sorted(all_derived_qty_names)
+            for qty_name in derived_qty_names:
+                # 最终值
+                var = nc.createVariable(
+                    f'derived_{qty_name}_final',
+                    'f8',
+                    ('n_simulations',),
+                    zlib=True,
+                    complevel=compression,
+                    fill_value=np.nan
+                )
+                var.long_name = f'Derived quantity final value: {qty_name}'
+
+                data = []
+                for result in results:
+                    if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                        qty_data = result.derived_quantities[qty_name]
+                        if len(qty_data) > 0:
+                            data.append(float(qty_data[-1]))
+                        else:
+                            data.append(np.nan)
+                    else:
+                        data.append(np.nan)
+                var[:] = np.array(data, dtype='f8')
+
+                # 时间序列统计
+                if include_time_series:
+                    # 最大值
+                    var_max = nc.createVariable(
+                        f'derived_{qty_name}_max',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var_max.long_name = f'Derived quantity maximum: {qty_name}'
+                    data_max = []
+                    for result in results:
+                        if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                            qty_data = result.derived_quantities[qty_name]
+                            if len(qty_data) > 0:
+                                data_max.append(float(np.max(qty_data)))
+                            else:
+                                data_max.append(np.nan)
+                        else:
+                            data_max.append(np.nan)
+                    var_max[:] = np.array(data_max, dtype='f8')
+
+                    # 最小值
+                    var_min = nc.createVariable(
+                        f'derived_{qty_name}_min',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var_min.long_name = f'Derived quantity minimum: {qty_name}'
+                    data_min = []
+                    for result in results:
+                        if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                            qty_data = result.derived_quantities[qty_name]
+                            if len(qty_data) > 0:
+                                data_min.append(float(np.min(qty_data)))
+                            else:
+                                data_min.append(np.nan)
+                        else:
+                            data_min.append(np.nan)
+                    var_min[:] = np.array(data_min, dtype='f8')
+
+                    # 平均值
+                    var_mean = nc.createVariable(
+                        f'derived_{qty_name}_mean',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var_mean.long_name = f'Derived quantity mean: {qty_name}'
+                    data_mean = []
+                    for result in results:
+                        if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                            qty_data = result.derived_quantities[qty_name]
+                            if len(qty_data) > 0:
+                                data_mean.append(float(np.mean(qty_data)))
+                            else:
+                                data_mean.append(np.nan)
+                        else:
+                            data_mean.append(np.nan)
+                    var_mean[:] = np.array(data_mean, dtype='f8')
+
+                    # 标准差
+                    var_std = nc.createVariable(
+                        f'derived_{qty_name}_std',
+                        'f8',
+                        ('n_simulations',),
+                        zlib=True,
+                        complevel=compression,
+                        fill_value=np.nan
+                    )
+                    var_std.long_name = f'Derived quantity std: {qty_name}'
+                    data_std = []
+                    for result in results:
+                        if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                            qty_data = result.derived_quantities[qty_name]
+                            if len(qty_data) > 1:
+                                data_std.append(float(np.std(qty_data)))
+                            else:
+                                data_std.append(np.nan)
+                        else:
+                            data_std.append(np.nan)
+                    var_std[:] = np.array(data_std, dtype='f8')
+
+                    # 完整时间序列
+                    if time_length > 0:
+                        ts_var = nc.createVariable(
+                            f'derived_{qty_name}_timeseries',
+                            'f8',
+                            ('n_simulations', 'time'),
+                            zlib=True,
+                            complevel=compression,
+                            fill_value=np.nan
+                        )
+                        ts_var.long_name = f'Derived quantity time series: {qty_name}'
+
+                        ts_data = np.full((len(results), time_length), np.nan, dtype='f8')
+                        for i, result in enumerate(results):
+                            if result.success and result.derived_quantities and qty_name in result.derived_quantities:
+                                qty_data = result.derived_quantities[qty_name]
+                                if len(qty_data) > 0:
+                                    actual_len = min(len(qty_data), time_length)
+                                    ts_data[i, :actual_len] = qty_data[:actual_len]
+
+                        ts_var[:] = ts_data
+
+        # 统计信息
+        n_success = sum(1 for r in results if r.success)
+        n_failed = len(results) - n_success
+
+        logger.info(f"结果已导出到NetCDF: {filepath}")
+        logger.info(f"  - 总结果数: {len(results)}")
+        logger.info(f"  - 成功: {n_success} ({n_success/len(results)*100:.1f}%)")
+        logger.info(f"  - 失败: {n_failed} ({n_failed/len(results)*100:.1f}%)")
+        logger.info(f"  - 参数: {len(param_names)}")
+        logger.info(f"  - 状态变量: {len(state_var_names)}")
+        logger.info(f"  - 派生量: {len(derived_qty_names)}")
+        logger.info(f"  - 时间序列: {'是' if include_time_series else '否'}")
+        logger.info(f"  - 时间点数: {time_length}")
+        logger.info(f"  - 压缩级别: {compression}")
+
+    except PermissionError:
+        logger.error(f"文件权限错误，无法写入: {filepath}")
+        raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
+    except Exception as e:
+        logger.error(f"导出NetCDF失败: {e}")
         import traceback
         logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
         raise
