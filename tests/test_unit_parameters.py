@@ -337,3 +337,14 @@ class TestCreateDefaultParameters:
         assert params['temperature'] > 0
         assert params['Dgb'] > 0
         assert params['Dgf'] > 0
+
+
+def test_create_default_parameters():
+    """Test that create_default_parameters returns expected structure"""
+    from gas_swelling import create_default_parameters
+
+    params = create_default_parameters()
+    assert isinstance(params, dict)
+    assert 'temperature' in params
+    assert 'fission_rate' in params
+    assert 'time_step' in params
