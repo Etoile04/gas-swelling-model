@@ -1188,7 +1188,768 @@ def _equations(self, t, state):
 
 ## 4. Defect Kinetics Equations
 
-*[To be completed in subtask-1-4]*
+### 4.1 Overview of Defect Kinetics
+
+**Defect kinetics** describes the evolution of point defects (vacancies and interstitials) in materials under irradiation. During nuclear fission, high-energy particles collide with atoms in the fuel lattice, displacing them from their lattice sites and creating **Frenkel pairs** (a vacancy + an interstitial atom).
+
+The defect kinetics equations (Eqs. 17-20) track how these point defects:
+1. **Are produced** by atomic displacements during fission
+2. **Diffuse** through the crystal lattice
+3. **Recombine** with each other (vacancy + interstitial → perfect lattice)
+4. **Are annihilated** at sinks (dislocations, cavities, grain boundaries)
+
+These processes are fundamental to understanding void swelling because:
+- **Vacancies absorbed by cavities** cause them to grow (volume increase)
+- **Interstitials absorbed by cavities** cause them to shrink (unlikely due to bias)
+- **Dislocation bias** (preferential interstitial absorption) creates vacancy supersaturation
+- **Vacancy supersaturation** drives net vacancy influx to cavities → swelling
+
+The model solves defect kinetics equations **separately for bulk and boundary domains** because defect concentrations and sink strengths differ significantly between grain interiors and grain boundaries.
+
+---
+
+### 4.2 Equation 17: Vacancy Concentration Rate
+
+#### Mathematical Form
+
+$$
+\frac{dc_v}{dt} = \phi \dot{f} - k_v^2 D_v c_v - \alpha c_i c_v
+\tag{17}
+$$
+
+#### Physical Meaning of Each Term
+
+| Term | Mathematical Expression | Physical Meaning | Sign Convention |
+|------|------------------------|------------------|-----------------|
+| **Term 1** | \(+\phi \dot{f}\) | **Production of vacancies** by irradiation. Each fission event creates Frenkel pairs (vacancy + interstitial) at rate \(\phi \dot{f}\). | Positive (source) |
+| **Term 2** | \(-k_v^2 D_v c_v\) | **Annihilation of vacancies at sinks**. Vacancies diffuse to and are absorbed by sinks (dislocations + cavities). | Negative (loss) |
+| **Term 3** | \(-\alpha c_i c_v\) | **Recombination with interstitials**. Vacancies and interstitials annihilate each other when they meet. | Negative (loss) |
+
+#### Parameter Definitions
+
+- \(c_v\): Vacancy concentration (dimensionless, atomic fraction)
+- \(c_i\): Interstitial concentration (dimensionless, atomic fraction)
+- \(\phi \dot{f}\): Defect production rate (dpa/s or Frenkel pairs/m³/s)
+- \(k_v^2\): Total sink strength for vacancies (m⁻²)
+- \(D_v\): Vacancy diffusivity (m²/s)
+- \(\alpha\): Recombination rate constant (m³/s or atomic fraction⁻¹ s⁻¹)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 256-273
+
+```python
+# Recombination rate constant (alpha)
+alpha = 4 * np.pi * self.params['recombination_radius'] * (Dv + Di) / self.params['Omega']
+
+# Defect production rate
+phi = self.params['fission_rate'] * self.params['displacement_rate']
+
+# Bulk vacancy concentration rate (dcvb/dt - Eq. 17)
+# Production term
+term1_dcvb = phi
+
+# Sink annihilation term
+term2_dcvb = kvb2_total * Dv * cvb
+
+# Recombination term
+term3_dcvb = alpha * cvb * cib
+
+# Net rate
+dcvb_dt = phi - kvb2_total * Dv * cvb - alpha * cvb * cib
+```
+
+**Key Implementation Details**:
+- The recombination coefficient `alpha` is calculated from diffusion theory: \(\alpha = 4\pi r_{rec}(D_v + D_i)/\Omega\)
+- `kvb2_total` is the total sink strength (calculated from Eq. 19)
+- The same equation is solved for boundary vacancies (`dcvf_dt`) with boundary-specific parameters
+
+#### Physical Interpretation
+
+**Production Term** (\(+\phi \dot{f}\)):
+- Continuous source of vacancies during irradiation
+- Proportional to fission rate \(\dot{f}\)
+- Each fission creates \(\phi\) Frenkel pairs (typically 10-100 dpa per fission)
+
+**Sink Annihilation Term** (\(-k_v^2 D_v c_v\)):
+- Vacancies diffuse to sinks with diffusivity \(D_v\)
+- The quantity \((k_v^2)^{-1/2}\) is the **mean free path** of a vacancy
+- Higher sink strength \(k_v^2\) → shorter mean free path → faster annihilation
+- The term is proportional to vacancy concentration \(c_v\) (first-order kinetics)
+
+**Recombination Term** (\(-\alpha c_i c_v\)):
+- Bimolecular reaction: vacancy + interstitial → perfect lattice
+- Rate depends on the product of concentrations \(c_i c_v\) (second-order kinetics)
+- Dominates at early times when defect concentrations are very high
+- Prevents defect concentrations from reaching unrealistically high values
+
+#### Steady-State Balance
+
+At steady state (\(dc_v/dt = 0\)):
+$$
+\phi \dot{f} = k_v^2 D_v c_v + \alpha c_i c_v
+$$
+
+This shows that **production equals losses** (annihilation + recombination). The steady-state vacancy concentration is typically 10⁻⁸ to 10⁻⁶ (atomic fraction), which is **many orders of magnitude higher** than the thermal equilibrium concentration (~10⁻¹² at 700 K).
+
+---
+
+### 4.3 Equation 18: Interstitial Concentration Rate
+
+#### Mathematical Form
+
+$$
+\frac{dc_i}{dt} = \phi \dot{f} - k_i^2 D_i c_i - \alpha c_i c_v
+\tag{18}
+$$
+
+#### Physical Meaning of Each Term
+
+| Term | Mathematical Expression | Physical Meaning | Sign Convention |
+|------|------------------------|------------------|-----------------|
+| **Term 1** | \(+\phi \dot{f}\) | **Production of interstitials** by irradiation (same rate as vacancies). | Positive (source) |
+| **Term 2** | \(-k_i^2 D_i c_i\) | **Annihilation of interstitials at sinks**. Interstitials diffuse to and are absorbed by sinks (dislocations + cavities). | Negative (loss) |
+| **Term 3** | \(-\alpha c_i c_v\) | **Recombination with vacancies**. Same recombination process as in Eq. 17. | Negative (loss) |
+
+#### Parameter Definitions
+
+- \(c_i\): Interstitial concentration (dimensionless, atomic fraction)
+- \(k_i^2\): Total sink strength for interstitials (m⁻²)
+- \(D_i\): Interstitial diffusivity (m²/s), typically much larger than \(D_v\)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 267-273
+
+```python
+# Bulk interstitial concentration rate (dcib/dt - Eq. 18)
+# Production term (same as vacancies)
+term1_dcib = phi
+
+# Sink annihilation term
+term2_dcib = kib2_total * Di * cib
+
+# Recombination term (same as vacancies)
+term3_dcib = alpha * cvb * cib
+
+# Net rate
+dcib_dt = phi - kib2_total * Di * cib - alpha * cvb * cib
+```
+
+**Key Implementation Details**:
+- Interstitial diffusivity `Di` is typically **10²-10⁴ times larger** than vacancy diffusivity `Dv`
+- Sink strength `kib2_total` is calculated from Eq. 20 (includes dislocation bias)
+- The recombination term is identical to Eq. 17 (symmetric process)
+
+#### Physical Interpretation
+
+**Similarities to Vacancy Equation**:
+- Same production term \(\phi \dot{f}\) (Frenkel pairs are created in equal numbers)
+- Same recombination term (vacancy + interstitial annihilation)
+- Same mathematical structure
+
+**Critical Difference - Sink Strength**:
+- Interstitial sink strength \(k_i^2\) is **larger** than vacancy sink strength \(k_v^2\)
+- This is due to **dislocation bias**: dislocations preferentially absorb interstitials
+- The bias factors \(Z_i > Z_v\) cause \(k_i^2 > k_v^2\) even though the dislocation density \(\rho\) is the same
+
+**Consequences of Higher Interstitial Sink Strength**:
+1. **Faster interstitial annihilation** at sinks compared to vacancies
+2. **Lower steady-state interstitial concentration** (\(c_i < c_v\))
+3. **Vacancy supersaturation** develops (more vacancies than interstitials remain)
+4. **Net vacancy flux to cavities** → void swelling
+
+This is the **fundamental mechanism of void swelling**:
+- Dislocations act as "biased sinks" that remove interstitials faster than vacancies
+- The remaining vacancies must go somewhere else → they accumulate at cavities
+- Cavity growth by vacancy absorption → volumetric swelling
+
+---
+
+### 4.4 Equation 19: Vacancy Sink Strength
+
+#### Mathematical Form
+
+$$
+k_v^2 = k_{vc}^2 + k_{vp}^2
+\tag{19}
+$$
+
+#### Physical Meaning
+
+**Equation 19 states that the total sink strength for vacancies is the sum of the sink strengths of all defect sinks in the material**. In this model, the only sinks considered are:
+1. **Cavities (bubbles/voids)**: \(k_{vc}^2\)
+2. **Dislocations**: \(k_{vp}^2\)
+
+**Sink strength** \(k^2\) has units of m⁻² and represents the effectiveness of a particular type of sink in capturing point defects. The quantity \((k^2)^{-1/2}\) is the **mean free path** of a point defect before being captured by that type of sink.
+
+#### Parameter Definitions
+
+- \(k_v^2\): Total sink strength for vacancies (m⁻²)
+- \(k_{vc}^2\): Cavity sink strength for vacancies (m⁻²)
+- \(k_{vp}^2\): Dislocation sink strength for vacancies (m⁻²)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 232-250
+
+```python
+# Dislocation sink strengths (Eq. 23, 24)
+Zv = self.params['Zv']  # Dislocation bias for vacancies (~1.0)
+Zi = self.params['Zi']  # Dislocation bias for interstitials (~1.025)
+rho = self.params['dislocation_density']  # m⁻²
+
+k_vd2 = Zv * rho  # Dislocation sink strength for vacancies
+k_id2 = Zi * rho  # Dislocation sink strength for interstitials
+
+# Cavity sink strengths (Eq. 21)
+kvc2_b = 4 * np.pi * Rcb_safe * Ccb * (1 + kvb * Rcb_safe)
+
+# Total sink strengths (Eq. 19, 20)
+kvb2_total = kvc2_b + k_vd2  # Total vacancy sink strength in bulk
+kib2_total = kic2_b + k_id2  # Total interstitial sink strength in bulk
+```
+
+**Key Implementation Details**:
+- Dislocation sink strength is proportional to dislocation density \(\rho\)
+- The bias factor \(Z_v\) modifies the effective capture efficiency
+- For vacancies, \(Z_v \approx 1.0\) (no bias for vacancies)
+- Cavity sink strength is calculated from Eq. 21 (see below)
+
+#### Dislocation Sink Strength Component
+
+From Eq. 23:
+$$
+k_{vp}^2 = Z_{vp} \rho
+$$
+
+Where:
+- \(\rho\): Dislocation density (m⁻²), typically 10¹³-10¹⁵ m⁻²
+- \(Z_{vp}\): Dislocation bias factor for vacancies (~1.0)
+
+**Physical Interpretation**:
+- Higher dislocation density → more effective sinks → shorter vacancy mean free path
+- Dislocations are neutral or slightly biased against vacancies (\(Z_{vp} \leq 1.0\))
+- Cold-worked metals (high \(\rho\)) have lower swelling due to enhanced defect annihilation
+
+---
+
+### 4.5 Equation 20: Interstitial Sink Strength
+
+#### Mathematical Form
+
+$$
+k_i^2 = k_{ic}^2 + k_{ip}^2
+\tag{20}
+$$
+
+#### Physical Meaning
+
+**Equation 20 is the interstitial analog of Eq. 19**, stating that the total sink strength for interstitials is the sum of cavity and dislocation sink strengths.
+
+**Critical Difference from Eq. 19**: The dislocation bias factor \(Z_{ip} > Z_{vp}\), which means:
+- Dislocations are **more efficient** at absorbing interstitials than vacancies
+- This bias creates the vacancy supersaturation that drives void swelling
+
+#### Parameter Definitions
+
+- \(k_i^2\): Total sink strength for interstitials (m⁻²)
+- \(k_{ic}^2\): Cavity sink strength for interstitials (m⁻²)
+- \(k_{ip}^2\): Dislocation sink strength for interstitials (m⁻²)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 232-250
+
+```python
+# Dislocation sink strengths (Eq. 23, 24)
+k_vd2 = Zv * rho  # Vacancy dislocation sink strength
+k_id2 = Zi * rho  # Interstitial dislocation sink strength
+
+# Cavity sink strengths (Eq. 22)
+kic2_b = 4 * np.pi * Rcb_safe * Ccb * (1 + kib * Rcb_safe)
+
+# Total sink strengths (Eq. 19, 20)
+kvb2_total = kvc2_b + k_vd2  # Eq. 19
+kib2_total = kic2_b + k_id2  # Eq. 20
+```
+
+**Key Implementation Details**:
+- Dislocation bias for interstitials: \(Z_i \approx 1.025\) (typically 1-5% higher than for vacancies)
+- This small bias creates **large effects** on swelling over long irradiation times
+- Cavity sink strength differs from vacancy sink strength due to different interaction radius \(k_i\)
+
+#### Dislocation Bias: The Engine of Void Swelling
+
+From Eq. 24:
+$$
+k_{ip}^2 = Z_{ip} \rho
+$$
+
+Where:
+- \(Z_{ip}\): Dislocation bias factor for interstitials (~1.0-1.05)
+- \(\rho\): Dislocation density (m⁻²)
+
+**Why Does Dislocation Bias Exist?**
+- Interstitials have larger **strain fields** than vacancies
+- Dislocations have strain fields that **attract interstitials more strongly**
+- The interaction energy for interstitials is larger → larger capture radius
+
+**Consequences**:
+1. **Interstitials preferentially go to dislocations** (\(k_{ip}^2 > k_{vp}^2\))
+2. **Vacancies are left behind** in the lattice
+3. **Vacancy concentration rises** above the interstitial concentration
+4. **Vacancy supersaturation** drives net vacancy flux to cavities
+5. **Cavities grow by absorbing vacancies** → volumetric swelling
+
+**Quantitative Impact**:
+- A bias factor difference of only **2-5%** can cause **10-40% differences** in swelling rates
+- Higher bias \(Z_i\) → higher swelling (see paper Fig. 15)
+- The bias effect is cumulative and acts over **months to years** of irradiation
+
+---
+
+### 4.6 Equation 21: Cavity Sink Strength for Vacancies
+
+#### Mathematical Form
+
+$$
+k_{vc}^2 = 4\pi R_c C_c [1 + k_v R_c]
+\tag{21}
+$$
+
+#### Physical Meaning
+
+**Equation 21 gives the sink strength of cavities (bubbles/voids) for vacancies** in the **continuum approximation** of rate theory.
+
+The two terms in brackets represent:
+1. **Geometric term** (1): Standard diffusion-limited capture cross-section
+2. **Elastic interaction term** (\(k_v R_c\)): Correction due to strain field interactions
+
+#### Parameter Definitions
+
+- \(k_{vc}^2\): Cavity sink strength for vacancies (m⁻²)
+- \(R_c\): Cavity radius (m)
+- \(C_c\): Cavity concentration (cavities/m³)
+- \(k_v\): Inverse of vacancy diffusion length (m⁻¹), related to the strength of vacancy-cavity elastic interactions
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 241-244
+
+```python
+# Cavity sink strengths (Eq. 21, 22)
+kvc2_b = 4 * np.pi * Rcb_safe * Ccb * (1 + kvb * Rcb_safe)
+kic2_b = 4 * np.pi * Rcb_safe * Ccb * (1 + kib * Rcb_safe)
+kvc2_f = 4 * np.pi * Rcf_safe * Ccf * (1 + kvf * Rcf_safe)
+kic2_f = 4 * np.pi * Rcf_safe * Ccf * (1 + kif * Rcf_safe)
+```
+
+**Key Implementation Details**:
+- The code calculates separate sink strengths for bulk (b) and boundary (f)
+- `kvb`, `kib`, `kvf`, `kif` are state variables (inverse diffusion lengths)
+- These values are updated during the simulation as the microstructure evolves
+
+#### Physical Interpretation
+
+**Geometric Term** (\(4\pi R_c C_c\)):
+- Proportional to cavity surface area \(4\pi R_c^2\) times cavity number density
+- Represents the **diffusion-limited capture cross-section** of cavities
+- Larger cavities → larger capture cross-section → higher sink strength
+
+**Elastic Interaction Term** (\(1 + k_v R_c\)):
+- The parameter \(k_v\) represents the strength of vacancy-cavity interactions
+- Includes effects of:
+  - **Image forces**: Vacancies are attracted to free surfaces (cavity walls)
+  - **Stress fields**: Cavities have compressive stress that attracts vacancies
+  - **Size mismatch**: Vacancies reduce local strain when absorbed by cavities
+
+**Dependence on Microstructure**:
+- **Early irradiation**: Small \(C_c\) (few cavities) → low sink strength
+- **Late irradiation**: Large \(C_c\) and \(R_c\) → high sink strength
+- **Feedback**: As cavities grow, \(k_{vc}^2\) increases → more vacancy absorption → faster growth
+
+#### Typical Values
+
+| Quantity | Typical Range | Units |
+|----------|---------------|-------|
+| \(k_{vc}^2\) | 10¹⁴ - 10¹⁷ | m⁻² |
+| \(R_c\) | 10⁻⁹ - 10⁻⁶ | m |
+| \(C_c\) | 10²⁰ - 10²³ | m⁻³ (bulk) |
+| \(k_v\) | 10⁸ - 10¹⁰ | m⁻¹ |
+
+---
+
+### 4.7 Equation 22: Cavity Sink Strength for Interstitials
+
+#### Mathematical Form
+
+$$
+k_{ic}^2 = 4\pi R_c C_c [1 + k_i R_c]
+\tag{22}
+$$
+
+#### Physical Meaning
+
+**Equation 22 gives the sink strength of cavities for interstitials**. The form is identical to Eq. 21, but with the interstitial interaction parameter \(k_i\) instead of \(k_v\).
+
+**Key Difference from Eq. 21**: Interstitials typically have **larger elastic interactions** with cavities than vacancies (\(k_i > k_v\)), meaning:
+- Interstitials have a slightly larger capture radius
+- Cavities are somewhat more effective sinks for interstitials
+- However, this is **not enough** to overcome dislocation bias
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 241-244
+
+```python
+# Interstitial cavity sink strength (Eq. 22)
+kic2_b = 4 * np.pi * Rcb_safe * Ccb * (1 + kib * Rcb_safe)
+kic2_f = 4 * np.pi * Rcf_safe * Ccf * (1 + kif * Rcf_safe)
+```
+
+#### Physical Interpretation
+
+**Similarity to Vacancy Sink Strength**:
+- Same geometric dependence on \(R_c\) and \(C_c\)
+- Continuum approximation applies equally to both defect types
+
+**Difference in Interaction Parameter**:
+- \(k_i > k_v\) because interstitials have larger strain fields
+- The elastic interaction term \((1 + k_i R_c)\) is larger for interstitials
+- **However**: The dislocation bias (\(Z_i > Z_v\)) dominates over cavity differences
+
+**Net Effect**:
+- Cavities absorb both vacancies and interstitials
+- But **dislocations absorb interstitials more efficiently**
+- Result: Net vacancy flux to cavities → swelling
+
+---
+
+### 4.8 Equations 23-24: Dislocation Sink Strengths
+
+#### Mathematical Form
+
+$$
+k_{vp}^2 = Z_{vp} \rho
+\tag{23}
+$$
+
+$$
+k_{ip}^2 = Z_{ip} \rho
+\tag{24}
+$$
+
+#### Physical Meaning
+
+**Equations 23 and 24 give the sink strengths of dislocations for vacancies and interstitials**, respectively.
+
+**Key Feature**: The bias factors \(Z_{vp}\) and \(Z_{ip}\) are different, with \(Z_{ip} > Z_{vp}\). This is the **fundamental origin of void swelling**.
+
+#### Parameter Definitions
+
+- \(k_{vp}^2\): Dislocation sink strength for vacancies (m⁻²)
+- \(k_{ip}^2\): Dislocation sink strength for interstitials (m⁻²)
+- \(Z_{vp}\): Dislocation bias factor for vacancies (~1.0)
+- \(Z_{ip}\): Dislocation bias factor for interstitials (~1.0-1.05)
+- \(\rho\): Dislocation density (m⁻²)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 228-234
+
+```python
+# Dislocation parameters
+Zv = self.params['Zv']  # ~1.0 for vacancies
+Zi = self.params['Zi']  # ~1.025 for interstitials
+rho = self.params['dislocation_density']  # m⁻²
+
+# Dislocation sink strengths (Eq. 23, 24)
+k_vd2 = Zv * rho  # Vacancy dislocation sink strength
+k_id2 = Zi * rho  # Interstitial dislocation sink strength
+```
+
+#### Physical Interpretation of Dislocation Bias
+
+**Why Does Bias Occur?**
+1. **Interstitials have larger strain fields**: They push surrounding atoms further from their lattice sites
+2. **Dislocations have strain fields**: Edge dislocations have compressive/tensile regions
+3. **Elastic interactions**: Interstitials are more strongly attracted to dislocations due to strain field overlap
+
+**Quantifying the Bias**:
+- Typical values: \(Z_{vp} \approx 1.0\), \(Z_{ip} \approx 1.02-1.05\)
+- A **2-5% bias** can lead to **40% differences** in swelling (paper Fig. 15)
+- The effect is cumulative over billions of defect absorption events
+
+**Impact on Swelling**:
+```
+No bias (Zi = Zv):
+  → Equal vacancy and interstitial absorption at dislocations
+  → No vacancy supersaturation
+  → No net vacancy flux to cavities
+  → No swelling (or very limited swelling)
+
+With bias (Zi > Zv):
+  → Interstitials preferentially go to dislocations
+  → Vacancies accumulate in the lattice (supersaturation)
+  → Net vacancy flux to cavities
+  → Cavity growth → swelling
+```
+
+#### Dependence on Dislocation Density
+
+**Higher Dislocation Density** (\(\rho\)):
+- **More sinks** for both vacancies and interstitials
+- **Lower defect concentrations** (shorter mean free path)
+- **Lower swelling** (defects recombine or annihilate before reaching cavities)
+- **Cold-worked materials** swell less than annealed materials
+
+**Effect of Microstructural Evolution**:
+- Dislocation density **increases** during irradiation (dislocation loops form)
+- This provides **negative feedback** on swelling (more sinks → lower supersaturation)
+- However, new dislocations may also have bias → complex evolution
+
+---
+
+### 4.9 Defect Kinetics in Bulk vs. Boundary Domains
+
+#### Separate Equations for Bulk and Boundaries
+
+The model solves **four independent defect kinetics equations**:
+
+**Bulk (grain interior)**:
+- Eq. 17 for bulk vacancies (\(c_{vb}\))
+- Eq. 18 for bulk interstitials (\(c_{ib}\))
+
+**Boundaries (grain boundaries)**:
+- Eq. 17 for boundary vacancies (\(c_{vf}\))
+- Eq. 18 for boundary interstitials (\(c_{if}\))
+
+#### Why Separate Domains?
+
+**1. Different Sink Strengths**:
+- Bulk sinks: Dislocations + bulk cavities
+- Boundary sinks: Dislocations + boundary cavities + grain boundary itself
+
+**2. Different Cavity Concentrations**:
+- Bulk: \(C_{cb}\) (cavities/m³)
+- Boundary: \(C_{cf}\) (cavities/m², typically higher areal density)
+
+**3. Different Defect Production**:
+- Some models assume enhanced defect production near boundaries
+- Grain boundaries may act as **sinks** or **sources** depending on conditions
+
+**4. Different Capture Efficiencies**:
+- Grain boundaries are **perfect sinks** (absorb all defects arriving)
+- Boundary cavities may have different bias factors than bulk cavities
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 256-273
+
+```python
+# Bulk defect kinetics (Eqs. 17, 18)
+dcvb_dt = phi - kvb2_total * Dv * cvb - alpha * cvb * cib
+dcib_dt = phi - kib2_total * Di * cib - alpha * cvb * cib
+
+# Boundary defect kinetics (Eqs. 17, 18 applied to boundaries)
+dcvf_dt = phi - kvf2_total * Dv * cvf - alpha * cvf * cif
+dcif_dt = phi - kif2_total * Di * cif - alpha * cvf * cif
+```
+
+**Key Difference**: The total sink strengths differ:
+- Bulk: `kvb2_total = kvc2_b + k_vd2`
+- Boundary: `kvf2_total = kvc2_f + k_vd2`
+
+Where `kvc2_b` uses bulk cavity concentration \(C_{cb}\) and `kvc2_f` uses boundary cavity concentration \(C_{cf}\).
+
+---
+
+### 4.10 Timescales and Stiffness of Defect Kinetics
+
+#### Multiple Timescales
+
+The defect kinetics equations exhibit **widely varying timescales**, making the ODE system **stiff**:
+
+| Process | Timescale | Characteristic Time |
+|---------|-----------|-------------------|
+| **Defect production** | Instantaneous | ~10⁻¹⁵ s (per fission) |
+| **Defect recombination** | Very fast | ~10⁻⁶ - 10⁻⁴ s |
+| **Defect diffusion to sinks** | Fast | ~10⁻⁴ - 10⁻² s |
+| **Cavity growth** | Slow | ~10⁰ - 10⁶ s (hours to days) |
+| **Swelling accumulation** | Very slow | ~10⁶ - 10⁸ s (weeks to months) |
+
+#### Numerical Challenges
+
+**Stiff System**:
+- Fast timescales require small time steps for stability
+- Slow timescales require long integration times for physical results
+- **Explicit methods** (like forward Euler) would require impractically small steps
+- **Implicit methods** or **adaptive step methods** (like RK23) are needed
+
+**Code Solution**:
+```python
+# Using RK23 adaptive solver
+result = solve_ivp(
+    fun=self._equations,
+    t_span=(0, sim_time),
+    y0=initial_state,
+    method='RK23',  # Runge-Kutta 2(3) adaptive
+    rtol=1e-6,      # Relative tolerance
+    atol=1e-9       # Absolute tolerance
+)
+```
+
+The RK23 method automatically adjusts the time step:
+- **Small steps** during fast transients (defect recombination)
+- **Large steps** during slow evolution (cavity growth)
+
+#### Steady-State Approximation
+
+Because defect kinetics reach steady state **much faster** than cavity growth, some models use the **steady-state approximation**:
+
+Setting \(dc_v/dt = 0\) and \(dc_i/dt = 0\):
+$$
+c_v^{ss} = \frac{\phi \dot{f}}{k_v^2 D_v + \alpha c_i^{ss}}
+$$
+
+This can simplify calculations but is **not used** in the present model, which solves the full time-dependent equations.
+
+---
+
+### 4.11 Coupling of Defect Kinetics to Cavity Growth
+
+#### From Defect Concentrations to Cavity Growth
+
+The defect concentrations calculated from Eqs. 17-20 are **directly used** in the cavity growth equation (Eq. 14):
+
+$$
+\frac{dR_c}{dt} = \frac{1}{4\pi R_c^2 C_c} \left[ k_{vc}^2 D_v c_v - k_{ic}^2 D_i c_i - k_{vc}^2 D_v c_v^*(R_c) \right]
+$$
+
+**Physical Meaning**:
+1. **Term 1** (\(k_{vc}^2 D_v c_v\)): Vacancy influx to cavity → growth
+2. **Term 2** (\(k_{ic}^2 D_i c_i\)): Interstitial influx to cavity → shrinkage
+3. **Term 3** (\(k_{vc}^2 D_v c_v^*\)): Thermal vacancy emission → shrinkage
+
+**Net Growth Condition**:
+$$
+\frac{dR_c}{dt} > 0 \quad \text{when} \quad c_v \gg c_i \quad \text{(vacancy supersaturation)}
+$$
+
+#### Feedback Loop
+
+The defect kinetics and cavity growth form a **closed feedback loop**:
+
+```
+Defect Production (φḟ)
+     ↓
+Defect Concentrations (cv, ci)  ← Eqs. 17-18
+     ↓
+Sink Strengths (kv², ki²)       ← Eqs. 19-22 (depend on Cc, Rc)
+     ↓
+Cavity Growth Rate (dRc/dt)     ← Eq. 14 (depends on cv, ci)
+     ↓
+Cavity Size and Number (Rc, Cc) ← Changes over time
+     ↓
+Sink Strengths (kv², ki²)       ← Updated by new Rc, Cc
+     ↺ (loop closes)
+```
+
+This feedback creates the **complex, nonlinear evolution** of the microstructure during irradiation.
+
+---
+
+### 4.12 Summary Table of Defect Kinetics Equations
+
+| Equation | Variable | Domain | Key Physical Process |
+|----------|----------|--------|---------------------|
+| **Eq. 17** | \(dc_v/dt\) | Bulk & Boundary | Vacancy balance (production, annihilation, recombination) |
+| **Eq. 18** | \(dc_i/dt\) | Bulk & Boundary | Interstitial balance (production, annihilation, recombination) |
+| **Eq. 19** | \(k_v^2\) | Bulk & Boundary | Total vacancy sink strength (cavities + dislocations) |
+| **Eq. 20** | \(k_i^2\) | Bulk & Boundary | Total interstitial sink strength (cavities + dislocations) |
+| **Eq. 21** | \(k_{vc}^2\) | Bulk & Boundary | Cavity sink strength for vacancies |
+| **Eq. 22** | \(k_{ic}^2\) | Bulk & Boundary | Cavity sink strength for interstitials |
+| **Eq. 23** | \(k_{vp}^2\) | Bulk & Boundary | Dislocation sink strength for vacancies |
+| **Eq. 24** | \(k_{ip}^2\) | Bulk & Boundary | Dislocation sink strength for interstitials |
+
+#### Coupling to Other Equations
+
+The defect kinetics equations (Eqs. 17-24) are coupled to:
+
+**Gas Transport Equations** (Section 3):
+- Cavity concentration \(C_c\) affects sink strength \(k^2\)
+- Gas atoms per cavity \(N_c\) affects cavity radius \(R_c\) → sink strength
+
+**Cavity Growth Equations** (Section 5):
+- Defect concentrations \(c_v, c_i\) directly drive cavity growth (Eq. 14)
+- Sink strengths \(k^2\) mediate the coupling
+
+**Swelling Calculation**:
+- Cavity growth from defect absorption → volumetric swelling
+- Swelling strain \(S = \frac{4}{3}\pi R_c^3 C_c\)
+
+---
+
+### 4.13 Key Physical Insights from Defect Kinetics
+
+#### 1. Dislocation Bias is the Engine of Swelling
+
+The small difference in dislocation bias (\(Z_i - Z_v \approx 0.02-0.05\)) creates:
+- Large vacancy supersaturation
+- Net vacancy flux to cavities
+- Continuous cavity growth
+- Significant volumetric swelling
+
+**Lesson**: Small effects, when integrated over long times, create large consequences.
+
+#### 2. Defect Recombination Controls Early-Time Behavior
+
+At early times, defect concentrations are very high:
+- Recombination term \(\alpha c_i c_v\) dominates
+- Prevents unrealistic defect accumulation
+- Provides rapid approach to steady state
+
+**Lesson**: Second-order kinetics are essential for numerical stability.
+
+#### 3. Sink Strengths Create Negative Feedback
+
+As cavities grow:
+- \(R_c\) increases → \(k_{vc}^2\) increases
+- \(C_c\) increases → \(k_{vc}^2\) increases
+- Higher sink strength → lower defect concentrations
+- Lower defect concentrations → slower cavity growth
+
+**Lesson**: Self-limiting behavior is built into the physics.
+
+#### 4. Temperature Controls the Balance
+
+**Low temperature**:
+- Low defect mobility (small \(D_v, D_i\))
+- Recombination dominates
+- Limited swelling
+
+**Intermediate temperature** (peak swelling):
+- Moderate mobility
+- Sufficient diffusion for defect absorption at sinks
+- Maximum swelling
+
+**High temperature**:
+- High mobility
+- Thermal emission from cavities (Term 3 in Eq. 14)
+- Reduced swelling
+
+**Lesson**: Swelling has a **bell-shaped temperature dependence** (see paper Fig. 11).
+
+#### 5. Microstructure Evolution is Path-Dependent
+
+The sequence of microstructural changes matters:
+- Early nucleation determines cavity number density
+- Initial growth determines size distribution
+- Sink strengths evolve nonlinearly
+- History affects future evolution
+
+**Lesson**: Rate theory captures essential physics but cannot predict absolute outcomes without initial conditions.
 
 ---
 
