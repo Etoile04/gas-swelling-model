@@ -222,3 +222,93 @@ def test_solver_time_parameters():
     assert np.isclose(result_sparse['Cgb'][-1], result_dense['Cgb'][-1], rtol=1e-3)
     assert np.isclose(result_sparse['Rcb'][-1], result_dense['Rcb'][-1], rtol=1e-3)
     assert np.isclose(result_sparse['Ncb'][-1], result_dense['Ncb'][-1], rtol=1e-3)
+
+
+def test_result_structure():
+    """Test that the solve method returns a dictionary with all expected keys"""
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    # Run a short simulation
+    sim_time = 1000  # seconds
+    t_eval = np.linspace(0, sim_time, 10)
+
+    result = model.solve(t_span=(0, sim_time), t_eval=t_eval)
+
+    # Check that result is a dictionary
+    assert isinstance(result, dict), "Result should be a dictionary"
+
+    # Expected keys in the result dictionary (all 18 keys)
+    expected_keys = {
+        'time',  # Time points
+        'Cgb', 'Ccb', 'Ncb', 'Rcb',  # Bulk gas and bubble variables
+        'Cgf', 'Ccf', 'Ncf', 'Rcf',  # Interface gas and bubble variables
+        'cvb', 'cib', 'kvb', 'kib',  # Bulk defect variables
+        'cvf', 'cif', 'kvf', 'kif',  # Interface defect variables
+        'released_gas',  # Accumulated gas release
+        'swelling'  # Swelling percentage
+    }
+
+    # Check that all expected keys are present
+    actual_keys = set(result.keys())
+    assert actual_keys == expected_keys, f"Expected keys {expected_keys}, got {actual_keys}"
+
+    # Check that time array matches t_eval
+    assert len(result['time']) == len(t_eval), "Time array length should match t_eval"
+    np.testing.assert_array_equal(result['time'], t_eval, "Time values should match t_eval")
+
+    # Check that all data arrays have the same length as time
+    for key in expected_keys - {'time'}:
+        assert len(result[key]) == len(t_eval), f"{key} array length should match time"
+
+
+def test_result_array_types():
+    """Test that result arrays are numpy arrays with correct dtypes"""
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    sim_time = 1000  # seconds
+    t_eval = np.linspace(0, sim_time, 10)
+
+    result = model.solve(t_span=(0, sim_time), t_eval=t_eval)
+
+    # Check that all values are numpy arrays
+    for key, value in result.items():
+        assert isinstance(value, np.ndarray), f"{key} should be a numpy array"
+
+    # Check specific array types
+    assert result['time'].dtype == np.float64, "Time array should be float64"
+    assert result['Cgb'].dtype == np.float64, "Cgb array should be float64"
+    assert result['swelling'].dtype == np.float64, "Swelling array should be float64"
+
+
+def test_swelling_calculation():
+    """Test that swelling calculation is correct"""
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    sim_time = 1000  # seconds
+    t_eval = np.linspace(0, sim_time, 10)
+
+    result = model.solve(t_span=(0, sim_time), t_eval=t_eval)
+
+    # Extract variables needed for swelling calculation
+    Rcb = result['Rcb']
+    Rcf = result['Rcf']
+    Ccb = result['Ccb']
+    Ccf = result['Ccf']
+
+    # Manually calculate swelling using the formula from the model
+    # Swelling = (V_bubble_b + V_bubble_f) * 100
+    # where V_bubble = (4/3) * pi * R^3 * Cc
+    V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
+    V_bubble_f = (4.0/3.0) * np.pi * Rcf**3 * Ccf
+    expected_swelling = (V_bubble_b + V_bubble_f) * 100
+
+    # Check that the calculated swelling matches the result
+    np.testing.assert_array_almost_equal(
+        result['swelling'],
+        expected_swelling,
+        decimal=10,
+        err_msg="Swelling calculation should match manual calculation"
+    )
