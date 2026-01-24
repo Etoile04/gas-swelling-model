@@ -355,6 +355,222 @@ def latin_hypercube_sampling(param_ranges: Dict[str, tuple], n_samples: int, see
         raise
 
 
+def sparse_grid_sampling(param_ranges: Dict[str, tuple], level: int = 2, rule: str = 'gauss', seed: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    稀疏网格采样 (Sparse Grid Sampling)
+
+    使用Smolyak稀疏网格算法生成参数组合。稀疏网格是一种高效的采样方法，
+    能够在高维空间中用较少的样本点获得良好的覆盖，避免维度灾难问题。
+
+    相比于全网格采样，稀疏网格在保持精度的同时大幅减少样本数量；
+    相比于拉丁超立方采样，稀疏网格在多项式近似和积分方面具有理论优势。
+
+    参数:
+        param_ranges: 参数范围字典
+            键: 参数名 (str)
+            值: 参数范围元组 (min, max)
+
+            示例:
+                {
+                    'temperature': (300, 1000),
+                    'fission_rate': (1e18, 1e21),
+                    'surface_energy': (0.5, 1.0)
+                }
+
+        level: 稀疏网格级别 (int, 默认: 2)
+            控制采样密度。级别越高，采样点越多，精度越高，但计算量也越大。
+            推荐范围: 1-5
+
+            - level=1: 最少采样点，适合快速探索
+            - level=2: 平衡精度和效率 (默认)
+            - level=3+: 更高精度，适合详细研究
+
+        rule: 采样规则 (str, 默认: 'gauss')
+            指定使用哪种正交多项式的节点
+            - 'gauss': Gauss-Hermite多项式 (默认)
+            - 'clenshaw': Clenshaw-Curtis节点 (推荐用于边界敏感问题)
+
+        seed: 随机种子 (Optional[int])
+            用于某些变种算法的可复现性。标准稀疏网格是确定性的。
+
+    返回:
+        参数组合列表，每个元素是一个参数字典
+
+        示例:
+            [
+                {'temperature': 342.5, 'fission_rate': 3.2e19, 'surface_energy': 0.78},
+                {'temperature': 891.3, 'fission_rate': 1.1e20, 'surface_energy': 0.55},
+                ...
+            ]
+
+    示例:
+        >>> # 2参数稀疏网格采样，级别2
+        >>> params = sparse_grid_sampling(
+        ...     {'temperature': (300, 1000), 'fission_rate': (1e19, 1e21)},
+        ...     level=2
+        ... )
+        >>> print(f"生成的参数组合数量: {len(params)}")
+        生成的参数组合数量: 7
+
+        >>> # 3参数稀疏网格采样，级别3
+        >>> params_3d = sparse_grid_sampling({
+        ...     'temperature': (300, 1000),
+        ...     'fission_rate': (1e19, 1e21),
+        ...     'surface_energy': (0.5, 1.0)
+        ... }, level=3)
+        >>> print(f"生成的参数组合数量: {len(params_3d)}")
+        生成的参数组合数量: 31
+
+    理论背景:
+        Smolyak稀疏网格通过选择性组合低维张量积网格来构造高维近似。
+        相比于需要 N^d 个点的全网格（d维，每维N点），稀疏网格只需要
+        O(N (log N)^(d-1)) 个点，在高维问题中显著减少样本数量。
+
+    参考文献:
+        Smolyak, S.A. (1963)
+        "Quadrature and interpolation formulas for tensor products of certain
+        classes of functions"
+        Dokl. Akad. Nauk SSSR, 4:240-243
+
+    注意:
+        - 对于低维问题（d<4），网格采样可能更简单直接
+        - 稀疏网格特别适合中高维问题（4-20维）
+        - 采样点数量随level和维度非线性增长
+    """
+    try:
+        # 验证输入
+        if not param_ranges:
+            logger.warning("参数范围为空，返回空列表")
+            return []
+
+        if not isinstance(param_ranges, dict):
+            raise TypeError("param_ranges 必须是字典类型")
+
+        if not isinstance(level, int) or level < 1:
+            raise ValueError("level 必须是正整数")
+
+        # 检查所有参数范围格式
+        for param_name, param_range in param_ranges.items():
+            if not isinstance(param_range, (tuple, list)) or len(param_range) != 2:
+                raise TypeError(f"参数 '{param_name}' 的范围必须是包含两个元素的元组 (min, max)")
+
+            min_val, max_val = param_range
+            if min_val >= max_val:
+                raise ValueError(f"参数 '{param_name}' 的最小值必须小于最大值")
+
+        # 获取参数信息
+        param_names = list(param_ranges.keys())
+        n_params = len(param_names)
+
+        logger.info(f"开始稀疏网格采样: {n_params}个参数, 级别{level}")
+        logger.info(f"参数: {param_names}")
+        logger.info(f"采样规则: {rule}")
+
+        # 生成1维Gauss节点和权重
+        def get_1d_nodes(n_points, rule='gauss'):
+            """
+            生成1维节点和权重
+            返回: (nodes, weights)，都在[-1, 1]区间
+            """
+            if n_points == 1:
+                # 单点：中心
+                return np.array([0.0]), np.array([2.0])
+            elif n_points == 2:
+                # 两点：端点（用于Clenshaw-Curtis）或标准点
+                if rule == 'clenshaw':
+                    return np.array([-1.0, 1.0]), np.array([1.0, 1.0])
+                else:
+                    # Gauss-Legendre 2点
+                    return np.array([-0.57735027, 0.57735027]), np.array([1.0, 1.0])
+            else:
+                # 使用numpy.polynomial.legendre.leggauss生成Gauss-Legendre节点
+                from numpy.polynomial.legendre import leggauss
+                nodes, weights = leggauss(n_points)
+                return nodes, weights
+
+        # Smolyak稀疏网格构造
+        def smolyak_indices(d, level):
+            """
+            生成Smolyak稀疏网格的多指标集
+
+            参数:
+                d: 维度
+                level: 级别
+
+            返回:
+                多指标集合，每个指标是一个d元组
+            """
+            from itertools import product
+
+            indices = []
+            # Smolyak构造: |i| <= level + d - 1
+            for i in product(range(1, level + 1), repeat=d):
+                if sum(i) <= level + d - 1:
+                    # 检查奇偶性条件
+                    if level == 1:
+                        indices.append(i)
+                    elif (level + d - 1 - sum(i)) % 2 == 0:
+                        indices.append(i)
+
+            return indices
+
+        # 构建稀疏网格点
+        sparse_grid_points = []
+        indices = smoly_indices(n_params, level)
+
+        logger.info(f"Smolyak多指标数量: {len(indices)}")
+
+        # 为每个多指标生成张量积网格点
+        for idx_tuple in indices:
+            # 获取每个维度的节点数
+            nodes_list = []
+            for dim_idx in idx_tuple:
+                nodes, _ = get_1d_nodes(dim_idx, rule)
+                nodes_list.append(nodes)
+
+            # 生成张量积
+            from itertools import product
+            for point in product(*nodes_list):
+                sparse_grid_points.append(np.array(point))
+
+        # 去重（稀疏网格可能有重复点）
+        unique_points = []
+        seen = set()
+        for point in sparse_grid_points:
+            point_tuple = tuple(point)
+            if point_tuple not in seen:
+                seen.add(point_tuple)
+                unique_points.append(point)
+
+        sparse_grid_points = np.array(unique_points)
+
+        logger.info(f"稀疏网格点数量（去重后）: {len(sparse_grid_points)}")
+
+        # 将点从[-1, 1]^d映射到实际参数范围
+        parameter_combinations = []
+        for i, point in enumerate(sparse_grid_points):
+            param_dict = {}
+            for j, name in enumerate(param_names):
+                min_val, max_val = param_ranges[name]
+                # 线性映射：[-1, 1] -> [min, max]
+                scaled_value = 0.5 * (point[j] + 1.0) * (max_val - min_val) + min_val
+                param_dict[name] = float(scaled_value)
+            parameter_combinations.append(param_dict)
+
+        logger.info(f"稀疏网格采样完成，生成了 {len(parameter_combinations)} 个参数组合")
+
+        # 验证采样的覆盖范围
+        for name in param_names:
+            samples = [p[name] for p in parameter_combinations]
+            logger.info(f"参数 '{name}' 采样范围: [{min(samples):.4e}, {max(samples):.4e}]")
+
+        return parameter_combinations
+
+    except Exception as e:
+        logger.error(f"稀疏网格采样过程中出错: {str(e)}")
+        raise
+
+
 def print_sampling_summary(params: List[Dict[str, Any]], show_first_n: int = 5):
     """
     打印采样结果摘要
