@@ -70,3 +70,36 @@ def test_gas_swelling_model_instantiation():
     model = GasSwellingModel(params)
     assert model is not None
     assert hasattr(model, 'solve')
+
+
+def test_import_gas_pressure_evolution_plot():
+    """Test that plot_gas_pressure_evolution can be imported"""
+    from gas_swelling import plot_gas_pressure_evolution
+    assert plot_gas_pressure_evolution is not None
+    assert callable(plot_gas_pressure_evolution)
+
+
+def test_import_all_evolution_plots():
+    """Test that all evolution plot functions can be imported"""
+    from gas_swelling import (
+        plot_swelling_evolution,
+        plot_bubble_radius_evolution,
+        plot_gas_concentration_evolution,
+        plot_bubble_concentration_evolution,
+        plot_gas_atoms_evolution,
+        plot_gas_pressure_evolution,
+        plot_defect_concentration_evolution,
+        plot_released_gas_evolution,
+        plot_multi_panel_evolution,
+    )
+
+    assert plot_swelling_evolution is not None
+    assert plot_bubble_radius_evolution is not None
+    assert plot_gas_concentration_evolution is not None
+    assert plot_bubble_concentration_evolution is not None
+    assert plot_gas_atoms_evolution is not None
+    assert plot_gas_pressure_evolution is not None
+    assert plot_defect_concentration_evolution is not None
+    assert plot_released_gas_evolution is not None
+    assert plot_multi_panel_evolution is not None
+

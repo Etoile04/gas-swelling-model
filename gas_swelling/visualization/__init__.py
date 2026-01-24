@@ -1,34 +1,21 @@
 """
-Gas Swelling Model Package
+Gas Swelling Visualization Module
 
-A scientific computing package for modeling fission gas bubble evolution
-and void swelling behavior in irradiated metallic fuels (U-Zr and U-Pu-Zr alloys).
+A visualization toolkit for the Gas Swelling Model package.
+Provides plotting and visualization capabilities for fission gas bubble evolution
+and void swelling behavior in irradiated metallic fuels.
 
-This package implements rate theory models based on:
-"Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium
-phase of irradiated U-Zr and U-Pu-Zr fuel."
+This module provides tools for:
+- Time series visualization of state variables
+- Bubble size distribution plots
+- Swelling rate analysis
+- Temperature and parameter sweep visualizations
 """
 
 __version__ = "0.1.0"
 
-from .models.modelrk23 import GasSwellingModel
-from .params.parameters import (
-    MaterialParameters,
-    SimulationParameters,
-    create_default_parameters,
-    BOLTZMANN_CONSTANT_EV,
-    BOLTZMANN_CONSTANT_J,
-    GAS_CONSTANT,
-    AVOGADRO_CONSTANT
-)
-
-# Visualization module
-from .visualization import (
-    # Core classes
-    GasSwellingPlotter,
-    create_standard_plotter,
-
-    # Evolution plots
+from .core import GasSwellingPlotter, create_standard_plotter
+from .evolution_plots import (
     plot_swelling_evolution,
     plot_bubble_radius_evolution,
     plot_gas_concentration_evolution,
@@ -38,21 +25,22 @@ from .visualization import (
     plot_defect_concentration_evolution,
     plot_released_gas_evolution,
     plot_multi_panel_evolution,
-
-    # Parameter sweep plots
+)
+from .parameter_sweeps import (
     plot_temperature_sweep,
     plot_multi_param_temperature_sweep,
     plot_parameter_sensitivity,
     plot_arrhenius_analysis,
-
-    # Comparison plots
+)
+from .comparison_plots import (
     compare_bulk_interface,
     plot_bulk_interface_ratio,
     plot_gas_distribution_pie,
     plot_gas_distribution_evolution,
     plot_correlation_matrix,
     plot_phase_comparison,
-
+)
+from .utils import (
     # Style configuration
     get_publication_style,
     apply_publication_style,
@@ -79,16 +67,6 @@ from .visualization import (
 )
 
 __all__ = [
-    # Model and parameters
-    'GasSwellingModel',
-    'MaterialParameters',
-    'SimulationParameters',
-    'create_default_parameters',
-    'BOLTZMANN_CONSTANT_EV',
-    'BOLTZMANN_CONSTANT_J',
-    'GAS_CONSTANT',
-    'AVOGADRO_CONSTANT',
-
     # Core classes
     'GasSwellingPlotter',
     'create_standard_plotter',

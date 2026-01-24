@@ -534,9 +534,18 @@ class GasSwellingModel:
         Rcf = results_dict['Rcf']
         Ccb = results_dict['Ccb']
         Ccf = results_dict['Ccf']
+        Ncb = results_dict['Ncb']
+        Ncf = results_dict['Ncf']
         V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
         V_bubble_f = (4.0/3.0) * np.pi * Rcf**3 * Ccf
         results_dict['swelling'] = (V_bubble_b + V_bubble_f) * 100
+
+        # 添加气体压力计算结果
+        Pg_b = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcb, Ncb)])
+        Pg_f = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcf, Ncf)])
+        results_dict['Pg_b'] = Pg_b
+        results_dict['Pg_f'] = Pg_f
+
         return results_dict
     
 #    def plot_debug_history(self, save_dir: str = 'debug_plots/'):
@@ -1323,9 +1332,18 @@ class GasSwellingModel:
         Rcf = results_dict['Rcf']
         Ccb = results_dict['Ccb']
         Ccf = results_dict['Ccf']
+        Ncb = results_dict['Ncb']
+        Ncf = results_dict['Ncf']
         V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
         V_bubble_f = (4.0/3.0) * np.pi * Rcf**3 * Ccf
         results_dict['swelling'] = (V_bubble_b + V_bubble_f) * 100
+
+        # 添加气体压力计算结果
+        Pg_b = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcb, Ncb)])
+        Pg_f = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcf, Ncf)])
+        results_dict['Pg_b'] = Pg_b
+        results_dict['Pg_f'] = Pg_f
+
         return results_dict
     
 #    def plot_debug_history(self, save_dir: str = 'debug_plots/'):
