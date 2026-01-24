@@ -67,3 +67,67 @@ def test_model_initialization():
 
     # released_gas - should be 0 initially
     assert model.initial_state[16] == 0.0
+
+
+def test_basic_solver_execution():
+    """Test that the solver executes successfully with default parameters"""
+    # Create model with default parameters
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    # Define simple time span for testing
+    sim_time = 1000  # 1000 seconds
+    t_eval = np.linspace(0, sim_time, 10)  # 10 time points
+
+    # Run solver
+    result = model.solve(
+        t_span=(0, sim_time),
+        t_eval=t_eval
+    )
+
+    # Check that result is a dictionary
+    assert isinstance(result, dict), "Result should be a dictionary"
+
+    # Check that result contains expected keys
+    expected_keys = [
+        'time', 'Cgb', 'Ccb', 'Ncb', 'Rcb', 'cvb', 'cib',
+        'Cgf', 'Ccf', 'Ncf', 'Rcf', 'cvf', 'cif',
+        'released_gas'
+    ]
+    for key in expected_keys:
+        assert key in result, f"Result should contain key '{key}'"
+
+    # Check that time array has correct length
+    assert len(result['time']) == len(t_eval), \
+        f"Time array should have {len(t_eval)} points"
+
+    # Check that all result arrays have the same length as time
+    for key in expected_keys:
+        if key != 'time':
+            assert len(result[key]) == len(result['time']), \
+                f"Result key '{key}' should have same length as time array"
+
+    # Check that final values are finite and non-negative where expected
+    assert np.isfinite(result['Cgb'][-1])
+    assert np.isfinite(result['Cgf'][-1])
+    assert result['Cgb'][-1] >= 0
+    assert result['Cgf'][-1] >= 0
+
+    # Check bubble concentrations are non-negative
+    assert result['Ccb'][-1] >= 0
+    assert result['Ccf'][-1] >= 0
+
+    # Check bubble radii are positive
+    assert result['Rcb'][-1] > 0
+    assert result['Rcf'][-1] > 0
+
+    # Check gas atoms per cavity are positive
+    assert result['Ncb'][-1] > 0
+    assert result['Ncf'][-1] > 0
+
+    # Check that simulation progressed (time increased)
+    assert result['time'][0] == 0.0
+    assert result['time'][-1] > 0
+
+    # Check that released_gas is non-negative
+    assert result['released_gas'][-1] >= 0
