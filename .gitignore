@@ -8,3 +8,24 @@
 .worktrees/
 .security-key
 logs/security/
+
+# Python packaging build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/

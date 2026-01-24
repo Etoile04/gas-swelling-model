@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+include model_design.md
+include original paper of swelling rate theory.md
+recursive-include gas_swelling *.py
