@@ -150,7 +150,357 @@ The remainder of this document is organized as follows:
 
 ## 2. Model Architecture and State Variables
 
-*[To be completed in subtask-1-2]*
+### 2.1 Overview of the State Vector
+
+The Gas Swelling Model solves a system of **10 coupled ordinary differential equations (ODEs)** that track the time evolution of fission gas behavior in metallic nuclear fuels. The state variables are divided into two domains:
+
+- **Bulk Matrix (subscript 'b')**: Phenomena occurring within the grain interior
+- **Phase Boundaries (subscript 'f')**: Phenomena occurring at grain boundaries and interfaces
+
+This dual-domain approach is essential because:
+1. **Gas atoms diffuse from grain interiors to boundaries** where they accumulate
+2. **Bubble nucleation and growth rates differ** between bulk and boundary environments
+3. **Gas release occurs primarily at boundaries** when bubbles interconnect
+4. **Defect concentrations and sink strengths vary** between bulk and boundary regions
+
+The 10 state variables represent the minimum set of quantities needed to capture the essential physics of fission gas swelling, while keeping the model computationally tractable.
+
+### 2.2 Bulk Matrix State Variables (5 variables)
+
+#### Variable 1: Cgb - Gas Atom Concentration in Bulk
+
+**Symbol**: \( C_{gb} \)
+**Units**: atoms/m³
+**Physical Meaning**: Concentration of fission gas atoms (primarily Xe and Kr) dissolved in the metal matrix within grain interiors.
+
+**Role in the Model**:
+- **Source**: Gas atoms are produced during nuclear fission and enter the matrix
+- **Transport**: Diffuses toward grain boundaries with diffusivity \( D_{gb} \)
+- **Sink**: Provides gas atoms to bubbles in the bulk via nucleation and growth
+- **Coupling**: Appears in the gas diffusion equation (Eq. 1) and couples to Ccb (bulk cavity concentration) and Ncb (gas atoms per cavity)
+
+**Typical Values**: Ranges from 10²⁴ to 10²⁶ atoms/m³ depending on fission rate and burnup
+
+**Equation**:
+\[
+\frac{dC_{gb}}{dt} = y_{gas}\sigma_f\phi - \frac{12}{d^2}D_{gb}(C_{gb} - C_{gf}) - \text{nucleation and growth terms}
+\]
+
+---
+
+#### Variable 2: Ccb - Cavity Concentration in Bulk
+
+**Symbol**: \( C_{cb} \)
+**Units**: cavities/m³
+**Physical Meaning**: Number density of cavities (bubbles) per unit volume within the grain interior.
+
+**Role in the Model**:
+- **Nucleation**: New cavities form when gas atoms cluster and reach critical size
+- **Growth/Shrinkage**: Cavity concentration changes due to nucleation, coalescence, and dissolution
+- **Sink Strength**: Determines the effectiveness of cavities as sinks for vacancies and gas atoms
+- **Coupling**: Directly affects vacancy concentration (cvb) through sink strength calculation \( k_v^2 = 4\pi R C_c \)
+
+**Typical Values**: 10²⁰ to 10²³ cavities/m³
+
+**Key Relationship**:
+\[
+k_{vc2}^2 = 4\pi R_{cb} C_{cb}(1 + k_v R_{cb})
+\]
+where \( k_{vc2}^2 \) is the cavity sink strength for vacancies.
+
+---
+
+#### Variable 3: Ncb - Gas Atoms per Bulk Cavity
+
+**Symbol**: \( N_{cb} \)
+**Units**: atoms/cavity
+**Physical Meaning**: Average number of gas atoms contained in each bulk cavity.
+
+**Role in the Model**:
+- **Growth Metric**: Tracks how much gas each cavity has absorbed over time
+- **Pressure Calculation**: Determines internal gas pressure via equation of state (ideal or Van der Waals)
+- **Radius Calculation**: Cavity radius \( R_{cb} \) is derived from \( N_{cb} \) using mechanical equilibrium
+- **Coupling**: Couples to Cgb (gas concentration), Ccb (cavity concentration), and cvb (vacancy concentration)
+
+**Typical Values**: Ranges from a few atoms (nucleation stage) to millions of atoms (mature bubbles)
+
+**Key Relationship** (Mechanical Equilibrium):
+\[
+P_{gas} = \frac{2\gamma}{R_{cb}} + \sigma_{ext}
+\]
+where \( P_{gas} \) is calculated from \( N_{cb} \) and \( R_{cb} \), \( \gamma \) is surface energy, and \( \sigma_{ext} \) is external hydrostatic pressure.
+
+**Derived Quantity**: Cavity radius \( R_{cb} \) is computed from \( N_{cb} \) iteratively, not stored as a state variable.
+
+---
+
+#### Variable 4: cvb - Vacancy Concentration in Bulk
+
+**Symbol**: \( c_{vb} \)
+**Units**: dimensionless (atomic fraction)
+**Physical Meaning**: Concentration of vacant lattice sites in the grain interior.
+
+**Role in the Model**:
+- **Cavity Growth**: Vacancies absorbed by cavities cause them to grow (volume increase)
+- **Recombination**: Recombines with interstitials (cib), removing both from the system
+- **Supersaturation**: Drives vacancy diffusion to cavities
+- **Coupling**: Strongly coupled to cib (recombination), Ccb (sink strength), and Ncb (growth rate)
+
+**Typical Values**: 10⁻⁸ to 10⁻⁶ (atomic fraction), significantly above thermal equilibrium under irradiation
+
+**Equation** (Defect Kinetics):
+\[
+\frac{dc_{vb}}{dt} = \phi - k_v^2 D_v c_{vb} - \alpha c_{vb}c_{ib}
+\]
+where:
+- \( \phi \) is the defect production rate (Frenkel pairs)
+- \( k_v^2 \) is total vacancy sink strength (dislocations + cavities)
+- \( D_v \) is vacancy diffusivity
+- \( \alpha \) is recombination coefficient
+- \( c_{ib} \) is interstitial concentration
+
+**Key Coupling**: Vacancy concentration at cavity surface \( c_v^* \) differs from bulk concentration:
+\[
+c_v^* = c_{vb} \exp\left(-\frac{P_{ex}\Omega}{k_B T}\right)
+\]
+where \( P_{ex} = P_{gas} - \frac{2\gamma}{R} - \sigma_{ext} \) is excess pressure.
+
+---
+
+#### Variable 5: cib - Interstitial Concentration in Bulk
+
+**Symbol**: \( c_{ib} \)
+**Units**: dimensionless (atomic fraction)
+**Physical Meaning**: Concentration of interstitial atoms in the grain interior.
+
+**Role in the Model**:
+- **Recombination**: Recombines with vacancies (cvb), removing both from the system
+- **Bias Effect**: Dislocations preferentially absorb interstitials over vacancies (Zᵢ > Zᵥ), creating vacancy supersaturation
+- **Shrinkage**: If absorbed by cavities, causes them to shrink (unlikely due to bias)
+- **Coupling**: Strongly coupled to cvb (recombination) and affects cavity growth through vacancy supersaturation
+
+**Typical Values**: 10⁻¹⁰ to 10⁻⁸ (atomic fraction), generally lower than vacancy concentration
+
+**Equation** (Defect Kinetics):
+\[
+\frac{dc_{ib}}{dt} = \phi - k_i^2 D_i c_{ib} - \alpha c_{vb}c_{ib}
+\]
+where:
+- \( k_i^2 \) is total interstitial sink strength (dislocations + cavities)
+- \( D_i \) is interstitial diffusivity (typically >> Dᵥ)
+
+**Dislocation Bias**: The key mechanism driving void swelling:
+\[
+k_i^2 = Z_i \rho, \quad k_v^2 = Z_v \rho
+\]
+where \( Z_i > Z_v \) (typically 1.0-1.2 vs 1.0), causing preferential interstitial absorption at dislocations.
+
+---
+
+### 2.3 Phase Boundary State Variables (5 variables)
+
+#### Variable 6: Cgf - Gas Atom Concentration at Boundaries
+
+**Symbol**: \( C_{gf} \)
+**Units**: atoms/m³
+**Physical Meaning**: Concentration of fission gas atoms that have diffused to and accumulated at grain boundaries or phase interfaces.
+
+**Role in the Model**:
+- **Source**: Receives gas atoms diffusing from bulk (Cgb)
+- **Sink**: Provides gas to boundary cavities (Ccf, Ncf)
+- **Release**: Primary pathway for fission gas release when cavities interconnect
+- **Coupling**: Couples to Cgb (diffusion source), Ccf (boundary cavities), and Ncf (gas per cavity)
+
+**Typical Values**: Can reach 10²⁶-10²⁷ atoms/m³ at grain boundaries due to accumulation
+
+**Equation**:
+\[
+\frac{dC_{gf}}{dt} = \frac{12}{d^2}D_{gb}(C_{gb} - C_{gf}) - \text{nucleation, growth, and release terms}
+\]
+
+**Gas Release**: When boundary bubble area fraction exceeds threshold (~90%), gas is released:
+\[
+\frac{dC_{gf}}{dt}\bigg|_{release} = -\chi(C_{gf} + C_{cf}N_{cf})
+\]
+where \( \chi \) is interconnection coefficient.
+
+---
+
+#### Variable 7: Ccf - Cavity Concentration at Boundaries
+
+**Symbol**: \( C_{cf} \)
+**Units**: cavities/m² (areal density at boundaries)
+**Physical Meaning**: Number density of cavities per unit area at grain boundaries or phase interfaces.
+
+**Role in the Model**:
+- **Lenticular Shape**: Boundary cavities are lens-shaped (different from spherical bulk cavities)
+- **Higher Density**: Typically higher concentration than bulk cavities due to enhanced nucleation at boundaries
+- **Interconnection**: Forms percolating network leading to gas release
+- **Coupling**: Affects boundary vacancy concentration (cvf) and gas release calculations
+
+**Typical Values**: 10¹⁴ to 10¹⁶ cavities/m² (boundary area)
+
+**Geometric Factor**:
+\[
+A_f = \pi R_{cf}^2 C_{cf} f_f(\theta)
+\]
+where \( f_f(\theta) \) accounts for lenticular shape and \( \theta \) is the dihedral angle.
+
+---
+
+#### Variable 8: Ncf - Gas Atoms per Boundary Cavity
+
+**Symbol**: \( N_{cf} \)
+**Units**: atoms/cavity
+**Physical Meaning**: Average number of gas atoms contained in each boundary cavity.
+
+**Role in the Model**:
+- **Growth Metric**: Tracks gas accumulation in boundary bubbles
+- **Pressure Calculation**: Determines internal gas pressure (similar to Ncb)
+- **Radius Calculation**: Boundary cavity radius \( R_{cf} \) derived from \( N_{cf} \)
+- **Coupling**: Couples to Cgf (boundary gas concentration), Ccf (cavity concentration), and cvf (boundary vacancy concentration)
+
+**Typical Values**: Generally higher than Ncb due to preferential gas diffusion to boundaries
+
+**Key Difference from Bulk**: Boundary cavities have different geometry (lens-shaped vs spherical), affecting the relationship between Ncf, Rcf, and pressure.
+
+---
+
+#### Variable 9: cvf - Vacancy Concentration at Boundaries
+
+**Symbol**: \( c_{vf} \)
+**Units**: dimensionless (atomic fraction)
+**Physical Meaning**: Concentration of vacant lattice sites at grain boundaries or phase interfaces.
+
+**Role in the Model**:
+- **Boundary Cavity Growth**: Vacancies absorbed by boundary cavities cause their growth
+- **Enhanced Diffusion**: Grain boundaries act as fast diffusion pathways for vacancies
+- **Sink Strength**: Different sink strength than bulk due to boundary geometry
+- **Coupling**: Coupled to cif (boundary interstitials), Ccf (boundary cavities), and Ncf (boundary cavity growth)
+
+**Typical Values**: Similar order of magnitude to cvb but can differ due to boundary effects
+
+**Equation** (similar to bulk):
+\[
+\frac{dc_{vf}}{dt} = \phi - k_{vf}^2 D_v c_{vf} - \alpha c_{vf}c_{if}
+\]
+where \( k_{vf}^2 \) includes boundary-specific sink strengths.
+
+---
+
+#### Variable 10: cif - Interstitial Concentration at Boundaries
+
+**Symbol**: \( c_{if} \)
+**Units**: dimensionless (atomic fraction)
+**Physical Meaning**: Concentration of interstitial atoms at grain boundaries or phase interfaces.
+
+**Role in the Model**:
+- **Recombination**: Recombines with boundary vacancies (cvf)
+- **Bias Effect**: Dislocations at boundaries also preferentially absorb interstitials
+- **Coupling**: Strongly coupled to cvf and affects boundary cavity growth through vacancy supersaturation
+
+**Typical Values**: Similar order of magnitude to cib
+
+**Equation** (similar to bulk):
+\[
+\frac{dc_{if}}{dt} = \phi - k_{if}^2 D_i c_{if} - \alpha c_{vf}c_{if}
+\]
+
+---
+
+### 2.4 Variable Coupling and System Dynamics
+
+#### Coupling Diagram
+
+The 10 state variables are highly coupled through the following mechanisms:
+
+**Gas Transport**:
+\[
+C_{gb} \rightleftharpoons C_{gf}
+\]
+Gas atoms diffuse from bulk to boundaries, creating concentration gradients.
+
+**Bubble Growth**:
+\[
+C_{gb} \rightarrow N_{cb}, \quad C_{gf} \rightarrow N_{cf}
+\]
+Gas concentration decreases as atoms are absorbed into cavities.
+
+**Cavity-Vacancy Coupling**:
+\[
+c_{vb}, c_{vf} \rightarrow N_{cb}, N_{cf}
+\]
+Vacancy absorption increases Nc (atoms per cavity), which increases radius.
+
+**Defect Recombination**:
+\[
+c_{vb} \rightleftharpoons c_{ib}, \quad c_{vf} \rightleftharpoons c_{if}
+\]
+Vacancies and interstitials recombine, removing both from the system.
+
+**Sink Strength Feedback**:
+\[
+C_{cb}, C_{cf} \rightarrow k_v^2, k_i^2 \rightarrow c_{vb}, c_{ib}
+\]
+Cavity concentration affects sink strengths, which control defect concentrations.
+
+#### Derived Quantities
+
+While not state variables, these quantities are calculated from the state variables at each time step:
+
+1. **Cavity Radius** (\( R_{cb}, R_{cf} \)): Derived from Ncb, Ncf using mechanical equilibrium
+2. **Gas Pressure** (\( P_{gas} \)): Derived from Ncb/Ncf and radius using equation of state
+3. **Swelling Strain**: \( S = \frac{4}{3}\pi R_{cb}^3 C_{cb} + \frac{4}{3}\pi R_{cf}^3 C_{cf} \)
+4. **Sink Strengths** (\( k_v^2, k_i^2 \)): Derived from cavity concentrations and radii
+
+#### Timescale Separation
+
+The system exhibits widely varying timescales:
+- **Fast** (microseconds): Defect recombination (cv·ci terms)
+- **Medium** (seconds to minutes): Gas diffusion, cavity nucleation
+- **Slow** (hours to days): Cavity growth, swelling accumulation
+
+This stiffness necessitates careful numerical methods (RK23 with adaptive stepping) and creates numerical challenges in solving the coupled ODE system.
+
+---
+
+### 2.5 Initial Conditions
+
+At time \( t = 0 \) (start of irradiation), the state variables are initialized as follows:
+
+| Variable | Initial Value | Physical Rationale |
+|----------|--------------|-------------------|
+| Cgb, Cgf | 0 atoms/m³ | No gas present before irradiation begins |
+| Ccb, Ccf | 0 cavities/m³ | No cavities before nucleation |
+| Ncb, Ncf | 5 atoms/cavity | Small critical nucleus size |
+| cvb, cvf | \( c_v^0(T) \) | Thermal equilibrium vacancy concentration |
+| cib, cif | \( c_i^0(T) \) | Thermal equilibrium interstitial concentration |
+
+The thermal equilibrium concentrations are calculated from Arrhenius expressions:
+\[
+c_v^0 = \exp\left(-\frac{E_f^v}{k_B T}\right), \quad c_i^0 = \exp\left(-\frac{E_f^i}{k_B T}\right)
+\]
+
+Under irradiation, defect concentrations rapidly increase to steady-state values (~10⁻⁸ to 10⁻⁶) within microseconds, driving the subsequent evolution of gas behavior and cavity growth.
+
+---
+
+### 2.6 Summary Table
+
+| Index | Variable | Symbol | Units | Domain | Physical Meaning |
+|-------|----------|--------|-------|--------|------------------|
+| 1 | Cgb | \( C_{gb} \) | atoms/m³ | Bulk | Gas atom concentration in grain interior |
+| 2 | Ccb | \( C_{cb} \) | cavities/m³ | Bulk | Cavity (bubble) number density in bulk |
+| 3 | Ncb | \( N_{cb} \) | atoms/cavity | Bulk | Gas atoms per bulk cavity |
+| 4 | cvb | \( c_{vb} \) | dimensionless | Bulk | Vacancy concentration in bulk |
+| 5 | cib | \( c_{ib} \) | dimensionless | Bulk | Interstitial concentration in bulk |
+| 6 | Cgf | \( C_{gf} \) | atoms/m³ | Boundary | Gas atom concentration at grain boundaries |
+| 7 | Ccf | \( C_{cf} \) | cavities/m² | Boundary | Cavity number density at boundaries |
+| 8 | Ncf | \( N_{cf} \) | atoms/cavity | Boundary | Gas atoms per boundary cavity |
+| 9 | cvf | \( c_{vf} \) | dimensionless | Boundary | Vacancy concentration at boundaries |
+| 10 | cif | \( c_{if} \) | dimensionless | Boundary | Interstitial concentration at boundaries |
+
+**Note**: Radius variables (Rcb, Rcf) are **not** independent state variables. They are derived quantities calculated from Ncb and Ncf using the mechanical equilibrium condition between gas pressure and surface tension.
 
 ---
 
