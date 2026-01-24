@@ -983,6 +983,151 @@ class ParallelRunner:
         return self._actual_n_jobs
 
 
+class JoblibRunner:
+    """
+    Joblib并行执行器类，专门用于基于joblib的并行任务执行
+
+    提供简洁的接口来使用joblib.Parallel进行并行计算，
+    支持可选的n_jobs参数和进度跟踪。
+
+    属性:
+        n_jobs: 并行任务数 (-1表示使用所有CPU核心，1表示串行)
+        verbose: 日志详细程度
+        prefer: 任务调度偏好 ('processes', 'threads', 或 None)
+    """
+
+    def __init__(self, n_jobs: int = -1, verbose: int = 0, prefer: str = None):
+        """
+        初始化Joblib并行执行器
+
+        参数:
+            n_jobs: 并行任务数
+                - -1: 使用所有可用的CPU核心（默认）
+                - 1: 串行执行（不使用并行）
+                - >1: 使用指定数量的进程
+                - None: 禁用并行，等同于1
+            verbose: 日志详细程度 (0=静默, 1=简略, 2=详细)
+            prefer: 任务调度偏好
+                - 'processes': 使用进程池（内存隔离，适合CPU密集型）
+                - 'threads': 使用线程池（共享内存，适合I/O密集型）
+                - None: 自动选择
+
+        异常:
+            ImportError: 当joblib不可用时抛出
+        """
+        if not JOBLIB_AVAILABLE:
+            raise ImportError("joblib is not available. Please install it with: pip install joblib")
+
+        self.n_jobs = n_jobs if n_jobs is not None else 1
+        self.verbose = verbose
+        self.prefer = prefer
+
+        # 确定实际使用的CPU核心数
+        if self.n_jobs == -1:
+            import os
+            self._actual_n_jobs = os.cpu_count() or 1
+        else:
+            self._actual_n_jobs = max(1, self.n_jobs)
+
+        if self.verbose >= 1:
+            logger.info(f"JoblibRunner初始化: n_jobs={self.n_jobs}, 实际核心数={self._actual_n_jobs}")
+
+    def run(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        并行执行函数任务列表
+
+        参数:
+            func: 要执行的函数，接受单个参数
+            tasks: 任务参数列表
+            **kwargs: 额外的并行参数（传递给joblib.Parallel）
+                例如: backend='multiprocessing', verbose=10
+
+        返回:
+            函数执行结果列表，顺序与输入任务相同
+
+        示例:
+            >>> runner = JoblibRunner(n_jobs=4)
+            >>> results = runner.run(simulation_function, [params1, params2, params3])
+        """
+        if not tasks:
+            if self.verbose >= 1:
+                logger.warning("任务列表为空，返回空结果")
+            return []
+
+        # 如果n_jobs为1，使用串行执行
+        if self.n_jobs == 1:
+            if self.verbose >= 1:
+                logger.info(f"串行执行 {len(tasks)} 个任务")
+            return [func(task) for task in tasks]
+
+        # 并行执行
+        if self.verbose >= 1:
+            logger.info(f"并行执行 {len(tasks)} 个任务，使用 {self._actual_n_jobs} 个进程")
+
+        try:
+            from joblib import Parallel, delayed
+
+            # 准备joblib参数
+            joblib_kwargs = {
+                'n_jobs': self.n_jobs,
+                'verbose': self.verbose * 10,  # joblib使用0-100的verbose级别
+            }
+
+            # 添加prefer参数（如果指定）
+            if self.prefer is not None:
+                joblib_kwargs['prefer'] = self.prefer
+
+            # 合并用户提供的额外参数
+            joblib_kwargs.update(kwargs)
+
+            # 执行并行任务
+            results = Parallel(**joblib_kwargs)(
+                delayed(func)(task) for task in tasks
+            )
+
+            if self.verbose >= 1:
+                logger.info(f"Joblib并行执行完成: {len(results)} 个结果")
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Joblib并行执行失败: {e}")
+            # 回退到串行执行
+            logger.info("回退到串行执行")
+            return [func(task) for task in tasks]
+
+    def map(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        map函数的别名，与run方法功能相同
+
+        参数:
+            func: 要执行的函数
+            tasks: 任务列表
+            **kwargs: 额外参数
+
+        返回:
+            结果列表
+        """
+        return self.run(func, tasks, **kwargs)
+
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口"""
+        return False
+
+    @property
+    def n_jobs_actual(self) -> int:
+        """获取实际使用的CPU核心数"""
+        return self._actual_n_jobs
+
+    def __repr__(self) -> str:
+        """字符串表示"""
+        return f"JoblibRunner(n_jobs={self.n_jobs}, prefer={self.prefer})"
+
+
 # 便捷函数
 def create_progress_bar(iterable, desc: str = "进度", total: int = None,
                        show_stats: bool = True, **kwargs):
