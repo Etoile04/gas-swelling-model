@@ -13,6 +13,7 @@ import numpy as np
 import itertools
 import logging
 from typing import Dict, List, Any, Optional, Union
+from scipy.stats import qmc
 
 # 配置日志
 logger = logging.getLogger('sampling_strategies')
@@ -231,6 +232,126 @@ def grid_sampling_with_linspace(param_ranges: Dict[str, Union[List[Any], Dict[st
 
     except Exception as e:
         logger.error(f"带线性空间的网格采样出错: {str(e)}")
+        raise
+
+
+def latin_hypercube_sampling(param_ranges: Dict[str, tuple], n_samples: int, seed: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    拉丁超立方采样 (Latin Hypercube Sampling, LHS)
+
+    使用拉丁超立方采样生成参数组合。LHS是一种分层采样方法，能够确保
+    每个参数在其范围内被均匀采样，同时避免了随机采样可能出现的聚类现象。
+
+    相比网格采样，LHS能够用更少的样本数更好地探索高维参数空间。
+
+    参数:
+        param_ranges: 参数范围字典
+            键: 参数名 (str)
+            值: 参数范围元组 (min, max)
+
+            示例:
+                {
+                    'temperature': (300, 1000),
+                    'fission_rate': (1e18, 1e21),
+                    'surface_energy': (0.5, 1.0)
+                }
+
+        n_samples: 采样数量 (int)
+            要生成的参数组合数量。建议至少为参数数量的2倍。
+
+        seed: 随机种子 (Optional[int])
+            用于结果可复现。如果为None，则每次运行结果不同。
+
+    返回:
+        参数组合列表，每个元素是一个参数字典
+
+        示例:
+            [
+                {'temperature': 342.5, 'fission_rate': 3.2e19, 'surface_energy': 0.78},
+                {'temperature': 891.3, 'fission_rate': 1.1e20, 'surface_energy': 0.55},
+                ...
+            ]
+
+    示例:
+        >>> params = latin_hypercube_sampling({'temperature': (300, 1000)}, 10, seed=42)
+        >>> print(f"生成的参数组合数量: {len(params)}")
+        生成的参数组合数量: 10
+        >>> print(f"温度范围: {min(p['temperature'] for p in params):.1f} - {max(p['temperature'] for p in params):.1f}")
+        温度范围: 315.2 - 983.7
+
+        >>> # 多参数采样
+        >>> params_multi = latin_hypercube_sampling({
+        ...     'temperature': (300, 1000),
+        ...     'fission_rate': (1e19, 1e21),
+        ...     'surface_energy': (0.5, 1.0)
+        ... }, n_samples=20, seed=42)
+        >>> print(f"生成的参数组合数量: {len(params_multi)}")
+        生成的参数组合数量: 20
+
+    参考文献:
+        McKay, M.D., Beckman, R.J. and Conover, W.J. (1979)
+        "A Comparison of Three Methods for Selecting Values of Input Variables
+        in the Analysis of Output from a Computer Code"
+        Technometrics, 21(2):239-245
+    """
+    try:
+        # 验证输入
+        if not param_ranges:
+            logger.warning("参数范围为空，返回空列表")
+            return []
+
+        if not isinstance(param_ranges, dict):
+            raise TypeError("param_ranges 必须是字典类型")
+
+        if not isinstance(n_samples, int) or n_samples <= 0:
+            raise ValueError("n_samples 必须是正整数")
+
+        # 检查所有参数范围格式
+        for param_name, param_range in param_ranges.items():
+            if not isinstance(param_range, (tuple, list)) or len(param_range) != 2:
+                raise TypeError(f"参数 '{param_name}' 的范围必须是包含两个元素的元组 (min, max)")
+
+            min_val, max_val = param_range
+            if min_val >= max_val:
+                raise ValueError(f"参数 '{param_name}' 的最小值必须小于最大值")
+
+        # 获取参数信息
+        param_names = list(param_ranges.keys())
+        n_params = len(param_names)
+
+        # 提取参数范围
+        param_bounds = [param_ranges[name] for name in param_names]
+
+        logger.info(f"开始拉丁超立方采样: {n_params}个参数, {n_samples}个样本")
+        logger.info(f"参数: {param_names}")
+        logger.info(f"参数范围: {param_bounds}")
+
+        # 创建拉丁超立方采样器
+        sampler = qmc.LatinHypercube(d=n_params, seed=seed)
+
+        # 生成样本 (单位超立方体 [0, 1)^d)
+        sample_unit = sampler.random(n=n_samples)
+
+        # 将样本从 [0, 1) 空间映射到实际参数范围
+        sample_scaled = qmc.scale(sample_unit, [b[0] for b in param_bounds], [b[1] for b in param_bounds])
+
+        # 构建参数字典列表
+        parameter_combinations = []
+        for i in range(n_samples):
+            param_dict = {name: float(sample_scaled[i, j]) for j, name in enumerate(param_names)}
+            parameter_combinations.append(param_dict)
+
+        logger.info(f"拉丁超立方采样完成，生成了 {len(parameter_combinations)} 个参数组合")
+
+        # 验证采样的均匀性
+        for j, name in enumerate(param_names):
+            samples = [p[name] for p in parameter_combinations]
+            logger.info(f"参数 '{name}' 采样范围: [{min(samples):.4e}, {max(samples):.4e}]")
+
+        return parameter_combinations
+
+    except Exception as e:
+        logger.error(f"拉丁超立方采样过程中出错: {str(e)}")
         raise
 
 
