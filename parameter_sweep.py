@@ -1800,6 +1800,227 @@ def run_parameter_sweep(
     return sweep.run()
 
 
+def export_results_csv(
+    results: List[SimulationResult],
+    filepath: str,
+    include_metadata: bool = True,
+    include_time_series_stats: bool = True
+) -> None:
+    """
+    导出模拟结果到CSV文件（便捷函数）
+
+    这是一个独立的便捷函数，用于将SimulationResult列表导出为CSV格式。
+    支持元数据、参数和统计信息的导出。
+
+    参数:
+        results: SimulationResult对象列表
+        filepath: CSV文件输出路径
+        include_metadata: 是否包含元数据列（运行时间、缓存状态等）
+        include_time_series_stats: 是否包含时间序列统计信息（最大值、最小值、平均值等）
+
+    异常:
+        ValueError: 当results为空时
+        IOError: 当文件写入失败时
+        TypeError: 当参数类型错误时
+
+    示例:
+        >>> from parameter_sweep import export_results_csv
+        >>> export_results_csv(results, 'sweep_results.csv')
+        >>> export_results_csv(results, 'results_simple.csv', include_metadata=False)
+    """
+    # 验证参数
+    if not isinstance(results, list):
+        raise TypeError(f"results必须是列表，得到 {type(results)}")
+
+    if not results:
+        raise ValueError("results列表不能为空")
+
+    if not isinstance(filepath, str):
+        raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+    if not filepath:
+        raise ValueError("filepath不能为空")
+
+    # 检查目录是否存在
+    import os
+    file_dir = os.path.dirname(filepath)
+    if file_dir and not os.path.exists(file_dir):
+        try:
+            os.makedirs(file_dir, exist_ok=True)
+            logger.info(f"创建目录: {file_dir}")
+        except Exception as e:
+            raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+    # 准备数据行
+    rows = []
+    all_param_keys = set()
+    all_state_var_keys = set()
+    all_derived_qty_keys = set()
+
+    # 第一次遍历：收集所有可能的键名
+    for result in results:
+        if result.success:
+            all_param_keys.update(result.parameters.keys())
+            if result.state_variables:
+                all_state_var_keys.update(result.state_variables.keys())
+            if result.derived_quantities:
+                all_derived_qty_keys.update(result.derived_quantities.keys())
+
+    # 转换为有序列表以保证列顺序一致
+    param_keys = sorted(all_param_keys)
+    state_var_keys = sorted(all_state_var_keys)
+    derived_qty_keys = sorted(all_derived_qty_keys)
+
+    # 第二次遍历：构建数据行
+    for i, result in enumerate(results):
+        try:
+            if not result.success:
+                # 失败的结果：仅记录参数和错误信息
+                row = {
+                    'result_index': i,
+                    'success': False,
+                    'error_message': result.error_message
+                }
+                # 添加参数（如果有）
+                if result.parameters:
+                    for key in param_keys:
+                        row[f'param_{key}'] = result.parameters.get(key, '')
+                rows.append(row)
+                continue
+
+            # 成功的结果
+            row = {
+                'result_index': i,
+                'success': True
+            }
+
+            # 添加参数
+            for key in param_keys:
+                value = result.parameters.get(key, '')
+                row[f'param_{key}'] = value
+
+            # 添加状态变量的最终值
+            for key in state_var_keys:
+                if result.state_variables and key in result.state_variables:
+                    var_data = result.state_variables[key]
+                    if len(var_data) > 0:
+                        row[f'state_{key}_final'] = float(var_data[-1])
+                    else:
+                        row[f'state_{key}_final'] = None
+                else:
+                    row[f'state_{key}_final'] = None
+
+            # 添加派生量的最终值和统计信息
+            for key in derived_qty_keys:
+                if result.derived_quantities and key in result.derived_quantities:
+                    qty_data = result.derived_quantities[key]
+                    if len(qty_data) > 0:
+                        row[f'derived_{key}_final'] = float(qty_data[-1])
+
+                        if include_time_series_stats:
+                            row[f'derived_{key}_max'] = float(np.max(qty_data))
+                            row[f'derived_{key}_min'] = float(np.min(qty_data))
+                            row[f'derived_{key}_mean'] = float(np.mean(qty_data))
+                            row[f'derived_{key}_std'] = float(np.std(qty_data))
+                    else:
+                        row[f'derived_{key}_final'] = None
+                        if include_time_series_stats:
+                            row[f'derived_{key}_max'] = None
+                            row[f'derived_{key}_min'] = None
+                            row[f'derived_{key}_mean'] = None
+                            row[f'derived_{key}_std'] = None
+                else:
+                    row[f'derived_{key}_final'] = None
+                    if include_time_series_stats:
+                        row[f'derived_{key}_max'] = None
+                        row[f'derived_{key}_min'] = None
+                        row[f'derived_{key}_mean'] = None
+                        row[f'derived_{key}_std'] = None
+
+            # 添加元数据
+            if include_metadata:
+                row['runtime_seconds'] = result.metadata.get('runtime', 0)
+                row['from_cache'] = result.metadata.get('from_cache', False)
+                row['final_swelling'] = result.metadata.get('final_swelling', None)
+                row['final_Rcb'] = result.metadata.get('final_Rcb', None)
+                row['final_Rcf'] = result.metadata.get('final_Rcf', None)
+
+            rows.append(row)
+
+        except Exception as e:
+            logger.warning(f"处理结果 {i} 时出错: {e}")
+            rows.append({
+                'result_index': i,
+                'success': False,
+                'error_message': f"数据处理失败: {str(e)}"
+            })
+
+    # 创建DataFrame并写入CSV
+    try:
+        df = pd.DataFrame(rows)
+
+        # 设置列的顺序：result_index在前，然后是参数，然后是状态变量，然后是派生量，最后是元数据
+        column_order = ['result_index', 'success']
+
+        # 参数列
+        param_cols = [f'param_{key}' for key in param_keys]
+        column_order.extend(param_cols)
+
+        # 状态变量列
+        state_cols = [f'state_{key}_final' for key in state_var_keys]
+        column_order.extend(state_cols)
+
+        # 派生量列（基础+统计）
+        derived_cols = []
+        for key in derived_qty_keys:
+            derived_cols.append(f'derived_{key}_final')
+            if include_time_series_stats:
+                derived_cols.extend([
+                    f'derived_{key}_max',
+                    f'derived_{key}_min',
+                    f'derived_{key}_mean',
+                    f'derived_{key}_std'
+                ])
+        column_order.extend(derived_cols)
+
+        # 元数据列
+        if include_metadata:
+            metadata_cols = ['runtime_seconds', 'from_cache', 'final_swelling', 'final_Rcb', 'final_Rcf']
+            column_order.extend(metadata_cols)
+
+        # 添加错误信息列（如果有失败的结果）
+        if any('error_message' in row for row in rows):
+            column_order.append('error_message')
+
+        # 重新排列列顺序（仅包含存在的列）
+        existing_columns = [col for col in column_order if col in df.columns]
+        other_columns = [col for col in df.columns if col not in column_order]
+        df = df[existing_columns + other_columns]
+
+        # 写入CSV
+        df.to_csv(filepath, index=False, encoding='utf-8')
+
+        # 统计信息
+        n_success = sum(1 for r in results if r.success)
+        n_failed = len(results) - n_success
+
+        logger.info(f"结果已导出到CSV: {filepath}")
+        logger.info(f"  - 总结果数: {len(results)}")
+        logger.info(f"  - 成功: {n_success} ({n_success/len(results)*100:.1f}%)")
+        logger.info(f"  - 失败: {n_failed} ({n_failed/len(results)*100:.1f}%)")
+        logger.info(f"  - 列数: {len(df.columns)}")
+        logger.info(f"  - 行数: {len(df)}")
+
+    except PermissionError:
+        logger.error(f"文件权限错误，无法写入: {filepath}")
+        raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
+    except Exception as e:
+        logger.error(f"导出CSV失败: {e}")
+        import traceback
+        logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+        raise
+
+
 if __name__ == '__main__':
     # 测试代码
     print("参数扫描模块已导入")
