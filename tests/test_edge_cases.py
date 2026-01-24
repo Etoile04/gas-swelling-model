@@ -481,3 +481,221 @@ def test_fission_rate_comparison():
     for i in range(len(final_swellings) - 1):
         assert final_swellings[i] <= final_swellings[i+1] * 1.5, \
             f"Swelling should increase with fission rate: rate[{i}]={fission_rates[i]}, swelling[{i}]={final_swellings[i]}, rate[{i+1}]={fission_rates[i+1]}, swelling[{i+1}]={final_swellings[i+1]}"
+
+
+def test_invalid_parameters():
+    """Test that model handles invalid parameters gracefully"""
+    # Test negative temperature
+    params = create_default_parameters()
+    params['temperature'] = -100.0  # Negative temperature (physically impossible)
+
+    # Model should still initialize (temperature is used in calculations, not validated)
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # However, calculations may produce non-finite values with negative temperature
+    # Check that thermal equilibrium calculations handle this gracefully
+    try:
+        cv0 = model._calculate_cv0()
+        ci0 = model._calculate_ci0()
+        # If no exception, check values are either finite or properly handled
+        if np.isfinite(cv0):
+            assert cv0 >= 0, "cv0 should be non-negative if finite"
+    except (ValueError, OverflowError, RuntimeWarning):
+        # Exceptions are acceptable for invalid inputs
+        pass
+
+    # Test negative fission rate
+    params = create_default_parameters()
+    params['fission_rate'] = -1e19  # Negative fission rate (physically impossible)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Model should handle negative fission rate without crashing
+    # Run a short simulation to ensure solver doesn't fail
+    sim_time = 100  # 100 seconds
+    t_eval = np.linspace(0, sim_time, 10)
+
+    result = model.solve(
+        t_span=(0, sim_time),
+        t_eval=t_eval
+    )
+
+    # Check result structure is maintained
+    assert isinstance(result, dict)
+    assert 'time' in result
+    assert 'swelling' in result
+
+    # Test negative gas production rate
+    params = create_default_parameters()
+    params['gas_production_rate'] = -0.5  # Negative gas production (physically impossible)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative grain diameter
+    params = create_default_parameters()
+    params['grain_diameter'] = -1e-6  # Negative grain diameter (physically impossible)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative dislocation density
+    params = create_default_parameters()
+    params['dislocation_density'] = -1e13  # Negative dislocation density (physically impossible)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative surface energy
+    params = create_default_parameters()
+    params['surface_energy'] = -0.5  # Negative surface energy (physically impossible)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test zero grain diameter (should cause division by zero in some calculations)
+    params = create_default_parameters()
+    params['grain_diameter'] = 0.0  # Zero grain diameter
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+
+def test_extreme_parameter_values():
+    """Test that model handles extreme parameter values"""
+    # Test extremely high temperature (above melting point of uranium)
+    params = create_default_parameters()
+    params['temperature'] = 5000.0  # 5000 K (way above melting point)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Thermal equilibrium concentrations should be finite
+    cv0 = model._calculate_cv0()
+    ci0 = model._calculate_ci0()
+    assert np.isfinite(cv0), "cv0 should be finite even at extreme temperature"
+    assert np.isfinite(ci0), "ci0 should be finite even at extreme temperature"
+
+    # Test extremely low temperature (near absolute zero)
+    params = create_default_parameters()
+    params['temperature'] = 0.001  # 0.001 K (near absolute zero)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test extremely high fission rate
+    params = create_default_parameters()
+    params['fission_rate'] = 1e25  # Very high fission rate
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Run a short simulation to ensure solver doesn't fail
+    sim_time = 100  # 100 seconds
+    t_eval = np.linspace(0, sim_time, 10)
+
+    result = model.solve(
+        t_span=(0, sim_time),
+        t_eval=t_eval
+    )
+
+    # Check result structure
+    assert isinstance(result, dict)
+    assert 'time' in result
+    assert np.all(np.isfinite(result['time'])), "Time values should be finite"
+
+    # Test extremely large grain diameter
+    params = create_default_parameters()
+    params['grain_diameter'] = 1.0  # 1 meter grain (unrealistic)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test extremely small grain diameter
+    params = create_default_parameters()
+    params['grain_diameter'] = 1e-12  # 1 picometer grain (unrealistic)
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test extremely high dislocation density
+    params = create_default_parameters()
+    params['dislocation_density'] = 1e18  # Very high dislocation density
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test extremely low dislocation density
+    params = create_default_parameters()
+    params['dislocation_density'] = 1e8  # Very low dislocation density
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+
+def test_negative_diffusion_coefficients():
+    """Test that model handles negative diffusion coefficients"""
+    # Test negative Dgb
+    params = create_default_parameters()
+    params['Dgb'] = -1e-15  # Negative diffusion coefficient
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative Dgf
+    params = create_default_parameters()
+    params['Dgf'] = -1e-15  # Negative diffusion coefficient
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test both negative
+    params = create_default_parameters()
+    params['Dgb'] = -1e-15
+    params['Dgf'] = -1e-15
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+
+def test_zero_time_step():
+    """Test that model handles zero or negative time step"""
+    # Test zero time step
+    params = create_default_parameters()
+    params['time_step'] = 0.0
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative time step
+    params = create_default_parameters()
+    params['time_step'] = -1e-10
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+
+def test_invalid_energy_parameters():
+    """Test that model handles invalid energy parameters"""
+    # Test negative formation energy
+    params = create_default_parameters()
+    params['Evf_coeffs'] = [-1.0, 0.0]  # Negative vacancy formation energy
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative migration energy
+    params = create_default_parameters()
+    params['Evm'] = -1.0  # Negative migration energy
+
+    model = GasSwellingModel(params)
+    assert model is not None
+
+    # Test negative surface energy
+    params = create_default_parameters()
+    params['surface_energy'] = -1.0  # Negative surface energy
+
+    model = GasSwellingModel(params)
+    assert model is not None
