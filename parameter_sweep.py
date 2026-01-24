@@ -3,6 +3,82 @@
 
 提供多参数扫描、缓存、并行执行和智能采样功能。
 Provides multi-parameter sweep, caching, parallel execution, and smart sampling capabilities.
+
+主要类 (Main Classes):
+    - SweepConfig: 参数扫描配置类
+    - SimulationResult: 单次模拟结果类
+    - ProgressTracker: 进度跟踪器类
+    - ParameterSweep: 参数扫描主类
+
+使用示例 (Usage Examples):
+
+基本用法 (Basic Usage):
+    >>> from parameter_sweep import ParameterSweep, SweepConfig
+    >>> from params.parameters import create_default_parameters
+    >>>
+    >>> # 准备基础参数
+    >>> base_params = create_default_parameters()
+    >>>
+    >>> # 配置简单的温度扫描
+    >>> config = SweepConfig(
+    ...     parameter_ranges={'temperature': [600, 700, 800]},
+    ...     sampling_method='grid',
+    ...     cache_enabled=True
+    ... )
+    >>>
+    >>> # 创建并运行扫描
+    >>> sweep = ParameterSweep(base_params, config)
+    >>> results = sweep.run()
+    >>>
+    >>> # 分析结果
+    >>> df = sweep.to_dataframe()
+    >>> print(df[['temperature', 'final_swelling']].head())
+
+高级用法 (Advanced Usage):
+    >>> # 多参数扫描 + 并行执行
+    >>> config = SweepConfig(
+    ...     parameter_ranges={
+    ...         'temperature': [600, 700, 800],
+    ...         'fission_rate': [1e19, 2e19],
+    ...         'surface_energy': [0.5, 0.6, 0.7]
+    ...     },
+    ...     sampling_method='grid',
+    ...     parallel=True,
+    ...     n_jobs=-1  # 使用所有CPU核心
+    ... )
+    >>>
+    >>> sweep = ParameterSweep(base_params, config)
+    >>> results = sweep.run()
+    >>>
+    >>> # 导出结果
+    >>> sweep.export_csv('sweep_results.csv')
+    >>> sweep.export_excel('sweep_results.xlsx', include_summary=True)
+
+拉丁超立方采样 (Latin Hypercube Sampling):
+    >>> # 使用拉丁超立方采样探索大参数空间
+    >>> config = SweepConfig(
+    ...     parameter_ranges={
+    ...         'temperature': (300, 1000),
+    ...         'fission_rate': (1e19, 1e21),
+    ...         'surface_energy': (0.3, 1.0)
+    ...     },
+    ...     sampling_method='latin_hypercube',
+    ...     n_samples=50  # 生成50个样本点
+    ... )
+    >>>
+    >>> sweep = ParameterSweep(base_params, config)
+    >>> results = sweep.run()
+
+结果分析 (Result Analysis):
+    >>> # 只分析成功的结果
+    >>> successful_results = [r for r in results if r.success]
+    >>>
+    >>> # 按参数聚合
+    >>> agg_df = sweep.aggregate_by_parameter('temperature', agg_func='mean')
+    >>>
+    >>> # 获取统计摘要
+    >>> summary_df = sweep.get_summary_statistics()
+    >>> print(summary_df.describe())
 """
 
 import numpy as np
@@ -52,6 +128,8 @@ class SweepConfig:
     """
     参数扫描配置类
 
+    用于配置参数扫描的所有参数，包括采样方法、缓存选项和并行执行设置。
+
     属性:
         parameter_ranges: 参数范围字典，格式为 {'param_name': [min, max] 或 [val1, val2, ...]}
         n_samples: 每个维度的采样点数（用于网格采样）
@@ -62,6 +140,36 @@ class SweepConfig:
         cache_dir: 缓存目录路径
         sim_time: 模拟时间（秒）
         output_interval: 输出间隔
+
+    示例:
+        >>> # 基本配置 - 网格采样
+        >>> config = SweepConfig(
+        ...     parameter_ranges={
+        ...         'temperature': [300, 400, 500],
+        ...         'fission_rate': [1e19, 2e19]
+        ...     },
+        ...     sampling_method='grid',
+        ...     cache_enabled=True
+        ... )
+
+        >>> # 拉丁超立方采样配置
+        >>> config_lhs = SweepConfig(
+        ...     parameter_ranges={
+        ...         'temperature': (300, 1000),
+        ...         'fission_rate': (1e19, 1e21)
+        ...     },
+        ...     sampling_method='latin_hypercube',
+        ...     n_samples=20,
+        ...     parallel=True,
+        ...     n_jobs=-1
+        ... )
+
+        >>> # 禁用缓存的配置
+        >>> config_no_cache = SweepConfig(
+        ...     parameter_ranges={'surface_energy': [0.5, 0.6, 0.7]},
+        ...     cache_enabled=False,
+        ...     sim_time=3600000  # 1小时模拟
+        ... )
     """
     parameter_ranges: Dict[str, List[float]] = field(default_factory=dict)
     n_samples: int = 10
@@ -122,14 +230,53 @@ class SimulationResult:
     """
     单次模拟结果类
 
+    存储单次气体肿胀模拟的完整结果，包括状态变量、派生量和元数据。
+
     属性:
         parameters: 使用的参数字典
-        time: 时间数组
-        state_variables: 状态变量字典
-        derived_quantities: 派生量字典（气泡半径、肿胀率等）
-        metadata: 元数据（运行时间、收敛信息等）
+        time: 时间数组 (np.ndarray)
+        state_variables: 状态变量字典，包含：
+            - 'Cgb': 基体气体原子浓度
+            - 'Ccb': 基体气腔浓度
+            - 'Ncb': 基体气泡内气体原子数
+            - 'cvb': 基体空位浓度
+            - 'cib': 基体间隙原子浓度
+            - 'Cgf': 相界面气体原子浓度
+            - 'Ccf': 相界面气腔浓度
+            - 'Ncf': 相界面气泡内气体原子数
+            - 'cvf': 相界面空位浓度
+            - 'cif': 相界面间隙原子浓度
+        derived_quantities: 派生量字典，包含：
+            - 'Rcb': 基体气泡半径
+            - 'Rcf': 相界面气泡半径
+            - 'swelling': 肿胀率（百分比）
+            - 'Pg_b': 基体气泡内气体压力
+            - 'Pg_f': 相界面气泡内气体压力
+            - 'released_gas': 释放的气体量
+        metadata: 元数据字典，包含：
+            - 'runtime': 运行时间（秒）
+            - 'final_swelling': 最终肿胀率
+            - 'final_Rcb': 最终基体气泡半径
+            - 'final_Rcf': 最终相界面气泡半径
+            - 'from_cache': 是否来自缓存
         success: 模拟是否成功
         error_message: 错误信息（如果失败）
+
+    方法:
+        to_dict(): 将结果转换为字典格式
+
+    示例:
+        >>> result = SimulationResult(
+        ...     parameters={'temperature': 600, 'fission_rate': 1e19},
+        ...     time=np.linspace(0, 1000, 100),
+        ...     state_variables={'Cgb': np.zeros(100)},
+        ...     derived_quantities={'swelling': np.zeros(100)},
+        ...     metadata={'runtime': 5.2, 'final_swelling': 1.5},
+        ...     success=True
+        ... )
+        >>> print(f"最终肿胀率: {result.metadata['final_swelling']:.2f}%")
+        最终肿胀率: 1.50%
+        >>> result_dict = result.to_dict()
     """
     parameters: Dict[str, Any] = field(default_factory=dict)
     time: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -147,6 +294,28 @@ class SimulationResult:
 class ProgressTracker:
     """
     进度跟踪器类，用于参数扫描过程中的详细统计和时间估计
+
+    跟踪参数扫描的执行进度，包括任务完成情况、缓存命中率、
+    执行时间和吞吐量等统计信息。
+
+    属性:
+        total_tasks: 总任务数
+        desc: 进度描述
+        completed_tasks: 已完成任务数
+        failed_tasks: 失败任务数
+        cache_hits: 缓存命中次数
+        start_time: 开始时间戳
+        task_times: 各任务执行时间列表（秒）
+
+    示例:
+        >>> tracker = ProgressTracker(total_tasks=100, desc="温度扫描")
+        >>> tracker.update(success=True, is_cache_hit=False, task_time=2.5)
+        >>> progress = tracker.get_progress_percent()
+        >>> print(f"进度: {progress:.1f}%")
+        进度: 1.0%
+        >>> summary = tracker.get_summary()
+        >>> print(f"吞吐量: {summary['throughput']:.2f} 任务/秒")
+        吞吐量: 0.40 任务/秒
     """
 
     def __init__(self, total_tasks: int, desc: str = "进度"):
@@ -156,6 +325,9 @@ class ProgressTracker:
         参数:
             total_tasks: 总任务数
             desc: 进度描述
+
+        异常:
+            ValueError: 如果 total_tasks 不是正整数
         """
         self.total_tasks = total_tasks
         self.desc = desc
@@ -410,7 +582,63 @@ class ParameterSweep:
     """
     参数扫描主类
 
-    支持多参数网格扫描、结果缓存、并行执行和进度跟踪。
+    提供多参数扫描、结果缓存、并行执行和进度跟踪功能。
+    支持网格采样、拉丁超立方采样等多种采样策略。
+
+    参数:
+        base_params: 基础参数字典，包含模型运行所需的所有参数
+        config: 扫描配置对象 (SweepConfig)，如果为None则使用默认配置
+
+    属性:
+        base_params: 基础参数字典的副本
+        config: 扫描配置对象
+        results: 模拟结果列表 (List[SimulationResult])
+        cache: 缓存对象 (SimulationCache 或 None)
+
+    主要方法:
+        generate_parameter_sets(): 生成参数组合
+        run(): 运行参数扫描
+        run_sequential(): 顺序执行参数扫描
+        run_parallel(): 并行执行参数扫描
+        clear_cache(): 清除缓存
+        get_results_dataframe(): 获取结果DataFrame
+        export_results(): 导出结果到文件
+
+    示例:
+        >>> from parameter_sweep import ParameterSweep, SweepConfig
+        >>> from params.parameters import create_default_parameters
+        >>>
+        >>> # 准备基础参数
+        >>> base_params = create_default_parameters()
+        >>>
+        >>> # 配置参数扫描
+        >>> config = SweepConfig(
+        ...     parameter_ranges={
+        ...         'temperature': [600, 700, 800],
+        ...         'fission_rate': [1e19, 2e19]
+        ...     },
+        ...     sampling_method='grid',
+        ...     cache_enabled=True
+        ... )
+        >>>
+        >>> # 创建参数扫描器
+        >>> sweep = ParameterSweep(base_params, config)
+        >>>
+        >>> # 运行扫描
+        >>> results = sweep.run()
+        >>>
+        >>> # 获取结果摘要
+        >>> df = sweep.get_results_dataframe()
+        >>> print(f"完成 {len(results)} 次模拟")
+        完成 6 次模拟
+        >>>
+        >>> # 导出结果
+        >>> sweep.export_results('sweep_results.csv')
+
+    异常:
+        TypeError: 如果 base_params 不是字典
+        ValueError: 如果 base_params 为空
+        ImportError: 如果无法导入 GasSwellingModel
     """
 
     def __init__(self, base_params: Dict[str, Any], config: Optional[SweepConfig] = None):
@@ -418,8 +646,19 @@ class ParameterSweep:
         初始化参数扫描器
 
         参数:
-            base_params: 基础参数字典
-            config: 扫描配置，如果为None则使用默认配置
+            base_params: 基础参数字典，必须包含模型运行所需的关键参数
+                推荐参数: 'temperature', 'fission_rate', 'time_step'
+            config: 扫描配置对象 (SweepConfig)，如果为None则使用默认配置
+
+        异常:
+            TypeError: 如果 base_params 不是字典
+            ValueError: 如果 base_params 为空或包含无效值
+            ImportError: 如果无法导入 GasSwellingModel
+
+        示例:
+            >>> from params.parameters import create_default_parameters
+            >>> base_params = create_default_parameters()
+            >>> sweep = ParameterSweep(base_params)
         """
         # 验证base_params
         if not isinstance(base_params, dict):
@@ -485,14 +724,26 @@ class ParameterSweep:
 
     def _run_single_simulation(self, params: Dict[str, Any], show_progress: bool = False) -> SimulationResult:
         """
-        运行单次模拟
+        运行单次模拟（内部方法）
+
+        创建 GasSwellingModel 实例并运行模拟，支持缓存以提高性能。
 
         参数:
-            params: 参数字典
-            show_progress: 是否显示单个模拟的进度（仅用于长时间运行的模拟）
+            params: 参数字典，必须包含 'temperature' 和 'fission_rate'
+            show_progress: 是否显示单个模拟的进度（保留参数，当前未使用）
 
         返回:
-            模拟结果
+            SimulationResult 对象，包含：
+                - parameters: 使用的参数
+                - time: 时间数组
+                - state_variables: 状态变量字典
+                - derived_quantities: 派生量字典
+                - metadata: 元数据（运行时间、是否来自缓存等）
+                - success: 是否成功
+                - error_message: 错误信息（如果失败）
+
+        异常:
+            不会抛出异常，失败时返回包含错误信息的 SimulationResult
         """
         # 验证参数
         try:
@@ -638,8 +889,30 @@ class ParameterSweep:
         """
         生成参数集合
 
+        根据配置的采样方法和参数范围，生成所有要运行的参数组合。
+        支持 grid（网格）、latin_hypercube（拉丁超立方）和 random（随机）采样。
+
         返回:
-            参数字典列表
+            参数字典列表，每个字典包含一组完整的参数
+
+        异常:
+            ValueError: 如果采样方法无效或参数值格式错误
+            ImportError: 如果采样策略模块不可用且内置采样失败
+
+        示例:
+            >>> config = SweepConfig(
+            ...     parameter_ranges={'temperature': [600, 700, 800]},
+            ...     sampling_method='grid'
+            ... )
+            >>> sweep = ParameterSweep(base_params, config)
+            >>> param_sets = sweep.generate_parameter_sets()
+            >>> print(f"生成了 {len(param_sets)} 个参数集")
+            生成了 3 个参数集
+            >>> for i, params in enumerate(param_sets):
+            ...     print(f"参数集 {i+1}: temperature={params['temperature']}")
+            参数集 1: temperature=600
+            参数集 2: temperature=700
+            参数集 3: temperature=800
         """
         try:
             if not self.config.parameter_ranges:
@@ -709,8 +982,32 @@ class ParameterSweep:
         """
         运行参数扫描
 
+        根据配置的采样方法生成参数集，并执行所有模拟。
+        支持并行执行和进度跟踪。
+
         返回:
-            模拟结果列表
+            模拟结果列表 (List[SimulationResult])，每个元素包含：
+            - parameters: 使用的参数
+            - time: 时间数组
+            - state_variables: 状态变量
+            - derived_quantities: 派生量
+            - metadata: 元数据
+            - success: 是否成功
+            - error_message: 错误信息（如果失败）
+
+        示例:
+            >>> config = SweepConfig(
+            ...     parameter_ranges={'temperature': [600, 700]},
+            ...     parallel=True,
+            ...     n_jobs=-1
+            ... )
+            >>> sweep = ParameterSweep(base_params, config)
+            >>> results = sweep.run()
+            >>> print(f"完成 {len(results)} 次模拟")
+            完成 2 次模拟
+            >>> successful = [r for r in results if r.success]
+            >>> print(f"成功: {len(successful)}, 失败: {len(results) - len(successful)}")
+            成功: 2, 失败: 0
         """
         logger.info("======== 参数扫描开始 ========")
         param_sets = self.generate_parameter_sets()
@@ -855,11 +1152,42 @@ class ParameterSweep:
         """
         将结果转换为pandas DataFrame
 
+        将所有模拟结果转换为表格格式，便于分析和可视化。
+        默认只包含最终值，可选择包含时间序列的统计信息。
+
         参数:
-            include_time_series: 是否包含时间序列数据的统计信息
+            include_time_series: 是否包含时间序列数据的统计信息（最大值、最小值、均值、标准差）
 
         返回:
-            包含所有模拟结果的DataFrame
+            pandas DataFrame，包含以下列：
+                - 所有参数列（来自 parameters）
+                - success: 是否成功
+                - runtime: 运行时间（秒）
+                - final_swelling: 最终肿胀率（%）
+                - final_Rcb: 最终基体气泡半径（m）
+                - final_Rcf: 最终相界面气泡半径（m）
+                - from_cache: 是否来自缓存
+                - final_*: 各状态变量的最终值（如果存在）
+                - *_max, *_min, *_mean, *_std: 时间序列统计（如果 include_time_series=True）
+
+        示例:
+            >>> results = sweep.run()
+            >>> df = sweep.to_dataframe()
+            >>> print(f"结果DataFrame形状: {df.shape}")
+            结果DataFrame形状: (10, 15)
+            >>> df[['temperature', 'final_swelling', 'runtime']].head()
+               temperature  final_swelling  runtime
+            0        600.0        1.2345   5.234
+            1        700.0        2.3456   5.123
+            ...
+            >>>
+            >>> # 包含时间序列统计
+            >>> df_stats = sweep.to_dataframe(include_time_series=True)
+            >>> df_stats[['swelling_max', 'swelling_mean', 'swelling_std']].head()
+               swelling_max  swelling_mean  swelling_std
+            0      1.5000       0.7500      0.4330
+            1      2.8000       1.4000      0.8000
+            ...
         """
         if not self.results:
             logger.warning("没有结果可转换")
@@ -1573,9 +1901,28 @@ class ParameterSweep:
         """
         导出结果到CSV文件
 
+        将模拟结果导出为逗号分隔值（CSV）格式，便于在Excel或其他工具中分析。
+
         参数:
-            filepath: CSV文件路径
-            include_time_series: 是否包含时间序列数据的统计信息
+            filepath: CSV文件路径（相对或绝对路径）
+            include_time_series: 是否包含时间序列数据的统计信息（最大值、最小值、均值、标准差）
+
+        异常:
+            PermissionError: 如果文件无法写入（权限问题或文件被占用）
+            Exception: 其他导出错误
+
+        示例:
+            >>> sweep.run()
+            >>> sweep.export_csv('results.csv')
+            结果已导出到CSV: results.csv
+              - 总结果数: 10
+              - 成功: 10
+            >>>
+            >>> # 包含时间序列统计
+            >>> sweep.export_csv('results_detailed.csv', include_time_series=True)
+            结果已导出到CSV: results_detailed.csv
+              - 总结果数: 10
+              - 包含时间序列统计: 是
         """
         # 验证filepath
         if not filepath:

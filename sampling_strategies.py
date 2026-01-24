@@ -5,6 +5,55 @@
 
 提供多种参数采样方法，用于参数扫描和优化研究。
 
+主要函数 (Main Functions):
+    - grid_sampling(): 网格采样（笛卡尔积）
+    - grid_sampling_with_logspace(): 带对数空间的网格采样
+    - grid_sampling_with_linspace(): 带线性空间的网格采样
+    - latin_hypercube_sampling(): 拉丁超立方采样 (LHS)
+    - sparse_grid_sampling(): 稀疏网格采样
+    - random_sampling(): 随机采样
+    - sobol_sampling(): Sobol序列采样
+    - print_sampling_summary(): 打印采样结果摘要
+
+辅助函数 (Helper Functions):
+    - create_simple_grid(): 创建简单网格采样的便捷函数
+
+使用示例 (Usage Examples):
+
+网格采样 (Grid Sampling):
+    >>> from sampling_strategies import grid_sampling
+    >>> params = grid_sampling({
+    ...     'temperature': [600, 700, 800],
+    ...     'fission_rate': [1e19, 2e19]
+    ... })
+    >>> print(f"生成了 {len(params)} 个参数组合")
+    生成了 6 个参数组合
+
+对数空间采样 (Log-space Sampling):
+    >>> from sampling_strategies import grid_sampling_with_logspace
+    >>> params = grid_sampling_with_logspace({
+    ...     'temperature': [600, 700],
+    ...     'fission_rate': {'type': 'logspace', 'start': 1e18, 'stop': 1e21, 'num': 5}
+    ... })
+    >>> print(f"裂变率范围: 1e18 到 1e21 (对数均匀分布)")
+
+拉丁超立方采样 (Latin Hypercube Sampling):
+    >>> from sampling_strategies import latin_hypercube_sampling
+    >>> params = latin_hypercube_sampling({
+    ...     'temperature': (300, 1000),
+    ...     'fission_rate': (1e19, 1e21),
+    ...     'surface_energy': (0.5, 1.0)
+    ... }, n_samples=20, seed=42)
+    >>> print(f"生成了 {len(params)} 个LHS样本")
+
+稀疏网格采样 (Sparse Grid Sampling):
+    >>> from sampling_strategies import sparse_grid_sampling
+    >>> params = sparse_grid_sampling({
+    ...     'temperature': (300, 1000),
+    ...     'fission_rate': (1e19, 1e21)
+    ... }, level=2)
+    >>> print(f"稀疏网格采样: {len(params)} 个点")
+
 作者: 研究团队
 日期: 2025
 """
