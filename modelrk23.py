@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional, cast
+from typing import Optional, cast, Callable
 from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
@@ -457,16 +457,17 @@ class GasSwellingModel:
             
             # 写入数据行
             writer.writerow([
-               t, dRcb_term2, cib, cvb, kvc2_b, kic2_b, Di, 
+               t, dRcb_term2, cib, cvb, kvc2_b, kic2_b, Di,
                Dv, DiDv
             ])
-      
+
     def solve(self, t_span: Tuple[float, float] = (0, 7200000),
               t_eval: Optional[np.ndarray] = None,
               dt: float = 1e-9,
               max_dt: float = 100.0,
               max_steps: int = 1000000,
-              output_interval: int = 1000) -> Dict:
+              output_interval: int = 1000,
+              callback: Optional[Callable] = None) -> Dict:
         """求解微分方程组"""
         self.step_count = 0
         self.debug_interval = output_interval
@@ -486,7 +487,8 @@ class GasSwellingModel:
                 atol=1e-6,
                 first_step=dt,
                 max_step=max_dt,
-                max_steps=max_steps
+                max_steps=max_steps,
+                callback=callback
             )
             self.solver_success = sol.success
         except Exception as e:
@@ -829,7 +831,7 @@ if __name__ == '__main__':
 
 
 import numpy as np
-from typing import Optional, cast
+from typing import Optional, cast, Callable
 from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
@@ -1249,13 +1251,14 @@ class GasSwellingModel:
         self.debug_history['dRcf_dt'].append(dRcf_dt)
         self.debug_history['dCgb_dt'].append(dCgb_dt)
         self.debug_history['dCgf_dt'].append(dCgf_dt)
-        return derivatives        
+        return derivatives
     def solve(self, t_span: Tuple[float, float] = (0, 7200000),
               t_eval: Optional[np.ndarray] = None,
               dt: float = 1e-9,
               max_dt: float = 100.0,
               max_steps: int = 1000000,
-              output_interval: int = 1000) -> Dict:
+              output_interval: int = 1000,
+              callback: Optional[Callable] = None) -> Dict:
         """求解微分方程组"""
         self.step_count = 0
         self.debug_interval = output_interval
@@ -1275,7 +1278,8 @@ class GasSwellingModel:
                 atol=1e-6,
                 first_step=dt,
                 max_step=max_dt,
-                max_steps=max_steps
+                max_steps=max_steps,
+                callback=callback
             )
             self.solver_success = sol.success
         except Exception as e:

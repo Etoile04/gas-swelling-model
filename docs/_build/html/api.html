@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>API Reference &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to Gas Swelling Model’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<p>This page contains the API reference documentation for the Gas Swelling Model.</p>
+<div class="toctree-wrapper compound">
+</div>
+<section id="model-classes">
+<h2>Model Classes<a class="headerlink" href="#model-classes" title="Link to this heading">¶</a></h2>
+<section id="main-model">
+<h3>Main Model<a class="headerlink" href="#main-model" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="modelrk23.GasSwellingModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">modelrk23.</span></span><span class="sig-name descname"><span class="pre">GasSwellingModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#GasSwellingModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.GasSwellingModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>气体肿胀模型，实现裂变气体气泡演化和空位肿胀的数值求解</p>
+<p>该模型模拟核燃料材料（U-Zr和U-Pu-Zr合金）中裂变气体气泡的演化
+和空位肿胀行为。模型基于速率理论，求解由10个耦合常微分方程组成的系统。</p>
+<dl class="simple">
+<dt>状态变量（10个）:</dt><dd><ul class="simple">
+<li><p>Cgb: 基体中气体原子浓度 (atoms/m³)</p></li>
+<li><p>Ccb: 基体中空腔/气泡浓度 (cavities/m³)</p></li>
+<li><p>Ncb: 基体中每个气泡的气体原子数 (atoms/cavity)</p></li>
+<li><p>cvb: 基体中空位浓度</p></li>
+<li><p>cib: 基体中间隙原子浓度</p></li>
+<li><p>Cgf: 相界面处气体原子浓度 (atoms/m³)</p></li>
+<li><p>Ccf: 相界面处空腔浓度 (cavities/m³)</p></li>
+<li><p>Ncf: 相界面处每个气泡的气体原子数 (atoms/cavity)</p></li>
+<li><p>cvf: 相界面处空位浓度</p></li>
+<li><p>cif: 相界面处间隙原子浓度</p></li>
+</ul>
+</dd>
+<dt>求解器:</dt><dd><p>使用 scipy.integrate.solve_ivp 的 RK23 方法进行求解，该方法在
+精度和速度之间提供了良好的平衡。</p>
+</dd>
+<dt>气体状态方程:</dt><dd><ul class="simple">
+<li><p>‘ideal’: 理想气体状态方程</p></li>
+<li><p>‘ronchi’: Ronchi硬球模型（更精确，推荐用于高压气泡）</p></li>
+</ul>
+</dd>
+<dt>属性:</dt><dd><p>params: 模型参数字典
+initial_state: 初始状态向量
+debug_history: 调试历史记录字典
+step_count: 求解步数计数器
+solver_success: 求解器成功标志
+current_time: 当前模拟时间</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.GasSwellingModel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#GasSwellingModel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.GasSwellingModel.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>初始化气体肿胀模型</p>
+<p>创建气体肿胀模型实例，设置模型参数、初始状态变量和调试记录系统。</p>
+<dl class="simple">
+<dt>参数:</dt><dd><dl class="simple">
+<dt>params: 模型参数字典，如果为None则使用默认参数。</dt><dd><p>可通过 params.parameters.create_default_parameters() 获取默认参数。
+关键参数包括:
+- temperature: 温度 (K)
+- fission_rate: 裂变率 (fissions/m³/s)
+- dislocation_density: 位错密度 (m⁻²)
+- surface_energy: 表面能 (J/m²)
+- Fnb, Fnf: 气泡成核因子（基体和界面）
+- eos_model: 气体状态方程模型 (‘ideal’ 或 ‘ronchi’)</p>
+</dd>
+</dl>
+</dd>
+<dt>初始化:</dt><dd><ul class="simple">
+<li><p>设置模型参数（包括默认的腔体偏置因子 Zvc=1.0, Zic=1.0）</p></li>
+<li><p>初始化状态向量（16个分量，包括10个状态变量和6个辅助变量）</p></li>
+<li><p>创建调试历史记录字典，用于存储时间演化数据</p></li>
+<li><p>初始化求解器状态标志和计数器</p></li>
+</ul>
+</dd>
+<dt>注意:</dt><dd><p>初始气泡半径设置为 1e-8 m (10 nm)，初始气泡内气体原子数设置为 5.0。
+这些值可以根据具体研究需求进行调整。</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.GasSwellingModel.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">7200000)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#GasSwellingModel.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.GasSwellingModel.solve" title="Link to this definition">¶</a></dt>
+<dd><p>求解气体肿胀模型的常微分方程组</p>
+<p>该方法使用 scipy.integrate.solve_ivp 的 LSODA 方法求解由10个状态变量
+组成的耦合常微分方程组系统。求解过程包括时间积分、状态变量演化、
+辅助变量计算以及肿胀率计算。</p>
+<dl class="simple">
+<dt>参数:</dt><dd><dl class="simple">
+<dt>t_span: 模拟时间跨度，格式为 (起始时间, 结束时间)，单位为秒。</dt><dd><p>默认为 (0, 7200000)，即模拟83.33天的辐照过程。</p>
+</dd>
+<dt>t_eval: 需要输出解的时间点数组，如果为None则自动生成100个均匀分布的时间点。</dt><dd><p>数组格式为 numpy.ndarray，用于控制输出结果的时间分辨率。</p>
+</dd>
+<dt>dt: 初始时间步长，单位为秒。默认为 1e-9 秒。</dt><dd><p>求解器会根据误差容限自适应调整时间步长。</p>
+</dd>
+<dt>max_dt: 最大允许时间步长，单位为秒。默认为 100.0 秒。</dt><dd><p>用于限制求解器的最大步长，避免在状态变量快速变化时步长过大。</p>
+</dd>
+<dt>max_steps: 最大求解步数，默认为 1000000 步。</dt><dd><p>用于防止求解陷入无限循环或超出计算资源限制。</p>
+</dd>
+<dt>output_interval: 调试信息输出间隔，默认每 1000 步输出一次。</dt><dd><p>用于控制 debug_history 的记录频率。</p>
+</dd>
+</dl>
+</dd>
+<dt>返回:</dt><dd><p>包含时间演化结果的字典，包含以下键:
+- ‘time’: 时间点数组 (秒)
+- ‘Cgb’: 基体中气体原子浓度 (atoms/m³)
+- ‘Ccb’: 基体中气泡浓度 (cavities/m³)
+- ‘Ncb’: 基体中每个气泡的气体原子数 (atoms/cavity)
+- ‘Rcb’: 基体中气泡半径 (m)
+- ‘Cgf’: 相界面处气体原子浓度 (atoms/m³)
+- ‘Ccf’: 相界面处气泡浓度 (cavities/m³)
+- ‘Ncf’: 相界面处每个气泡的气体原子数 (atoms/cavity)
+- ‘Rcf’: 相界面处气泡半径 (m)
+- ‘cvb’: 基体中空位浓度
+- ‘cib’: 基体中间隙原子浓度
+- ‘kvb’: 基体中空位损失速率系数
+- ‘kib’: 基体中间隙原子损失速率系数
+- ‘cvf’: 相界面处空位浓度
+- ‘cif’: 相界面处间隙原子浓度
+- ‘kvf’: 相界面处空位损失速率系数
+- ‘kif’: 相界面处间隙原子损失速率系数
+- ‘released_gas’: 累计释放的气体量 (atoms/m³)
+- ‘swelling’: 总肿胀率 (百分比)</p>
+</dd>
+<dt>异常:</dt><dd><p>如果求解失败，会将 self.solver_success 设置为 False，
+并返回空的时间数组和状态数组。</p>
+</dd>
+<dt>注意:</dt><dd><ul class="simple">
+<li><p>求解器使用 LSODA 方法，可自动处理刚性和非刚性系统</p></li>
+<li><p>相对误差容限 rtol=1e-4，绝对误差容限 atol=1e-6</p></li>
+<li><p>求解结果保存在 self.debug_history 中，可用于后续分析和可视化</p></li>
+<li><p>肿胀率计算基于气泡体积分数: V_bubble = (4/3)πR³ × Cc</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><em>Tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>t_eval</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>ndarray</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_steps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>output_interval</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.GasSwellingModel.plot_debug_history">
+<span class="sig-name descname"><span class="pre">plot_debug_history</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'debug_plots/'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#GasSwellingModel.plot_debug_history"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.GasSwellingModel.plot_debug_history" title="Link to this definition">¶</a></dt>
+<dd><p>绘制并保存调试历史图表，包含裂变密度作为第二X轴</p>
+<p>该方法可视化模型求解过程中记录的关键变量随时间的演化。
+生成多个图表，每个图表都包含主时间轴和裂变密度轴，便于
+分析辐照过程中的材料行为。</p>
+<dl class="simple">
+<dt>参数:</dt><dd><dl class="simple">
+<dt>save_dir: 图表保存目录路径，默认为 ‘debug_plots/’。</dt><dd><p>如果目录不存在，会自动创建。
+所有生成的图表文件将保存在此目录下。</p>
+</dd>
+</dl>
+</dd>
+<dt>生成的图表:</dt><dd><p>生成以下PNG格式图表（DPI=150）:
+- radius_comparison.png: 基体和界面气泡半径对比
+- pressure_comparison.png: 基体和界面气泡压力对比
+- excess_pressure_comparison.png: 基体和界面气泡过压对比
+- cv_star_comparison.png: 基体和界面热平衡空位浓度对比
+- dR_dt_comparison.png: 基体和界面气泡半径变化率对比
+- dCg_dt_comparison.png: 基体和界面气体浓度变化率对比</p>
+</dd>
+<dt>图表特性:</dt><dd><ul class="simple">
+<li><p>使用双X轴显示：时间（秒）和裂变密度（fissions/m³）</p></li>
+<li><p>支持中文字体（SimHei或Arial Unicode MS）</p></li>
+<li><p>高分辨率输出（DPI=150）</p></li>
+<li><p>自动图例和网格线</p></li>
+<li><p>图表尺寸为 12×7 英寸</p></li>
+</ul>
+</dd>
+<dt>异常:</dt><dd><p>如果 debug_history 中没有时间数据，会输出警告信息并返回。</p>
+</dd>
+<dt>注意:</dt><dd><ul class="simple">
+<li><p>裂变密度计算公式: fission_density = time × fission_rate</p></li>
+<li><p>需要在调用 solve() 方法之后使用，确保 debug_history 有数据</p></li>
+<li><p>每次调用会重新生成所有图表，覆盖同名文件</p></li>
+<li><p>图表使用不同的颜色和线型区分基体和界面数据</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>save_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="euler-method-model">
+<h3>Euler Method Model<a class="headerlink" href="#euler-method-model" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="modelrk23.EulerGasSwellingModel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">modelrk23.</span></span><span class="sig-name descname"><span class="pre">EulerGasSwellingModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#EulerGasSwellingModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.EulerGasSwellingModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>气体肿胀模型Euler简化版本,使用显式Euler方法求解常微分方程组</p>
+<p>该模型是GasSwellingModel的简化实现，使用显式Euler方法替代scipy.integrate.solve_ivp
+进行数值求解。模型模拟核燃料材料（U-Zr和U-Pu-Zr合金）中裂变气体气泡的演化
+和空位肿胀行为。</p>
+<dl class="simple">
+<dt>与GasSwellingModel的主要区别:</dt><dd><ul class="simple">
+<li><p>使用显式Euler方法而非RK23方法进行时间积分</p></li>
+<li><p>支持自适应时间步长以提高数值稳定性</p></li>
+<li><p>增强的数值保护机制（半径限制、压力上限等）</p></li>
+<li><p>详细的调试日志和进度输出</p></li>
+</ul>
+</dd>
+<dt>状态变量（17个）:</dt><dd><ul class="simple">
+<li><p>Cgb: 基体中气体原子浓度 (atoms/m³)</p></li>
+<li><p>Ccb: 基体中空腔/气泡浓度 (cavities/m³)</p></li>
+<li><p>Ncb: 基体中每个气泡的气体原子数 (atoms/cavity)</p></li>
+<li><p>Rcb: 基体中气泡半径 (m)</p></li>
+<li><p>Cgf: 相界面处气体原子浓度 (atoms/m³)</p></li>
+<li><p>Ccf: 相界面处空腔浓度 (cavities/m³)</p></li>
+<li><p>Ncf: 相界面处每个气泡的气体原子数 (atoms/cavity)</p></li>
+<li><p>Rcf: 相界面处气泡半径 (m)</p></li>
+<li><p>cvb: 基体中空位浓度</p></li>
+<li><p>cib: 基体中间隙原子浓度</p></li>
+<li><p>kvb: 基体中空位汇聚强度参数 (m⁻¹)</p></li>
+<li><p>kib: 基体中间隙原子汇聚强度参数 (m⁻¹)</p></li>
+<li><p>cvf: 相界面处空位浓度</p></li>
+<li><p>cif: 相界面处间隙原子浓度</p></li>
+<li><p>kvf: 相界面处空位汇聚强度参数 (m⁻¹)</p></li>
+<li><p>kif: 相界面处间隙原子汇聚强度参数 (m⁻¹)</p></li>
+<li><p>released_gas: 累积释放的气体量</p></li>
+</ul>
+</dd>
+<dt>求解器:</dt><dd><p>使用显式Euler方法进行时间积分，支持自适应时间步长和数值稳定性保护。
+相比RK23方法，Euler方法实现简单但可能需要更小的时间步长。</p>
+</dd>
+<dt>数值保护:</dt><dd><ul class="simple">
+<li><p>半径限制: 最小1e-10m, 最大1e-5m</p></li>
+<li><p>状态变量限制: 1e-10 到 1e28</p></li>
+<li><p>压力上限: 1e10 Pa</p></li>
+<li><p>指数参数限制: -700 到 700</p></li>
+</ul>
+</dd>
+<dt>优化参数（新增）:</dt><dd><ul class="simple">
+<li><p>critical_radius: 临界半径 (默认2nm), 用于表面张力平滑</p></li>
+<li><p>radius_smoothing_factor: 半径演化平滑因子 (默认0.8)</p></li>
+<li><p>pressure_scaling_factor: 小气泡内压力缩放因子 (默认0.5)</p></li>
+<li><p>vacancy_contribution_weight: 空位贡献项权重 (默认1.2)</p></li>
+</ul>
+</dd>
+<dt>属性:</dt><dd><p>params: 模型参数字典
+initial_state: 初始状态向量
+solver_success: 求解器成功标志
+num_warnings: 警告信息数量计数器
+warning_count: 警告总计数
+max_warnings: 最大警告信息数量 (默认100)
+step_count: 求解步数计数器
+debug_history: 调试历史记录字典</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.EulerGasSwellingModel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#EulerGasSwellingModel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.EulerGasSwellingModel.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>初始化Euler气体肿胀模型</p>
+<p>创建Euler气体肿胀模型实例，设置模型参数、初始状态变量和调试记录系统。</p>
+<dl class="simple">
+<dt>参数:</dt><dd><dl class="simple">
+<dt>params: 模型参数字典，如果为None则使用默认参数。</dt><dd><p>可通过 params.parameters.create_default_parameters() 获取默认参数。
+关键参数包括:
+- temperature: 温度 (K)
+- fission_rate: 裂变率 (fissions/m³/s)
+- dislocation_density: 位错密度 (m⁻²)
+- surface_energy: 表面能 (J/m²)
+- Fnb, Fnf: 气泡成核因子（基体和界面）
+- critical_radius: 临界半径，用于表面张力平滑 (默认2e-9 m)
+- radius_smoothing_factor: 半径演化平滑因子 (默认0.8)
+- pressure_scaling_factor: 小气泡内压力缩放因子 (默认0.5)
+- vacancy_contribution_weight: 空位贡献项权重 (默认1.2)</p>
+</dd>
+</dl>
+</dd>
+<dt>初始化:</dt><dd><ul class="simple">
+<li><p>设置模型参数（包括默认的腔体偏置因子 Zvc=1.0, Zic=1.0）</p></li>
+<li><p>设置优化参数的默认值（如果未提供）</p></li>
+<li><p>初始化状态向量（17个分量）</p></li>
+<li><p>创建调试历史记录字典，用于存储时间演化数据</p></li>
+<li><p>初始化求解器状态标志和计数器</p></li>
+</ul>
+</dd>
+<dt>注意:</dt><dd><p>初始气泡半径设置为 1e-8 m (10 nm)，初始气泡内气体原子数设置为 5.0。
+与GasSwellingModel相比，该版本增加了数值保护参数和详细的调试输出。</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.EulerGasSwellingModel.euler_solve">
+<span class="sig-name descname"><span class="pre">euler_solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">3600)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#EulerGasSwellingModel.euler_solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.EulerGasSwellingModel.euler_solve" title="Link to this definition">¶</a></dt>
+<dd><p>使用Euler方法求解微分方程组</p>
+<p>使用显式Euler方法对气体肿胀模型的常微分方程组进行时间积分求解。
+支持自适应时间步长、数值稳定性保护和详细的进度输出。</p>
+<dl>
+<dt>参数:</dt><dd><dl class="simple">
+<dt>t_span: 时间范围元组 (t_start, t_end)，单位为秒</dt><dd><p>默认 (0, 3600) 表示模拟1小时</p>
+</dd>
+<dt>t_eval: 需要输出结果的时间点数组，可选</dt><dd><p>如果为None，则自动生成100个均匀分布的时间点
+如果提供，将在这些时间点通过插值获取结果</p>
+</dd>
+<dt>dt: 初始时间步长，单位为秒 (默认0.1)</dt><dd><p>如果为None，则尝试从params[‘time_step’]获取，
+或根据t_eval自动计算合适的时间步长</p>
+</dd>
+<dt>max_dt: 最大时间步长，单位为秒 (默认0.5)</dt><dd><p>如果为None，则从params[‘max_time_step’]获取或使用默认值0.01
+自适应时间步长不会超过此值</p>
+</dd>
+<dt>max_steps: 最大计算步数 (默认1000)</dt><dd><p>如果为None，则不限制步数
+达到此步数后将停止计算并返回当前结果</p>
+</dd>
+<dt>output_interval: 状态输出的步数间隔 (默认100)</dt><dd><p>每隔此步数输出一次详细的计算状态信息，
+包括半径、压力、气体分配等</p>
+</dd>
+</dl>
+</dd>
+<dt>返回:</dt><dd><dl class="simple">
+<dt>Dict: 包含计算结果的字典，键为状态变量名称，值为时间序列数组:</dt><dd><ul class="simple">
+<li><p>‘time’: 时间点数组 (s)</p></li>
+<li><p>‘Cgb’: 基体气体原子浓度 (atoms/m³)</p></li>
+<li><p>‘Ccb’: 基体气泡浓度 (cavities/m³)</p></li>
+<li><p>‘Ncb’: 基体每个气泡气体原子数 (atoms/cavity)</p></li>
+<li><p>‘Rcb’: 基体气泡半径 (m)</p></li>
+<li><p>‘Cgf’: 界面气体原子浓度 (atoms/m³)</p></li>
+<li><p>‘Ccf’: 界面气泡浓度 (cavities/m³)</p></li>
+<li><p>‘Ncf’: 界面每个气泡气体原子数 (atoms/cavity)</p></li>
+<li><p>‘Rcf’: 界面气泡半径 (m)</p></li>
+<li><p>‘cvb’: 基体空位浓度</p></li>
+<li><p>‘cib’: 基体间隙原子浓度</p></li>
+<li><p>‘kvb’: 基体空位汇聚强度参数 (m⁻¹)</p></li>
+<li><p>‘kib’: 基体间隙原子汇聚强度参数 (m⁻¹)</p></li>
+<li><p>‘cvf’: 界面空位浓度</p></li>
+<li><p>‘cif’: 界面间隙原子浓度</p></li>
+<li><p>‘kvf’: 界面空位汇聚强度参数 (m⁻¹)</p></li>
+<li><p>‘kif’: 界面间隙原子汇聚强度参数 (m⁻¹)</p></li>
+<li><p>‘released_gas’: 累积释放的气体量</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt>求解过程:</dt><dd><ol class="arabic simple">
+<li><p>初始化状态和时间</p></li>
+<li><p>主循环: 逐步推进时间
+- 计算当前状态的导数
+- 使用Euler公式更新状态: state_new = state + dt * derivatives
+- 应用数值限制和保护
+- 自适应调整时间步长
+- 定期输出计算进度</p></li>
+<li><p>插值获取t_eval时间点的结果</p></li>
+<li><p>返回结果字典</p></li>
+</ol>
+</dd>
+<dt>数值稳定性保护:</dt><dd><ul class="simple">
+<li><p>状态变量限制在 [1e-10, 1e28] 范围内</p></li>
+<li><p>气泡半径限制在 [1e-10, 1e-5] 范围内</p></li>
+<li><p>导数中的无效值 (NaN, Inf) 替换为0</p></li>
+<li><p>检测数值不稳定并自动减小时间步长</p></li>
+<li><p>限制警告信息数量防止日志过大</p></li>
+</ul>
+</dd>
+<dt>自适应时间步长:</dt><dd><ul class="simple">
+<li><p>初始使用dt指定的步长</p></li>
+<li><p>每隔5步，如果计算稳定，将步长增加20%</p></li>
+<li><p>步长永远不会超过max_dt</p></li>
+<li><p>如果检测到数值不稳定，步长减半</p></li>
+</ul>
+</dd>
+<dt>示例:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">EulerGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">euler_solve</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">),</span>  <span class="c1"># 模拟1天</span>
+<span class="gp">... </span>    <span class="n">t_eval</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">,</span> <span class="mi">1000</span><span class="p">),</span>
+<span class="gp">... </span>    <span class="n">dt</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">max_dt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">output_interval</span><span class="o">=</span><span class="mi">500</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># 最终基体气泡半径</span>
+</pre></div>
+</div>
+</dd>
+<dt>注意:</dt><dd><ul class="simple">
+<li><p>与scipy.integrate.solve_ivp相比，Euler方法可能需要更小的时间步长</p></li>
+<li><p>对于长时间模拟，建议使用较大的max_dt以加速计算</p></li>
+<li><p>设置output_interval可以控制日志输出详细程度</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><em>Tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>t_eval</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>ndarray</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_steps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>output_interval</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.EulerGasSwellingModel.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">3600)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#EulerGasSwellingModel.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.EulerGasSwellingModel.solve" title="Link to this definition">¶</a></dt>
+<dd><p>求解微分方程组（Euler方法实现）</p>
+<p>这是与原始GasSwellingModel兼容的接口方法，内部调用euler_solve进行求解。
+提供了与原始模型相同的API签名，便于代码迁移和比较。</p>
+<dl>
+<dt>参数:</dt><dd><p>t_span: 时间范围元组 (t_start, t_end)，单位为秒 (默认(0, 3600))
+t_eval: 需要输出结果的时间点数组，可选 (默认None)
+dt: 时间步长，单位为秒 (默认0.1)</p>
+<blockquote>
+<div><p>注意: 此参数同时作为初始步长和最大步长</p>
+</div></blockquote>
+</dd>
+<dt>返回:</dt><dd><p>Dict: 包含计算结果的字典，详见euler_solve方法的文档</p>
+</dd>
+<dt>注意:</dt><dd><ul class="simple">
+<li><p>此方法为了兼容性保留，参数简化</p></li>
+<li><p>如需使用完整的Euler求解器功能（如max_dt, max_steps等），
+请直接调用euler_solve方法</p></li>
+<li><p>返回值格式与GasSwellingModel.solve()完全相同</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><em>Tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>t_eval</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.4)"><em>ndarray</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><em>Dict</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="modelrk23.EulerGasSwellingModel.plot_debug_history">
+<span class="sig-name descname"><span class="pre">plot_debug_history</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euler_debug_plots'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/modelrk23.html#EulerGasSwellingModel.plot_debug_history"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#modelrk23.EulerGasSwellingModel.plot_debug_history" title="Link to this definition">¶</a></dt>
+<dd><p>绘制调试历史数据，显示关键变量随时间的变化</p>
+<p>将求解过程中记录的调试历史数据可视化，生成多个PNG图像文件，
+用于诊断模型行为和验证数值稳定性。</p>
+<dl>
+<dt>参数:</dt><dd><dl class="simple">
+<dt>save_dir: 图像保存目录路径 (默认”euler_debug_plots”)</dt><dd><p>如果目录不存在，将自动创建</p>
+</dd>
+</dl>
+</dd>
+<dt>生成的图像:</dt><dd><ol class="arabic simple">
+<li><p>radius_vs_time.png: 气泡半径随时间变化
+- Rcb: 基体气泡半径
+- Rcf: 界面气泡半径</p></li>
+<li><p>pressure_vs_time.png: 气泡内压力随时间变化
+- Pg_b: 基体气泡内气体压力
+- Pg_f: 界面气泡内气体压力</p></li>
+<li><p>excess_pressure_vs_time.png: 过压随时间变化
+- Pext_b: 基体气泡有效压力差
+- Pext_f: 界面气泡有效压力差
+- 红色虚线标记Pext=0（过压/欠压分界线）</p></li>
+<li><p>cv_star_vs_time.png: 空腔附近空位浓度随时间变化
+- cv_star_b: 基体空腔附近空位浓度
+- cv_star_f: 界面空腔附近空位浓度</p></li>
+<li><p>dR_dt_vs_time.png: 气泡半径变化率随时间变化
+- dRcb_dt: 基体气泡半径变化率
+- dRcf_dt: 界面气泡半径变化率</p></li>
+<li><p>dC_dt_vs_time.png: 气体浓度变化率随时间变化
+- dCgb_dt: 基体气体浓度变化率
+- dCgf_dt: 界面气体浓度变化率</p></li>
+</ol>
+</dd>
+<dt>注意:</dt><dd><ul class="simple">
+<li><p>如果debug_history为空（未运行求解或求解失败），将输出警告并返回</p></li>
+<li><p>每个图像自动关闭以节省内存</p></li>
+<li><p>所有图像保存在指定目录中，使用上述文件名</p></li>
+</ul>
+</dd>
+<dt>示例:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">EulerGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">euler_solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3600</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">plot_debug_history</span><span class="p">(</span><span class="n">save_dir</span><span class="o">=</span><span class="s2">&quot;my_debug_plots&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 查看 my_debug_plots/ 目录中的图像</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+<section id="parameter-classes">
+<h2>Parameter Classes<a class="headerlink" href="#parameter-classes" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="parameters.MaterialParameters">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">parameters.</span></span><span class="sig-name descname"><span class="pre">MaterialParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lattice_constant=3.4808e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ATOMIC_VOLUME=4.09e-29</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu_constant=7800000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dv0=2e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evm=0.74</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evf_coeffs=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evfmuti=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zv=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zi=1.025</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dislocation_density=70000000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_energy=0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydrastatic_pressure=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnb=1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnf=1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recombination_radius=2e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Di0=1.259e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eim=1.18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eif_coeffs=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kv_param=np.float64(8366600.265340756)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ki_param=np.float64(8470537.173048709)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xe_radii=2.16e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_epsilon_k=290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_sigma=3.86e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_mass=0.131293</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Tc=290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_dc=1103.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Vc=3.592e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_q_coeffs=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/parameters.html#MaterialParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#parameters.MaterialParameters" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>材料参数数据类（表1和表2中的参数）</p>
+<p>该数据类包含模拟U-Zr和U-Pu-Zr核燃料材料裂变气体气泡演化所需的
+所有材料物理参数。参数涵盖了晶体结构、扩散性质、缺陷动力学、
+表面能和气体状态方程等方面。</p>
+<dl>
+<dt>属性:</dt><dd><dl>
+<dt>lattice_constant: 晶格常数，用于计算原子间距和扩散距离。</dt><dd><p>单位: m (米)，默认值: 3.4808e-10 m (铀锆合金)</p>
+</dd>
+<dt>ATOMIC_VOLUME: 铀原子的体积，用于计算原子密度和浓度转换。</dt><dd><p>单位: m³ (立方米)，默认值: 4.09e-29 m³</p>
+</dd>
+<dt>nu_constant: 原子跃迁尝试频率，表示原子尝试跃迁到相邻位置的频率。</dt><dd><p>单位: s⁻¹ (每秒)，默认值: 7.8e12 s⁻¹
+物理意义: 决定扩散系数的前指数因子</p>
+</dd>
+<dt>Dv0: 空位扩散系数的前指数因子，用于计算温度依赖的空位扩散系数。</dt><dd><p>单位: m²/s，默认值: 2.0e-8 m²/s
+物理意义: 空位在晶格中的迁移能力</p>
+</dd>
+<dt>Evm: 空位迁移能，空位从一个位置跃迁到相邻位置所需的能量。</dt><dd><p>单位: eV (电子伏特)，默认值: 0.74 eV
+物理意义: 控制空位扩散的阿伦尼乌斯温度依赖性</p>
+</dd>
+<dt>Evf_coeffs: 空位形成能的温度系数数组，用于计算温度依赖的空位形成能。</dt><dd><p>公式: Evf = C0 + C1*T (eV)
+单位: eV 和 eV/K，默认值: [1.034, 7.6e-4]
+物理意义: 在不同温度下形成空位所需的能量</p>
+</dd>
+<dt>Evfmuti: 空位形成能的修正因子，用于调整空位形成能以匹配实验数据。</dt><dd><p>无量纲，默认值: 1.0
+物理意义: 经验修正参数，用于模型校准</p>
+</dd>
+<dt>Zv: 空位的位错偏压因子，表示位错对空位的吸引强度。</dt><dd><p>无量纲，默认值: 1.0
+物理意义: 决定位错作为空位汇的效率，影响空位浓度分布</p>
+</dd>
+<dt>Zi: 间隙原子(SIA)的位错偏压因子，表示位错对间隙原子的吸引强度。</dt><dd><p>无量纲，默认值: 1.025
+物理意义: 通常Zi &gt; Zv，导致间隙原子更倾向于被位错吸收，</p>
+<blockquote>
+<div><p>这是驱动空位肿胀的偏压机制基础</p>
+</div></blockquote>
+</dd>
+<dt>dislocation_density: 位错密度，单位体积内的位错线长度。</dt><dd><p>单位: m⁻²，默认值: 7.0e13 m⁻²
+物理意义: 位错作为缺陷汇的强度，直接影响缺陷复合和气泡生长速率</p>
+</dd>
+<dt>surface_energy: 材料的表面能，气泡-基体界面的能量密度。</dt><dd><p>单位: J/m²，默认值: 0.5 J/m²
+参考文献: Rest, FissionGasBubble(1992)
+物理意义: 控制气泡的临界半径和稳定性，表面能越大，</p>
+<blockquote>
+<div><p>气泡越难生长，对抑制肿胀有重要作用</p>
+</div></blockquote>
+</dd>
+<dt>hydrastatic_pressure: 外部施加的静水压力。</dt><dd><p>单位: Pa (帕斯卡)，默认值: 0.0 Pa
+物理意义: 外部压力会抑制气泡生长，实际燃料棒中存在</p>
+<blockquote>
+<div><p>冷却剂压力和裂变气体压力的竞争</p>
+</div></blockquote>
+</dd>
+<dt>Fnb: 基体(bulk)中的气泡成核因子，控制新气泡在晶粒内部形成的速率。</dt><dd><p>无量纲，默认值: 1e-5
+物理意义: 较小的Fnb值意味着成核受到抑制，气泡倾向于</p>
+<blockquote>
+<div><p>在已存在的气泡上生长而非形成新气泡</p>
+</div></blockquote>
+</dd>
+<dt>Fnf: 相界面(phase boundary)处的气泡成核因子，控制新气泡在</dt><dd><blockquote>
+<div><p>晶界和相界形成的速率。</p>
+</div></blockquote>
+<p>无量纲，默认值: 1e-5
+物理意义: 晶界通常是气泡优先成核位置，Fnf影响晶界气泡</p>
+<blockquote>
+<div><p>的数量和气体在晶界的富集程度</p>
+</div></blockquote>
+</dd>
+<dt>recombination_radius: 空位-间隙原子复合的反应半径。</dt><dd><p>单位: m，默认值: 2.0e-10 m (约2埃)
+物理意义: 当空位和间隙原子距离小于此值时发生复合消失，</p>
+<blockquote>
+<div><p>是控制缺陷浓度的关键参数</p>
+</div></blockquote>
+</dd>
+<dt>Di0: 间隙原子(SIA)扩散系数的前指数因子。</dt><dd><p>单位: m²/s，默认值: 1.259e-12 m²/s
+注: 已人为调整到原始值的1/10以匹配实验数据
+物理意义: 间隙原子迁移极快，扩散系数远大于空位</p>
+</dd>
+<dt>Eim: 间隙原子迁移能，SIA跃迁所需的能量。</dt><dd><p>单位: eV，默认值: 1.18 eV
+物理意义: 虽然迁移能较高，但前指数因子大，使得SIA扩散</p>
+<blockquote>
+<div><p>仍比空位快得多</p>
+</div></blockquote>
+</dd>
+<dt>Eif_coeffs: 间隙原子形成能的温度系数数组，用于计算温度依赖的SIA形成能。</dt><dd><p>公式: Eif = C0 + C1*T + C2*T² + C3*T³ (eV)
+单位: eV, eV/K, eV/K², eV/K³
+默认值: [-3.992, 0.038, -7.645e-5, 5.213e-8]
+物理意义: SIA形成能随温度非线性变化，影响热平衡浓度</p>
+</dd>
+<dt>kv_param: 空位的位错汇强度参数。</dt><dd><p>单位: m⁻¹，计算公式: √(Zv × ρ)，其中ρ为位错密度
+物理意义: 出现在速率方程中，表征位错吸收空位的效率</p>
+<blockquote>
+<div><p>(公式21, 22)</p>
+</div></blockquote>
+</dd>
+<dt>ki_param: 间隙原子的位错汇强度参数。</dt><dd><p>单位: m⁻¹，计算公式: √(Zi × ρ)，其中ρ为位错密度
+物理意义: 出现在速率方程中，表征位错吸收间隙原子的效率</p>
+<blockquote>
+<div><p>(公式21, 22)</p>
+</div></blockquote>
+</dd>
+<dt>Xe_radii: 氙(Xe)原子的原子半径。</dt><dd><p>单位: m，默认值: 2.16e-10 m
+物理意义: 用于计算气泡内气体原子的体积占有和硬球模型</p>
+</dd>
+<dt>xe_epsilon_k: 氙气Lennard-Jones势函数的势阱深度。</dt><dd><p>单位: K (开尔文温度)，默认值: 290.0 K
+物理意义: 表征Xe原子间的分子间作用力强度，用于范德华</p>
+<blockquote>
+<div><p>状态方程计算</p>
+</div></blockquote>
+</dd>
+<dt>xe_sigma: 氙气Lennard-Jones势函数的碰撞直径(零势能距离)。</dt><dd><p>单位: m，默认值: 3.86e-10 m
+物理意义: Xe原子的有效直径，用于硬球模型和分子间作用力计算</p>
+</dd>
+<dt>xe_mass: 氙原子的摩尔质量。</dt><dd><p>单位: kg/mol，默认值: 0.131293 kg/mol
+物理意义: 用于计算气泡内气体的质量和状态方程</p>
+</dd>
+<dt>xe_Tc: 氙气的临界温度(气体液化的最高温度)。</dt><dd><p>单位: K，默认值: 290.0 K
+物理意义: 在Ronchi状态方程中作为参考温度，用于计算</p>
+<blockquote>
+<div><p>压缩因子</p>
+</div></blockquote>
+</dd>
+<dt>xe_dc: 氙气的临界密度(临界点处的密度)。</dt><dd><p>单位: kg/m³，默认值: 1.103e3 kg/m³
+物理意义: 在Ronchi状态方程中用于无量纲化密度</p>
+</dd>
+<dt>xe_Vc: 氙气的临界摩尔体积(临界点处的摩尔体积)。</dt><dd><p>单位: m³/mol，默认值: 35.92e-6 m³/mol
+物理意义: 在状态方程中作为参考体积</p>
+</dd>
+<dt>xe_q_coeffs: Ronchi状态方程中温度函数f(T)的系数数组。</dt><dd><p>公式: f(T) = Σ(q_n × τ^n)，其中τ = Tc/T
+单位: 无量纲系数，默认值: [2.12748, 0.52905, 0.13053, 0.02697, 0.00313]
+物理意义: 这些经验系数使得Ronchi状态方程能够准确描述</p>
+<blockquote>
+<div><p>高压下氙气的非理想气体行为</p>
+</div></blockquote>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lattice_constant</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>ATOMIC_VOLUME</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>nu_constant</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dv0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Evm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Evf_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>Evfmuti</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Zv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Zi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>dislocation_density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>surface_energy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>hydrastatic_pressure</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Fnb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Fnf</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>recombination_radius</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Di0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Eim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Eif_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>kv_param</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>ki_param</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Xe_radii</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_epsilon_k</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_mass</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_Tc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_dc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_Vc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_q_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.lattice_constant">
+<span class="sig-name descname"><span class="pre">lattice_constant</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.4808e-10</span></em><a class="headerlink" href="#parameters.MaterialParameters.lattice_constant" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.ATOMIC_VOLUME">
+<span class="sig-name descname"><span class="pre">ATOMIC_VOLUME</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4.09e-29</span></em><a class="headerlink" href="#parameters.MaterialParameters.ATOMIC_VOLUME" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.nu_constant">
+<span class="sig-name descname"><span class="pre">nu_constant</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7800000000000.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.nu_constant" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Dv0">
+<span class="sig-name descname"><span class="pre">Dv0</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-08</span></em><a class="headerlink" href="#parameters.MaterialParameters.Dv0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Evm">
+<span class="sig-name descname"><span class="pre">Evm</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.74</span></em><a class="headerlink" href="#parameters.MaterialParameters.Evm" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Evf_coeffs">
+<span class="sig-name descname"><span class="pre">Evf_coeffs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#parameters.MaterialParameters.Evf_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Evfmuti">
+<span class="sig-name descname"><span class="pre">Evfmuti</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.Evfmuti" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Zv">
+<span class="sig-name descname"><span class="pre">Zv</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.Zv" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Zi">
+<span class="sig-name descname"><span class="pre">Zi</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.025</span></em><a class="headerlink" href="#parameters.MaterialParameters.Zi" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.dislocation_density">
+<span class="sig-name descname"><span class="pre">dislocation_density</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">70000000000000.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.dislocation_density" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.surface_energy">
+<span class="sig-name descname"><span class="pre">surface_energy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></em><a class="headerlink" href="#parameters.MaterialParameters.surface_energy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.hydrastatic_pressure">
+<span class="sig-name descname"><span class="pre">hydrastatic_pressure</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.hydrastatic_pressure" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Fnb">
+<span class="sig-name descname"><span class="pre">Fnb</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-05</span></em><a class="headerlink" href="#parameters.MaterialParameters.Fnb" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Fnf">
+<span class="sig-name descname"><span class="pre">Fnf</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-05</span></em><a class="headerlink" href="#parameters.MaterialParameters.Fnf" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.recombination_radius">
+<span class="sig-name descname"><span class="pre">recombination_radius</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-10</span></em><a class="headerlink" href="#parameters.MaterialParameters.recombination_radius" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Di0">
+<span class="sig-name descname"><span class="pre">Di0</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.259e-12</span></em><a class="headerlink" href="#parameters.MaterialParameters.Di0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Eim">
+<span class="sig-name descname"><span class="pre">Eim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.18</span></em><a class="headerlink" href="#parameters.MaterialParameters.Eim" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Eif_coeffs">
+<span class="sig-name descname"><span class="pre">Eif_coeffs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#parameters.MaterialParameters.Eif_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.kv_param">
+<span class="sig-name descname"><span class="pre">kv_param</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">np.float64(8366600.265340756)</span></em><a class="headerlink" href="#parameters.MaterialParameters.kv_param" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.ki_param">
+<span class="sig-name descname"><span class="pre">ki_param</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">np.float64(8470537.173048709)</span></em><a class="headerlink" href="#parameters.MaterialParameters.ki_param" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.Xe_radii">
+<span class="sig-name descname"><span class="pre">Xe_radii</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.16e-10</span></em><a class="headerlink" href="#parameters.MaterialParameters.Xe_radii" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_epsilon_k">
+<span class="sig-name descname"><span class="pre">xe_epsilon_k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">290.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_epsilon_k" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_sigma">
+<span class="sig-name descname"><span class="pre">xe_sigma</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.86e-10</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_sigma" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_mass">
+<span class="sig-name descname"><span class="pre">xe_mass</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.131293</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_mass" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_Tc">
+<span class="sig-name descname"><span class="pre">xe_Tc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">290.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_Tc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_dc">
+<span class="sig-name descname"><span class="pre">xe_dc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1103.0</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_dc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_Vc">
+<span class="sig-name descname"><span class="pre">xe_Vc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.592e-05</span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_Vc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.xe_q_coeffs">
+<span class="sig-name descname"><span class="pre">xe_q_coeffs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#parameters.MaterialParameters.xe_q_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="parameters.MaterialParameters.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lattice_constant=3.4808e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ATOMIC_VOLUME=4.09e-29</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu_constant=7800000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dv0=2e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evm=0.74</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evf_coeffs=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evfmuti=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zv=1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zi=1.025</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dislocation_density=70000000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_energy=0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydrastatic_pressure=0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnb=1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnf=1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recombination_radius=2e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Di0=1.259e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eim=1.18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eif_coeffs=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kv_param=np.float64(8366600.265340756)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ki_param=np.float64(8470537.173048709)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xe_radii=2.16e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_epsilon_k=290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_sigma=3.86e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_mass=0.131293</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Tc=290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_dc=1103.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Vc=3.592e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_q_coeffs=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#parameters.MaterialParameters.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lattice_constant</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>ATOMIC_VOLUME</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>nu_constant</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dv0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Evm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Evf_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>Evfmuti</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Zv</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Zi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>dislocation_density</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>surface_energy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>hydrastatic_pressure</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Fnb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Fnf</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>recombination_radius</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Di0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Eim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Eif_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+<li><p><strong>kv_param</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>ki_param</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Xe_radii</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_epsilon_k</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_sigma</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_mass</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_Tc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_dc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_Vc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>xe_q_coeffs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="parameters.SimulationParameters">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">parameters.</span></span><span class="sig-name descname"><span class="pre">SimulationParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fission_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e+20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">displacement_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.8955078125e-25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_f</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gas_production_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grain_diameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8640000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_prefactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_activation_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_fission_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.07e-31</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgf_multiplier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ideal'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/parameters.html#SimulationParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#parameters.SimulationParameters" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>模拟参数数据类</p>
+<p>该数据类包含控制气体肿胀模型数值模拟过程的所有参数。
+这些参数定义了裂变反应条件、材料辐照环境、时间积分策略、
+气体输运性质以及气体状态方程模型选择。</p>
+<dl>
+<dt>属性:</dt><dd><dl>
+<dt>fission_rate: 裂变率密度，单位体积内每秒发生的裂变事件数。</dt><dd><p>单位: fissions/(m³·s)，默认值: 2×10²⁰ fissions/(m³·s)
+参考文献: JNM 583 (2023) 154542
+物理意义: 决定气体原子产生速率和缺陷产生速率的核心参数，</p>
+<blockquote>
+<div><p>直接影响气泡成核和生长速率</p>
+</div></blockquote>
+</dd>
+<dt>displacement_rate: 置换率密度，每次裂变产生的弗兰克尔缺陷对数量。</dt><dd><p>单位: dpa/(fission·m³)，默认值: 14825/5.12×10²⁸
+物理意义: 每次裂变事件产生的空位和间隙原子数量，</p>
+<blockquote>
+<div><p>控制辐照缺陷的总量</p>
+</div></blockquote>
+</dd>
+<dt>sigma_f: 宏观裂变截面，中子与材料发生裂变反应的概率度量。</dt><dd><p>单位: m⁻¹，默认值: 2.72×10⁴ m⁻¹
+物理意义: 材料对裂变中子的反应截面，影响裂变率计算</p>
+</dd>
+<dt>gas_production_rate: 气体原子产生率因子，每次裂变产生的气体原子数。</dt><dd><p>无量纲，默认值: 0.25 (每次裂变产生0.25个气体原子)
+物理意义: 典型铀燃料中，每次裂变约产生0.25-0.30个氙/氪原子，</p>
+<blockquote>
+<div><p>是气体肿胀的源头</p>
+</div></blockquote>
+</dd>
+<dt>resolution_rate: 气泡重溶率，裂变碎片穿过气泡使气体原子重新回到基体的速率。</dt><dd><p>单位: s⁻¹，默认值: 2×10⁻⁵ s⁻¹
+物理意义: 裂变碎片撞击气泡会将气体原子”踢”回基体，</p>
+<blockquote>
+<div><p>抑制气泡过度生长，是重要的负反馈机制</p>
+</div></blockquote>
+</dd>
+<dt>grain_diameter: 燃料晶粒的平均直径。</dt><dd><p>单位: m，默认值: 0.5 μm (5×10⁻⁷ m)
+物理意义: 晶粒尺寸影响晶界面积和气体在晶界的富集程度，</p>
+<blockquote>
+<div><p>较小的晶粒提供更多晶界汇，促进气体释放</p>
+</div></blockquote>
+</dd>
+<dt>temperature: 燃料运行温度。</dt><dd><p>单位: K (开尔文)，默认值: 600 K
+物理意义: 温度通过阿伦尼乌斯关系强烈影响扩散系数，</p>
+<blockquote>
+<div><p>控制气体迁移、缺陷复合和气泡生长速率，
+肿胀率在700-800K附近呈现峰值</p>
+</div></blockquote>
+</dd>
+<dt>time_step: 数值积分的初始时间步长。</dt><dd><p>单位: s (秒)，默认值: 1×10⁻⁹ s
+注: 使用自适应RK23方法，步长会自动调整
+物理意义: 初始步长需要足够小以捕捉快速过程(缺陷复合)，</p>
+<blockquote>
+<div><p>自适应算法会在稳定过程中增大步长以提高效率</p>
+</div></blockquote>
+</dd>
+<dt>max_time_step: 数值积分的最大允许时间步长。</dt><dd><p>单位: s，默认值: 1×10² s (100秒)
+物理意义: 限制步长上限以确保数值稳定性，</p>
+<blockquote>
+<div><p>防止在缓慢变化过程中步长过大导致精度损失</p>
+</div></blockquote>
+</dd>
+<dt>max_time: 模拟的总时长。</dt><dd><p>单位: s，默认值: 3600×24×100 s (100天)
+物理意义: 定义模拟的燃料燃耗时间，</p>
+<blockquote>
+<div><p>100天对应约5-10 at.%燃耗(取决于裂变率)</p>
+</div></blockquote>
+</dd>
+<dt>Dgb_prefactor: 基体(bulk)中气体原子扩散系数的前指数因子。</dt><dd><p>单位: m²/s，默认值: 1.2×10⁻⁷ m²/s
+物理意义: 扩散系数 D = D0 × exp(-Q/kT) 中的D0项，</p>
+<blockquote>
+<div><p>控制扩散的绝对速率</p>
+</div></blockquote>
+</dd>
+<dt>Dgb_activation_energy: 基体中气体原子扩散的激活能。</dt><dd><p>单位: eV (电子伏特)，默认值: 1.16 eV
+物理意义: 气体原子在晶格中迁移需要克服的能量势垒，</p>
+<blockquote>
+<div><p>与温度共同决定扩散系数的温度依赖性</p>
+</div></blockquote>
+</dd>
+<dt>Dgb_fission_term: 裂变对气体扩散的增强项系数。</dt><dd><p>单位: (fissions·m²)⁻¹，默认值: 5.07×10⁻³¹ (fissions·m²)⁻¹
+物理意义: 裂变碎片产生的级联碰撞会额外增强气体扩散，</p>
+<blockquote>
+<div><p>该项正比于裂变率，在高中子通量下显著</p>
+</div></blockquote>
+</dd>
+<dt>Dgf_multiplier: 相界面(phase boundary)扩散系数相对于基体的倍数。</dt><dd><p>无量纲，默认值: 300 (Dgf = Dgb × 300)
+物理意义: 晶界和相界处的原子排列更开放，气体扩散速度</p>
+<blockquote>
+<div><p>显著快于晶内，促进气体向晶界富集和释放</p>
+</div></blockquote>
+</dd>
+<dt>eos_model: 气体状态方程模型，用于计算气泡内气体压力。</dt><dd><p>类型: str，可选值: ‘ideal’ 或 ‘ronchi’，默认值: ‘ideal’
+物理意义:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>‘ideal’: 理想气体状态方程 P = nRT/V，适用于低压气泡</p></li>
+<li><dl class="simple">
+<dt>‘ronchi’: Ronchi修正状态方程，考虑高密度氙气的</dt><dd><p>非理想行为，适用于高压小气泡</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fission_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>displacement_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>sigma_f</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>gas_production_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>resolution_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>grain_diameter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>time_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_time_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_prefactor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_activation_energy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_fission_term</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgf_multiplier</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>eos_model</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.fission_rate">
+<span class="sig-name descname"><span class="pre">fission_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e+20</span></em><a class="headerlink" href="#parameters.SimulationParameters.fission_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.displacement_rate">
+<span class="sig-name descname"><span class="pre">displacement_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.8955078125e-25</span></em><a class="headerlink" href="#parameters.SimulationParameters.displacement_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.sigma_f">
+<span class="sig-name descname"><span class="pre">sigma_f</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">27200.0</span></em><a class="headerlink" href="#parameters.SimulationParameters.sigma_f" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.gas_production_rate">
+<span class="sig-name descname"><span class="pre">gas_production_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.25</span></em><a class="headerlink" href="#parameters.SimulationParameters.gas_production_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.resolution_rate">
+<span class="sig-name descname"><span class="pre">resolution_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-05</span></em><a class="headerlink" href="#parameters.SimulationParameters.resolution_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.grain_diameter">
+<span class="sig-name descname"><span class="pre">grain_diameter</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5e-07</span></em><a class="headerlink" href="#parameters.SimulationParameters.grain_diameter" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.temperature">
+<span class="sig-name descname"><span class="pre">temperature</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">600</span></em><a class="headerlink" href="#parameters.SimulationParameters.temperature" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.time_step">
+<span class="sig-name descname"><span class="pre">time_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-09</span></em><a class="headerlink" href="#parameters.SimulationParameters.time_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.max_time_step">
+<span class="sig-name descname"><span class="pre">max_time_step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100.0</span></em><a class="headerlink" href="#parameters.SimulationParameters.max_time_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.max_time">
+<span class="sig-name descname"><span class="pre">max_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8640000</span></em><a class="headerlink" href="#parameters.SimulationParameters.max_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.Dgb_prefactor">
+<span class="sig-name descname"><span class="pre">Dgb_prefactor</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.2e-07</span></em><a class="headerlink" href="#parameters.SimulationParameters.Dgb_prefactor" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.Dgb_activation_energy">
+<span class="sig-name descname"><span class="pre">Dgb_activation_energy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.16</span></em><a class="headerlink" href="#parameters.SimulationParameters.Dgb_activation_energy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.Dgb_fission_term">
+<span class="sig-name descname"><span class="pre">Dgb_fission_term</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.07e-31</span></em><a class="headerlink" href="#parameters.SimulationParameters.Dgb_fission_term" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.Dgf_multiplier">
+<span class="sig-name descname"><span class="pre">Dgf_multiplier</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">300.0</span></em><a class="headerlink" href="#parameters.SimulationParameters.Dgf_multiplier" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.eos_model">
+<span class="sig-name descname"><span class="pre">eos_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ideal'</span></em><a class="headerlink" href="#parameters.SimulationParameters.eos_model" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="parameters.SimulationParameters.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fission_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e+20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">displacement_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.8955078125e-25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_f</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gas_production_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grain_diameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8640000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_prefactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_activation_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_fission_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.07e-31</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgf_multiplier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ideal'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#parameters.SimulationParameters.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fission_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>displacement_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>sigma_f</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>gas_production_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>resolution_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>grain_diameter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>temperature</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>time_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_time_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>max_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_prefactor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_activation_energy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgb_fission_term</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>Dgf_multiplier</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>eos_model</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="parameter-creation-functions">
+<h2>Parameter Creation Functions<a class="headerlink" href="#parameter-creation-functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="parameters.create_default_parameters">
+<span class="sig-prename descclassname"><span class="pre">parameters.</span></span><span class="sig-name descname"><span class="pre">create_default_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/parameters.html#create_default_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#parameters.create_default_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>创建默认参数集合</p>
+<p>该函数初始化并返回包含所有材料参数、模拟参数、计算参数和物理常数的
+完整参数字典。默认参数基于U-Zr和U-Pu-Zr核燃料材料的典型实验值和文献数据，
+适用于裂变气体气泡演化和肿胀模拟的标准场景。</p>
+<dl class="simple">
+<dt>函数执行以下操作:</dt><dd><ol class="arabic simple">
+<li><p>创建MaterialParameters实例，包含晶体结构、扩散性质、缺陷动力学等
+材料物理参数(表1和表2参数)</p></li>
+<li><p>创建SimulationParameters实例，包含裂变条件、温度、时间步长等
+模拟控制参数</p></li>
+<li><p>根据温度计算温度依赖的气体扩散系数Dgb，包含晶格扩散和裂变增强项</p></li>
+<li><p>计算相界气体扩散系数Dgf = Dgb × Dgf_multiplier</p></li>
+<li><p>将所有参数合并为单一字典，便于传递给GasSwellingModel</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>包含以下类别的参数字典:</p>
+<blockquote>
+<div><dl class="simple">
+<dt><strong>材料参数</strong> (来自MaterialParameters):</dt><dd><ul class="simple">
+<li><p>lattice_constant, ATOMIC_VOLUME, nu_constant</p></li>
+<li><p>Dv0, Evm, Evf_coeffs, Evfmuti (空位参数)</p></li>
+<li><p>Zv, Zi, dislocation_density (位错参数)</p></li>
+<li><p>surface_energy, hydrastatic_pressure</p></li>
+<li><p>Fnb, Fnf (成核因子)</p></li>
+<li><p>recombination_radius</p></li>
+<li><p>Di0, Eim, Eif_coeffs (SIA参数)</p></li>
+<li><p>kv_param, ki_param (位错汇强度)</p></li>
+<li><p>Xe_radii, xe_epsilon_k, xe_sigma, xe_mass (氙气参数)</p></li>
+<li><p>xe_Tc, xe_dc, xe_Vc, xe_q_coeffs (状态方程参数)</p></li>
+</ul>
+</dd>
+<dt><strong>模拟参数</strong> (来自SimulationParameters):</dt><dd><ul class="simple">
+<li><p>fission_rate, displacement_rate, sigma_f</p></li>
+<li><p>gas_production_rate, resolution_rate</p></li>
+<li><p>grain_diameter, temperature</p></li>
+<li><p>time_step, max_time_step, max_time</p></li>
+<li><p>Dgb_prefactor, Dgb_activation_energy, Dgb_fission_term</p></li>
+<li><p>Dgf_multiplier, eos_model</p></li>
+</ul>
+</dd>
+<dt><strong>计算参数</strong> (温度相关):</dt><dd><ul class="simple">
+<li><p>Dgb (float): 晶内气体扩散系数，单位: m²/s
+计算公式: Dgb = Dgb_prefactor × exp(-Q/kT) + Dgb_fission_term × fission_rate
+物理意义: 气体原子在晶格内的迁移能力，控制气泡生长速率</p></li>
+<li><p>Dgf (float): 相界气体扩散系数，单位: m²/s
+计算公式: Dgf = Dgb × Dgf_multiplier
+物理意义: 气体原子在晶界和相界的迁移速度，通常远大于晶内扩散</p></li>
+</ul>
+</dd>
+<dt><strong>物理常数</strong>:</dt><dd><ul class="simple">
+<li><p>kB_ev (float): 玻尔兹曼常数，单位: eV/K，用于能量计算</p></li>
+<li><p>kB (float): 玻尔兹曼常数，单位: J/K，用于状态方程</p></li>
+<li><p>R (float): 气体常数，单位: J/(mol·K)，用于摩尔气体计算</p></li>
+<li><p>Av (float): 阿伏伽德罗常数，单位: mol⁻¹，用于单位转换</p></li>
+<li><p>Omega (float): 铀原子体积，单位: m³，用于浓度-体积转换</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 访问材料参数</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">temperature</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span>  <span class="c1"># 运行温度 (K)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fission_rate</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span>  <span class="c1"># 裂变率 (fissions/m³/s)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 访问计算参数</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Dgb</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb&#39;</span><span class="p">]</span>  <span class="c1"># 晶内气体扩散系数 (m²/s)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Dgf</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgf&#39;</span><span class="p">]</span>  <span class="c1"># 相界气体扩散系数 (m²/s)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 访问物理常数</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kB</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB&#39;</span><span class="p">]</span>  <span class="c1"># 玻尔兹曼常数 (J/K)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;温度: </span><span class="si">{</span><span class="n">temperature</span><span class="si">}</span><span class="s2"> K, 扩散系数: </span><span class="si">{</span><span class="n">Dgb</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> m²/s&quot;</span><span class="p">)</span>
+<span class="go">温度: 600 K, 扩散系数: 1.23e-20 m²/s</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>默认参数适用于U-10Zr合金在600 K、中等裂变率条件下的标准模拟</p></li>
+<li><p>气体扩散系数包含裂变增强项，在高裂变率下显著</p></li>
+<li><p>如需修改参数，可在返回字典后直接修改，或创建自定义MaterialParameters
+和SimulationParameters实例</p></li>
+<li><dl class="simple">
+<dt>参数值主要来源于以下文献:</dt><dd><ul>
+<li><p>Rest, J. Fission Gas Bubble (1992) - 表面能参数</p></li>
+<li><p>JNM 583 (2023) 154542 - 裂变率和气体产生数据</p></li>
+<li><p>原始论文 Table 1, 2 - 扩散和缺陷参数</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd></dl>
+
+</section>
+<section id="test-and-analysis-classes">
+<h2>Test and Analysis Classes<a class="headerlink" href="#test-and-analysis-classes" title="Link to this heading">¶</a></h2>
+<section id="study-classes">
+<h3>Study Classes<a class="headerlink" href="#study-classes" title="Link to this heading">¶</a></h3>
+</section>
+<section id="test-runner-functions">
+<h3>Test Runner Functions<a class="headerlink" href="#test-runner-functions" title="Link to this heading">¶</a></h3>
+</section>
+<section id="analysis-functions">
+<h3>Analysis Functions<a class="headerlink" href="#analysis-functions" title="Link to this heading">¶</a></h3>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#model-classes">Model Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parameter-classes">Parameter Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parameter-creation-functions">Parameter Creation Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#test-and-analysis-classes">Test and Analysis Classes</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to Gas Swelling Model’s documentation!</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

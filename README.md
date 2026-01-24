@@ -1,233 +1,318 @@
-# Gas Swelling Model for Nuclear Fuel Materials
+# Gas Swelling Model - Command-Line Interface
 
-A physics-based computational model for simulating fission gas bubble evolution and void swelling behavior in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys).
+A scientific computing tool for simulating fission gas bubble evolution and void swelling behavior in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys) based on rate theory.
 
 ## Overview
 
-This implementation follows the theoretical framework from **"Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"**. The model uses rate theory to solve a system of 10 coupled ordinary differential equations (ODEs) that track:
+This project implements the theoretical framework from **"Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel."** The command-line interface allows researchers to run simulations without writing Python code, making parameter studies and automation accessible to non-programmers.
 
-- Gas atom concentrations (bulk and phase boundaries)
-- Cavity/bubble concentrations and sizes
-- Vacancy and interstitial defect populations
-- Temperature-dependent swelling evolution
+### Key Features
 
-### Who Should Use This Model
+- **10-variable coupled ODE system** modeling gas transport, cavity nucleation, and defect kinetics
+- **Multiple output formats**: CSV, JSON, HDF5, MATLAB
+- **Configurable parameters** via YAML files
+- **Progress tracking** during simulations
+- **Validated against experimental data** for U-10Zr and U-Pu-Zr fuels
 
-- **Nuclear materials researchers** studying fuel performance under irradiation
-- **Fuel code developers** benchmarking swelling models
-- **Graduate students** learning about fission gas behavior and rate theory
-- **Nuclear engineers** analyzing metallic fuel swelling for reactor design
+## Installation
 
-## Key Features
+### Prerequisites
 
-- **Comprehensive Physics**: Models gas transport, defect kinetics, cavity growth, and gas release
-- **Validated**: Benchmarked against U-10Zr and U-Pu-Zr experimental data
-- **Flexible Configuration**: YAML-based parameter system with sensible defaults
-- **Production-Ready**: Robust numerical solver with error handling and progress tracking
-- **Well-Documented**: Extensive tutorials, parameter reference, and physics documentation
+- Python 3.8 or higher
+- pip package manager
+
+### Install from Source
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd swelling
+
+# Install in development mode (recommended)
+pip install -e .
+
+# Or install with development dependencies
+pip install -e ".[dev]"
+
+# For MATLAB output support
+pip install -e ".[matlab]"
+```
+
+### Verify Installation
+
+```bash
+gas-swelling --help
+```
+
+Expected output:
+```
+Gas Swelling Simulation CLI
+
+A command-line interface for running gas swelling simulations
+without editing Python code.
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  run        Run a gas swelling simulation using a YAML configuration...
+```
 
 ## Quick Start
 
-### Installation
+### 1. Basic Simulation
 
-Choose your preferred installation method:
-
-- **[📘 INSTALL.md](INSTALL.md)** - Comprehensive installation guide (pip, conda, from-source)
+Run a simulation with the example configuration:
 
 ```bash
-# Quick install with pip
-pip install gas-swelling-model
-
-# Or with plotting support
-pip install gas-swelling-model[plotting]
+gas-swelling run examples/config_example.yaml
 ```
 
-### Run Your First Simulation
+This will:
+- Load parameters from `config_example.yaml`
+- Run the simulation for 100 days (default)
+- Display progress during execution
+- Show final results (bubble radius, swelling percentage)
+- Save output to `output/` directory in CSV format
+
+### 2. Custom Output Directory
+
+```bash
+gas-swelling run examples/config_example.yaml --output-dir my_results/
+```
+
+### 3. Different Output Format
+
+```bash
+# JSON format with metadata
+gas-swelling run examples/config_example.yaml --format json
+
+# HDF5 format (for large datasets)
+gas-swelling run examples/config_example.yaml --format hdf5
+
+# MATLAB format (for post-processing in MATLAB)
+gas-swelling run examples/config_example.yaml --format matlab
+```
+
+### 4. Verbose Output
+
+See detailed progress and parameter information:
+
+```bash
+gas-swelling run examples/config_example.yaml --verbose
+```
+
+## CLI Reference
+
+### Command: `gas-swelling run`
+
+Run a gas swelling simulation using a YAML configuration file.
+
+**Syntax:**
+```bash
+gas-swelling run [OPTIONS] CONFIG
+```
+
+**Arguments:**
+- `CONFIG`: Path to the YAML configuration file (required)
+
+**Options:**
+- `--output-dir PATH`: Output directory for results (default: `output/`)
+- `--format FORMAT`: Output format - choices: `csv`, `json`, `hdf5`, `matlab` (default: `csv`)
+- `--verbose, -v`: Enable verbose output with detailed progress
+- `--help`: Show help message and exit
+
+**Exit Codes:**
+- `0`: Success - simulation completed
+- `1`: Error - configuration error, file not found, or simulation failure
+
+## Configuration Files
+
+### YAML Structure
+
+Configuration files use a flat key-value structure. Only specify parameters you want to override - default values are built into the code.
+
+**Basic Example:**
+
+```yaml
+# simulation_config.yaml
+temperature: 773.0        # Operating temperature (K)
+fission_rate: 2.0e+20    # Fission rate (fissions/m³/s)
+max_time: 8.64e+6        # Simulation time (s) - 100 days
+eos_model: ideal         # Equation of state: 'ideal' or 'ronchi'
+```
+
+### Commonly Modified Parameters
+
+| Parameter | Description | Typical Range | Impact |
+|-----------|-------------|---------------|--------|
+| `temperature` | Operating temperature | 600-1000 K | **High** - bell-shaped swelling curve, peak ~700-800 K |
+| `fission_rate` | Fission density | 1e19 to 1e21 fissions/m³/s | **High** - linear effect on gas production |
+| `max_time` | Simulation duration | 1e6 to 1e8 s | Controls total burnup simulated |
+| `dislocation_density` | Defect sink strength | 1e13 to 1e15 m⁻² | **High** - higher density → lower swelling |
+| `Fnb`, `Fnf` | Bubble nucleation factors | 1e-6 to 1e-4 | **High** - controls incubation period |
+| `surface_energy` | Gas/matrix interface energy | 0.3-0.7 J/m² | Medium - affects bubble stability |
+| `eos_model` | Gas equation of state | 'ideal' or 'ronchi' | Medium - 'ronchi' gives ~10-15% higher swelling |
+
+### Example Configurations
+
+**High-Temperature Simulation (800 K):**
+```yaml
+temperature: 800.0
+eos_model: ronchi
+max_time: 8.64e6  # 100 days
+fission_rate: 2.0e+20
+```
+
+**Low Fission Rate Study:**
+```yaml
+fission_rate: 5.0e19
+temperature: 773.0
+max_time: 1.728e7  # 200 days
+```
+
+**Cold-Worked Material (High Dislocation Density):**
+```yaml
+dislocation_density: 1.0e14
+temperature: 700.0
+fission_rate: 2.0e+20
+```
+
+## Output Files
+
+### CSV Format (Default)
+
+Time-series data with columns for all state variables:
+
+```csv
+time,Rcb,Rcf,Ccb,Ccf,Ncb,Ncf,swelling,...
+0,1.0e-9,1.2e-9,1.0e20,2.0e19,100,150,0.001,...
+86400,1.1e-9,1.3e-9,1.1e20,2.1e19,105,155,0.0012,...
+```
+
+### JSON Format
+
+Structured data with metadata:
+
+```json
+{
+  "metadata": {
+    "config_file": "config.yaml",
+    "temperature": 773.0,
+    "fission_rate": 2.0e+20,
+    "eos_model": "ideal"
+  },
+  "data": {
+    "time": [0, 86400, ...],
+    "Rcb": [1.0e-9, 1.1e-9, ...],
+    "swelling": [0.001, 0.0012, ...]
+  }
+}
+```
+
+### HDF5 Format
+
+Hierarchical data format for large datasets (use with `h5py` or `pandas`):
 
 ```python
-from gas_swelling import GasSwellingModel
-from gas_swelling.params import create_default_parameters
+import h5py
+import pandas as pd
 
-# Create default parameters for U-10Zr fuel at 800 K
-params = create_default_parameters()
-
-# Initialize and run simulation
-model = GasSwellingModel(params)
-result = model.solve(t_span=(0, 8.64e6), t_eval=None)  # 100 days
-
-# Access results
-print(f"Final swelling: {result['swelling'][-1]:.2%}")
-print(f"Final bubble radius: {result['Rcb'][-1]*1e9:.1f} nm")
+with h5py.File('output/results.h5', 'r') as f:
+    df = pd.DataFrame({key: f[key][:] for key in f.keys()})
 ```
 
-For a detailed step-by-step tutorial, see **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)**.
+## Common Use Cases
 
-## Documentation
+### Parameter Study
 
-### Getting Started Guides
+Run multiple simulations with different temperatures:
 
-- **[📘 Installation Guide](INSTALL.md)** - Detailed setup instructions for pip, conda, and source builds
-- **[🚀 Quick Start Tutorial](examples/quickstart_tutorial.py)** - Beginner-friendly Python script with explanations
-- **[📓 Jupyter Notebook: Temperature Sweep Study](notebooks/Temperature_Sweep_Example.ipynb)** - Interactive exploration of temperature effects
+```bash
+#!/bin/bash
+for temp in 650 700 750 800 850; do
+  cat > temp_config.yaml << EOF
+temperature: ${temp}.0
+fission_rate: 2.0e+20
+max_time: 8.64e6
+EOF
 
-### Reference Documentation
+  gas-swelling run temp_config.yaml --output-dir results/temp_${temp}/
+done
+```
 
-- **[📋 Parameter Reference](docs/parameter_reference.md)** - Complete guide to all model parameters with physical meanings
-- **[📐 CLAUDE.md](CLAUDE.md)** - Developer documentation and architecture overview
-- **[🔬 Theoretical Framework](model_design.md)** - Physics background and model equations (Chinese)
+### Batch Processing
 
-### Example Scripts
+Process multiple configurations:
 
-- **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)** - Basic simulation with detailed comments
-- **[test4_run_rk23.py](test4_run_rk23.py)** - Advanced example with parameter sweeps and plotting
+```bash
+#!/bin/bash
+for config in configs/*.yaml; do
+  name=$(basename "$config" .yaml)
+  gas-swelling run "$config" --output-dir "batch_results/$name"
+done
+```
 
-## Model Physics
+### Automated Analysis
 
-### The 10-Variable ODE System
-
-The model tracks these state variables:
-
-**Bulk Matrix:**
-1. **Cgb**: Gas atom concentration (atoms/m³)
-2. **Ccb**: Cavity/bubble concentration (cavities/m³)
-3. **Ncb**: Gas atoms per cavity (atoms/cavity)
-4. **cvb**: Vacancy concentration (dimensionless)
-5. **cib**: Interstitial concentration (dimensionless)
-
-**Phase Boundaries:**
-6. **Cgf**: Gas atom concentration (atoms/m³)
-7. **Ccf**: Cavity concentration (cavities/m³)
-8. **Ncf**: Gas atoms per cavity (atoms/cavity)
-9. **cvf**: Vacancy concentration (dimensionless)
-10. **cif**: Interstitial concentration (dimensionless)
-
-### Key Outputs
-
-- **Swelling strain**: Volume fraction occupied by cavities
-- **Bubble radius distribution**: Average cavity sizes in bulk and at boundaries
-- **Gas pressure**: Internal cavity pressure (ideal or Van der Waals EOS)
-- **Gas release fraction**: Fraction of fission gas released from fuel
-- **Critical radius**: Distinguishes gas-driven vs bias-driven swelling
-
-### Physical Processes Modeled
-
-1. **Gas Transport** (Eqs. 1-8): Diffusion, nucleation, cavity growth
-2. **Defect Kinetics** (Eqs. 17-20): Vacancy/interstitial production, recombination, sink annihilation
-3. **Cavity Growth** (Eq. 14): Bias-driven vacancy influx vs thermal emission
-4. **Gas Release** (Eqs. 9-12): Interconnectivity threshold and release fraction
-
-See [model_design.md](model_design.md) for complete equations.
-
-## Usage Examples
-
-### Example 1: Basic Simulation
+Combine with Python for post-processing:
 
 ```python
-from gas_swelling import GasSwellingModel
-from gas_swelling.params import create_default_parameters
+import subprocess
+import pandas as pd
 
-# Setup
-params = create_default_parameters()
-params.temperature = 800  # K
-params.fission_rate = 4.0e19  # fissions/m³/s
+temperatures = range(600, 900, 50)
+results = []
 
-# Run
-model = GasSwellingModel(params)
-result = model.solve(t_span=(0, 8.64e6), t_eval=None)
+for temp in temperatures:
+    # Run simulation
+    subprocess.run([
+        'gas-swelling', 'run',
+        'examples/config_example.yaml',
+        '--output-dir', f'temp_{temp}',
+        '--format', 'json'
+    ])
 
-# Plot
-import matplotlib.pyplot as plt
-plt.plot(result['t']/86400, result['swelling']*100)
-plt.xlabel('Time (days)')
-plt.ylabel('Swelling (%)')
-plt.show()
+    # Load results
+    data = pd.read_json(f'temp_{temp}/output.json')
+    final_swelling = data['swelling'].iloc[-1]
+    results.append({'temperature': temp, 'swelling': final_swelling})
+
+# Create temperature-sweep plot
+df = pd.DataFrame(results)
+print(df)
 ```
 
-### Example 2: Temperature Sweep
+## Model Background
 
-```python
-temperatures = [600, 700, 800, 900, 1000]  # K
-swelling_results = []
+### State Variables (10 ODEs)
 
-for T in temperatures:
-    params = create_default_parameters()
-    params.temperature = T
-    model = GasSwellingModel(params)
-    result = model.solve(t_span=(0, 8.64e6), t_eval=None)
-    swelling_results.append(result['swelling'][-1])
+1. **Cgb**: Gas atom concentration in bulk matrix (atoms/m³)
+2. **Ccb**: Cavity/bubble concentration in bulk (cavities/m³)
+3. **Ncb**: Gas atoms per bulk cavity (atoms/cavity)
+4. **cvb**: Vacancy concentration in bulk
+5. **cib**: Interstitial concentration in bulk
+6. **Cgf**: Gas atom concentration at phase boundaries
+7. **Ccf**: Cavity concentration at phase boundaries
+8. **Ncf**: Gas atoms per boundary cavity
+9. **cvf**: Vacancy concentration at boundaries
+10. **cif**: Interstitial concentration at boundaries
 
-# Plot temperature dependence
-plt.plot(temperatures, swelling_results, 'o-')
-plt.xlabel('Temperature (K)')
-plt.ylabel('Final Swelling')
-plt.show()
-```
+### Key Physical Relationships
 
-### Example 3: Custom Parameters
-
-```python
-from gas_swelling.params import MaterialParameters, SimulationParameters
-
-# Custom material parameters
-mat_params = MaterialParameters(
-    dislocation_density=1e14,  # Higher dislocation density
-    surface_energy=1.0,         # J/m², affects cavity stability
-    Fnb=1e-4,                  # Bulk nucleation factor
-    Fnf=1e-3                   # Boundary nucleation factor
-)
-
-# Simulation parameters
-sim_params = SimulationParameters(
-    temperature=850,
-    fission_rate=5.0e19,
-    eos_model='ronchi'  # Use modified Van der Waals EOS
-)
-
-# Run simulation
-model = GasSwellingModel(mat_params, sim_params)
-result = model.solve(t_span=(0, 8.64e6))
-```
-
-For more examples, see the **[Parameter Reference](docs/parameter_reference.md)** and **[Jupyter Notebook](notebooks/Temperature_Sweep_Example.ipynb)**.
-
-## Parameter Configuration
-
-All parameters are organized into two dataclasses:
-
-### MaterialParameters
-Physical properties of the fuel material:
-- Lattice constants and atomic volumes
-- Diffusion coefficients (Arrhenius parameters)
-- Dislocation density and bias factors
-- Surface energy and nucleation factors
-- Xenon thermodynamic properties
-
-### SimulationParameters
-Runtime configuration:
-- Fission rate and irradiation conditions
-- Temperature and time stepping
-- Gas production rates
-- Numerical solver settings
-
-**📋 See [Parameter Reference](docs/parameter_reference.md) for complete documentation.**
-
-### High-Sensitivity Parameters
-
-These parameters have strong influence on swelling predictions:
-- **Dislocation density** (ρ): ±40% swelling change
-- **Dislocation bias** (Zi): Affects vacancy supersaturation
-- **Boundary nucleation factor** (Fnf): Controls incubation period
-- **Temperature**: Bell-shaped swelling curve (~700-800 K peak)
+- **Gas Pressure**: Ideal gas law or modified Van der Waals EOS
+- **Cavity Radius**: Mechanical equilibrium between gas pressure and surface tension
+- **Swelling Rate**: Volume fraction occupied by cavities: `V_bubble = (4/3)πR³ × Cc`
+- **Critical Radius**: Distinguishes gas-driven vs bias-driven void growth
 
 ## Validation
 
 The model has been validated against experimental data:
 
-| Fuel Type | Temperature | Burnup | Validation Status |
-|-----------|-------------|--------|-------------------|
-| U-10Zr | 600-900°C | 2-10 at.% | ✓ Matches Fig. 6 data |
-| U-19Pu-10Zr | 600-800°C | 2-8 at.% | ✓ Matches Fig. 7 data |
-| Pure U | Various | Various | ✓ Matches Figs. 9-10 data |
+- ✅ U-10Zr fuel swelling (Fig. 6 in reference paper)
+- ✅ U-19Pu-10Zr fuel data (Fig. 7)
+- ✅ High-purity uranium swelling (Figs. 9-10)
 
 Typical validation metrics:
 - Final swelling percent at given burnup
@@ -235,82 +320,117 @@ Typical validation metrics:
 - Gas release fraction
 - Temperature-dependent swelling peak
 
-## Performance
+## Performance Notes
 
-- **Typical simulation**: 100 days of irradiation in ~100 seconds
-- **Solver**: `scipy.integrate.solve_ivp` with RK23 method
-- **Stiffness handling**: Automatic adaptive step sizing for widely varying timescales
-- **Memory**: < 500 MB for standard simulations
+- **Stiff ODE system** due to widely varying timescales (defect recombination vs cavity growth)
+- **RK23 solver** chosen for balance of accuracy and speed
+- **Typical simulation**: 100 days of irradiation in ~100 seconds of computation
+- **Memory usage**: ~50-200 MB depending on output resolution
 
-## Requirements
+### Performance Tips
 
-- Python 3.8+
-- numpy >= 1.20.0
-- scipy >= 1.7.0
-- matplotlib >= 3.3.0 (optional, for plotting)
+1. Reduce `max_time` or increase `time_step` for faster exploratory runs
+2. Use `csv` format for small datasets, `hdf5` for large datasets
+3. Disable verbose output for batch processing (slight speedup)
 
-## Installation
+## Troubleshooting
 
-See **[INSTALL.md](INSTALL.md)** for detailed instructions:
+### Common Errors
 
+**Error: `Cannot import GasSwellingModel`**
 ```bash
-# pip (recommended)
-pip install gas-swelling-model
-
-# conda
-conda create -n gas-swelling python=3.11
-conda activate gas-swelling
-conda install -c conda-forge numpy scipy matplotlib
-pip install gas-swelling-model
-
-# From source
-git clone https://github.com/yourusername/gas-swelling-model.git
-cd gas-swelling-model
-pip install -e .
+# Solution: Make sure you're in the project directory
+cd /path/to/swelling
+gas-swelling run config.yaml
 ```
 
-## Getting Help
+**Error: `Configuration error: Invalid parameter`**
+```bash
+# Solution: Check YAML syntax and parameter names
+python -c "import yaml; yaml.safe_load(open('config.yaml'))"
+```
 
-- **Documentation**: Start with [INSTALL.md](INSTALL.md) and [Parameter Reference](docs/parameter_reference.md)
-- **Examples**: Run [quickstart_tutorial.py](examples/quickstart_tutorial.py) or explore [notebooks/](notebooks/)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/gas-swelling-model/issues)
-- **Physics Questions**: See [model_design.md](model_design.md) and [original paper](original paper of swelling rate theory.md)
+**Error: `Simulation error: Solver failed to converge`**
+```bash
+# Solution: Try reducing time_step or max_time_step
+# In config.yaml:
+time_step: 1.0e-10
+max_time_step: 1.0e+1
+```
+
+## Advanced Usage
+
+### Custom Parameter Studies
+
+Use Python scripting for complex parameter sweeps:
+
+```python
+from cli.config import load_config, validate_params
+from modelrk23 import GasSwellingModel
+import numpy as np
+
+# Load base configuration
+params = load_config('examples/config_example.yaml')
+
+# Temperature sweep
+temperatures = np.linspace(600, 900, 7)
+results = {}
+
+for temp in temperatures:
+    params['temperature'] = temp
+    model = GasSwellingModel(params)
+
+    result = model.solve(
+        t_span=(0, 8.64e6),
+        t_eval=np.linspace(0, 8.64e6, 100)
+    )
+
+    results[temp] = result['swelling'][-1]
+
+print(results)
+```
+
+### Integration with Other Tools
+
+**MATLAB:**
+```matlab
+% Load HDF5 output
+data = h5read('output/results.h5', '/');
+swelling = data(:, strcmp(data.Properties.VariableNames, 'swelling'));
+plot(swelling);
+```
+
+**Python (pandas):**
+```python
+import pandas as pd
+
+# Load CSV
+df = pd.read_csv('output/results.csv')
+
+# Plot swelling evolution
+df.plot(x='time', y='swelling')
+```
 
 ## Citation
 
-If you use this model in your research, please cite:
+If you use this software in publications, please cite:
 
-```bibtex
-@software{gas_swelling_model,
-  title = {Gas Swelling Model for U-Zr and U-Pu-Zr Nuclear Fuels},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/gas-swelling-model}
-}
 ```
-
-And the original theoretical paper:
-```bibtex
-@article{original_paper,
-  title = {Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel},
-  author = {Original Authors},
-  journal = {Journal of Nuclear Materials},
-  year = {Year}
-}
+[Author names]. "Kinetics of fission-gas-bubble-nucleated void swelling
+of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel."
+[Journal] [Year].
 ```
 
 ## License
 
-[Specify your license here - e.g., MIT, Apache 2.0, etc.]
+MIT License - See LICENSE file for details
 
-## Contributing
+## Support
 
-Contributions are welcome! Please see [CLAUDE.md](CLAUDE.md) for development guidelines.
+- **Documentation**: See `CLAUDE.md` for developers
+- **Issues**: Report bugs via GitHub Issues
+- **Examples**: Check `examples/` directory for sample configurations
 
 ## Acknowledgments
 
-This implementation is based on the theoretical framework developed in the original paper on fission gas bubble nucleated void swelling in metallic fuels.
-
----
-
-**📘 Documentation Index** | **[INSTALL](INSTALL.md)** | **[Parameter Reference](docs/parameter_reference.md)** | **[Quick Start Tutorial](examples/quickstart_tutorial.py)** | **[Jupyter Notebook](notebooks/Temperature_Sweep_Example.ipynb)**
+This implementation follows the theoretical framework developed in the original paper on gas swelling kinetics in metallic nuclear fuels.

@@ -1,0 +1,168 @@
+# ==============================================================================
+# Gas Swelling Simulation Configuration File
+# ==============================================================================
+# This configuration file contains all parameters for the gas swelling model.
+#
+# Usage:
+#   gas-swelling run --config config_example.yaml [--output results.csv]
+#
+# Note: Only specify parameters you want to override. Default values are
+#       built into the code. Uncomment and modify parameters as needed.
+#
+# Configuration structure: Flat key-value pairs (not nested sections)
+# ==============================================================================
+
+# ==============================================================================
+# SIMULATION PARAMETERS (Most Commonly Modified)
+# ==============================================================================
+
+# Operating temperature (key parameter! Controls swelling behavior)
+# Range: 600-1000 K typical, peak swelling ~700-800 K
+temperature: 600.0  # K
+
+# Fission rate (key parameter! Affects gas production rate)
+# Range: 1e+19 to 1e+21 fissions/m³/s
+fission_rate: 2.0e+20  # fissions/m³/s
+
+# Total simulation time
+# Example: 100 days = 8.64e+6 s, 1 year = 3.15e+7 s
+max_time: 8.64e+6  # s (100 days)
+
+# Time stepping parameters (numerical solver)
+time_step: 1.0e-9      # s - Initial time step
+max_time_step: 1.0e+2   # s - Maximum time step
+
+# Grain diameter
+grain_diameter: 5.0e-7  # m
+
+# Gas production and resolution
+gas_production_rate: 0.25  # Gas atoms per fission
+resolution_rate: 2.0e-5    # s⁻¹ - Gas resolution rate from bubbles
+
+# Irradiation parameters
+displacement_rate: 2.896e-25  # fp/fission - Frankel pairs per fission
+sigma_f: 2.72e+4               # m⁻¹ - Fission cross section
+
+# Gas diffusion parameters
+Dgb_prefactor: 1.2e-7       # m²/s - Bulk gas diffusion pre-factor
+Dgb_activation_energy: 1.16 # eV - Bulk gas diffusion activation energy
+Dgb_fission_term: 5.07e-31  # m²·s⁻¹/(fissions·m⁻³·s⁻¹) - Fission-enhanced diffusion
+Dgf_multiplier: 3.0e+2       # Dgf/Dgb ratio (phase boundary vs bulk)
+
+# Equation of State model for gas pressure calculation
+# Options: 'ideal' (ideal gas law - faster) or 'ronchi' (modified Van der Waals - more accurate)
+eos_model: ideal
+
+# ==============================================================================
+# MATERIAL PARAMETERS
+# ==============================================================================
+
+# Lattice parameters
+lattice_constant: 3.4808e-10  # m - Lattice constant of U-Zr alloy
+atomic_volume: 4.09e-29       # m³ - Volume of Uranium atoms
+
+# Jump frequency for atomic diffusion
+nu_constant: 7.8e+12  # s⁻¹ - Attempt frequency for atomic jumps
+
+# Vacancy diffusion parameters
+Dv0: 2.0e-8              # m²/s - Vacancy diffusion coefficient pre-exponential
+Evm: 0.74                # eV - Vacancy migration energy
+# Evf = C0 + C1*T (eV) - Vacancy formation energy temperature dependence
+Evf_coeffs: [1.034, 7.6e-4]  # Coefficients [C0, C1]
+Evfmuti: 1.0                 # Multiplier for vacancy formation energy
+
+# Dislocation parameters (affect defect sink strength)
+# key parameter! Higher density → more defect sinks → lower swelling
+Zv: 1.0                      # Vacancy bias factor (dimensionless)
+Zi: 1.025                    # Interstitial bias factor (dimensionless)
+dislocation_density: 7.0e+13  # m⁻² - Dislocation density
+
+# Surface energy (critical for bubble stability)
+# key parameter! Higher energy → larger bubbles → higher swelling
+surface_energy: 0.5  # J/m² - Surface energy at gas/matrix interface
+
+# Hydrostatic pressure (external pressure on fuel)
+hydrastatic_pressure: 0.0  # Pa - External hydrostatic pressure
+
+# Bubble nucleation factors (control incubation period)
+# key parameters! Higher nucleation → more bubbles → higher swelling
+Fnb: 1.0e-5  # Bulk nucleation factor
+Fnf: 1.0e-5  # Phase boundary nucleation factor
+
+# Defect recombination parameters
+recombination_radius: 2.0e-10  # m - Recombination radius for vacancy-interstitial
+
+# Interstitial (SIA) parameters
+Di0: 1.259e-12  # m²/s - SIA diffusion coefficient pre-factor
+Eim: 1.18       # eV - SIA migration energy
+# Eif = C0 + C1*T + C2*T² + C3*T³ (eV) - SIA formation energy
+Eif_coeffs: [-3.992, 0.038, -7.645e-5, 5.213e-8]  # Coefficients [C0, C1, C2, C3]
+
+# Cavity sink strength parameters (Equations 21, 22)
+kv_param: 8.366600e+6  # m⁻¹ - Vacancy sink strength parameter
+ki_param: 8.491307e+6  # m⁻¹ - Interstitial sink strength parameter
+
+# ==============================================================================
+# XENON (Xe) GAS PARAMETERS
+# ==============================================================================
+
+Xe_radii: 2.16e-10    # m - Xe atomic radius
+xe_epsilon_k: 290.0   # K - Lennard-Jones potential well depth
+xe_sigma: 3.86e-10    # m - Lennard-Jones collision diameter
+xe_mass: 0.131293     # kg/mol - Xe atomic mass
+xe_Tc: 290.0          # K - Critical temperature
+xe_dc: 1.103e+3        # kg/m³ - Critical density
+xe_Vc: 3.592e-5       # m³/mol - Critical volume
+# Coefficients for f(T) in Ronchi EOS (q_n for n=1 to 5)
+xe_q_coeffs: [2.12748, 0.52905, 0.13053, 0.02697, 0.00313]
+
+# ==============================================================================
+# OUTPUT CONFIGURATION (for future use)
+# ==============================================================================
+
+output_format: csv          # Options: csv, hdf5, pickle
+output_dir: ./output        # Default output directory
+output_precision: 6         # Number of significant digits
+
+# ==============================================================================
+# COMMON CONFIGURATION EXAMPLES
+# ==============================================================================
+# Example 1: High temperature simulation (800 K) with Ronchi EOS
+# ---
+# temperature: 800.0
+# eos_model: ronchi
+# max_time: 8.64e6  # 100 days
+#
+# Example 2: Low fission rate study
+# ---
+# fission_rate: 5.0e19
+# temperature: 773.0
+#
+# Example 3: High dislocation density material (cold-worked)
+# ---
+# dislocation_density: 1.0e14
+#
+# Example 4: Temperature sweep (run multiple simulations)
+# Use command: gas-swelling sweep --param temperature --range 600,1000,50
+# ==============================================================================
+
+# ==============================================================================
+# PARAMETER SENSITIVITY NOTES
+# ==============================================================================
+# High sensitivity parameters (±40% swelling change):
+#   - dislocation_density: Higher density → more defect sinks → lower swelling
+#   - Fnb, Fnf: Higher nucleation → more bubbles → higher swelling
+#   - temperature: Bell-shaped curve, peak swelling ~700-800 K
+#
+# Medium sensitivity parameters (±10-20% swelling change):
+#   - fission_rate: Linear effect on gas production
+#   - surface_energy: Higher energy → larger bubbles → higher swelling
+#   - eos_model: 'ronchi' gives ~10-15% higher swelling than 'ideal'
+#
+# Low sensitivity parameters (±5% swelling change):
+#   - grain_diameter: Affects boundary area fraction
+#   - recombination_radius: Minor effect on defect concentrations
+#
+# For most users, only adjust: temperature, fission_rate, max_time,
+#                             dislocation_density, Fnb, Fnf, eos_model
+# ==============================================================================
