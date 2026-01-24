@@ -699,9 +699,12 @@ class ParameterSweep:
 
         return self.results
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self, include_time_series: bool = False) -> pd.DataFrame:
         """
         将结果转换为pandas DataFrame
+
+        参数:
+            include_time_series: 是否包含时间序列数据的统计信息
 
         返回:
             包含所有模拟结果的DataFrame
@@ -715,30 +718,271 @@ class ParameterSweep:
             if not result.success:
                 continue
 
+            # 基础行：参数 + 最终值
             row = result.parameters.copy()
             row.update({
                 'success': result.success,
                 'runtime': result.metadata.get('runtime', 0),
                 'final_swelling': result.metadata.get('final_swelling', 0),
                 'final_Rcb': result.metadata.get('final_Rcb', 0),
-                'final_Rcf': result.metadata.get('final_Rcf', 0)
+                'final_Rcf': result.metadata.get('final_Rcf', 0),
+                'from_cache': result.metadata.get('from_cache', False)
             })
+
+            # 添加状态变量的最终值
+            if result.state_variables:
+                for var_name, var_data in result.state_variables.items():
+                    if len(var_data) > 0:
+                        row[f'final_{var_name}'] = var_data[-1]
+
+            # 添加派生量的统计信息
+            if include_time_series and result.derived_quantities:
+                for qty_name, qty_data in result.derived_quantities.items():
+                    if len(qty_data) > 0:
+                        row[f'{qty_name}_max'] = np.max(qty_data)
+                        row[f'{qty_name}_min'] = np.min(qty_data)
+                        row[f'{qty_name}_mean'] = np.mean(qty_data)
+                        row[f'{qty_name}_std'] = np.std(qty_data)
+
             rows.append(row)
 
         df = pd.DataFrame(rows)
         logger.info(f"结果已转换为DataFrame: {len(df)} 行 × {len(df.columns)} 列")
         return df
 
-    def export_csv(self, filepath: str) -> None:
+    def get_summary_statistics(self) -> pd.DataFrame:
+        """
+        获取汇总统计信息
+
+        返回:
+            包含汇总统计的DataFrame
+        """
+        if not self.results:
+            logger.warning("没有结果可统计")
+            return pd.DataFrame()
+
+        df = self.to_dataframe()
+
+        if df.empty:
+            return pd.DataFrame()
+
+        # 计算统计摘要
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+        summary = pd.DataFrame({
+            'count': df[numeric_cols].count(),
+            'mean': df[numeric_cols].mean(),
+            'std': df[numeric_cols].std(),
+            'min': df[numeric_cols].min(),
+            '25%': df[numeric_cols].quantile(0.25),
+            '50%': df[numeric_cols].quantile(0.50),
+            '75%': df[numeric_cols].quantile(0.75),
+            'max': df[numeric_cols].max()
+        })
+
+        logger.info(f"汇总统计已生成: {len(summary)} 个数值列")
+        return summary
+
+    def get_successful_results(self) -> List[SimulationResult]:
+        """
+        获取所有成功的模拟结果
+
+        返回:
+            成功的模拟结果列表
+        """
+        successful = [r for r in self.results if r.success]
+        logger.info(f"成功结果: {len(successful)}/{len(self.results)}")
+        return successful
+
+    def get_failed_results(self) -> List[SimulationResult]:
+        """
+        获取所有失败的模拟结果
+
+        返回:
+            失败的模拟结果列表
+        """
+        failed = [r for r in self.results if not r.success]
+        if failed:
+            logger.warning(f"失败结果: {len(failed)}/{len(self.results)}")
+        return failed
+
+    def aggregate_by_parameter(self, param_name: str, agg_func: str = 'mean') -> pd.DataFrame:
+        """
+        按指定参数聚合结果
+
+        参数:
+            param_name: 要聚合的参数名
+            agg_func: 聚合函数 ('mean', 'median', 'std', 'min', 'max')
+
+        返回:
+            聚合后的DataFrame
+        """
+        df = self.to_dataframe()
+
+        if param_name not in df.columns:
+            logger.error(f"参数 '{param_name}' 不存在于结果中")
+            return pd.DataFrame()
+
+        # 获取数值列
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+        # 按参数分组并聚合
+        if agg_func == 'mean':
+            agg_df = df.groupby(param_name)[numeric_cols].mean()
+        elif agg_func == 'median':
+            agg_df = df.groupby(param_name)[numeric_cols].median()
+        elif agg_func == 'std':
+            agg_df = df.groupby(param_name)[numeric_cols].std()
+        elif agg_func == 'min':
+            agg_df = df.groupby(param_name)[numeric_cols].min()
+        elif agg_func == 'max':
+            agg_df = df.groupby(param_name)[numeric_cols].max()
+        else:
+            logger.error(f"未知的聚合函数: {agg_func}")
+            return pd.DataFrame()
+
+        logger.info(f"按 '{param_name}' 聚合完成，使用 {agg_func} 函数")
+        return agg_df
+
+    def export_excel(self, filepath: str, include_summary: bool = True) -> None:
+        """
+        导出结果到Excel文件（多工作表）
+
+        参数:
+            filepath: Excel文件路径
+            include_summary: 是否包含汇总统计工作表
+        """
+        try:
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                # 主结果表
+                df = self.to_dataframe(include_time_series=True)
+                df.to_excel(writer, sheet_name='Results', index=False)
+
+                # 仅成功的模拟结果
+                successful_df = df[df['success'] == True]
+                successful_df.to_excel(writer, sheet_name='Successful Only', index=False)
+
+                # 汇总统计
+                if include_summary and not df.empty:
+                    summary = self.get_summary_statistics()
+                    summary.to_excel(writer, sheet_name='Summary Statistics')
+
+                    # 按关键参数汇总
+                    if 'temperature' in df.columns:
+                        temp_summary = self.aggregate_by_parameter('temperature', 'mean')
+                        temp_summary.to_excel(writer, sheet_name='By Temperature')
+
+                logger.info(f"结果已导出到Excel: {filepath}")
+        except Exception as e:
+            logger.error(f"导出Excel失败: {e}")
+            raise
+
+    def export_json(self, filepath: str, include_time_series: bool = False) -> None:
+        """
+        导出结果到JSON文件
+
+        参数:
+            filepath: JSON文件路径
+            include_time_series: 是否包含完整的时间序列数据
+        """
+        try:
+            data = {
+                'config': {
+                    'sim_time': self.config.sim_time,
+                    'sampling_method': self.config.sampling_method,
+                    'n_samples': self.config.n_samples,
+                    'parallel': self.config.parallel,
+                    'cache_enabled': self.config.cache_enabled
+                },
+                'results': [],
+                'summary': {}
+            }
+
+            # 转换结果为可序列化的格式
+            for result in self.results:
+                result_dict = {
+                    'parameters': result.parameters,
+                    'success': result.success,
+                    'metadata': result.metadata
+                }
+
+                if result.success:
+                    # 添加最终值
+                    result_dict['final_values'] = {}
+                    if result.state_variables:
+                        for var_name, var_data in result.state_variables.items():
+                            if len(var_data) > 0:
+                                result_dict['final_values'][var_name] = float(var_data[-1])
+
+                    if result.derived_quantities:
+                        for qty_name, qty_data in result.derived_quantities.items():
+                            if len(qty_data) > 0:
+                                result_dict['final_values'][qty_name] = float(qty_data[-1])
+
+                    # 可选：添加时间序列数据
+                    if include_time_series:
+                        result_dict['time_series'] = {}
+                        if result.state_variables:
+                            for var_name, var_data in result.state_variables.items():
+                                result_dict['time_series'][var_name] = var_data.tolist()
+                        if result.derived_quantities:
+                            for qty_name, qty_data in result.derived_quantities.items():
+                                result_dict['time_series'][qty_name] = qty_data.tolist()
+                        result_dict['time'] = result.time.tolist()
+                else:
+                    result_dict['error'] = result.error_message
+
+                data['results'].append(result_dict)
+
+            # 添加汇总统计
+            df = self.to_dataframe()
+            if not df.empty:
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                data['summary'] = {
+                    'total_runs': len(self.results),
+                    'successful_runs': sum(1 for r in self.results if r.success),
+                    'failed_runs': sum(1 for r in self.results if not r.success),
+                    'statistics': df[numeric_cols].describe().to_dict()
+                }
+
+            # 写入文件
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, default=lambda x: float(x) if isinstance(x, (np.integer, np.floating)) else str(x))
+
+            logger.info(f"结果已导出到JSON: {filepath}")
+        except Exception as e:
+            logger.error(f"导出JSON失败: {e}")
+            raise
+
+    def export_parquet(self, filepath: str) -> None:
+        """
+        导出结果到Parquet文件（高效的二进制格式）
+
+        参数:
+            filepath: Parquet文件路径
+        """
+        try:
+            df = self.to_dataframe(include_time_series=True)
+            df.to_parquet(filepath, index=False)
+            logger.info(f"结果已导出到Parquet: {filepath}")
+        except ImportError:
+            logger.error("pyarrow或fastparquet未安装，无法导出Parquet格式")
+            raise
+        except Exception as e:
+            logger.error(f"导出Parquet失败: {e}")
+            raise
+
+    def export_csv(self, filepath: str, include_time_series: bool = False) -> None:
         """
         导出结果到CSV文件
 
         参数:
             filepath: CSV文件路径
+            include_time_series: 是否包含时间序列数据的统计信息
         """
-        df = self.to_dataframe()
+        df = self.to_dataframe(include_time_series=include_time_series)
         df.to_csv(filepath, index=False)
-        logger.info(f"结果已导出到: {filepath}")
+        logger.info(f"结果已导出到CSV: {filepath} ({len(df)} 行)")
 
 
 class ParallelRunner:
