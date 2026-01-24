@@ -131,3 +131,94 @@ def test_basic_solver_execution():
 
     # Check that released_gas is non-negative
     assert result['released_gas'][-1] >= 0
+
+
+def test_solver_time_parameters():
+    """Test solver with different time spans and t_eval parameters"""
+    # Create model with default parameters
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    # Test case 1: Short time span with few time points
+    sim_time_short = 100
+    t_eval_short = np.linspace(0, sim_time_short, 5)
+
+    result_short = model.solve(
+        t_span=(0, sim_time_short),
+        t_eval=t_eval_short
+    )
+
+    # Verify short simulation results
+    assert isinstance(result_short, dict)
+    assert len(result_short['time']) == 5
+    assert result_short['time'][0] == 0.0
+    assert result_short['time'][-1] == sim_time_short
+    assert np.all(np.isfinite(result_short['Cgb']))
+    assert np.all(np.isfinite(result_short['Rcb']))
+    assert np.all(result_short['Rcb'] > 0)
+
+    # Test case 2: Medium time span with medium time points
+    sim_time_medium = 1000
+    t_eval_medium = np.linspace(0, sim_time_medium, 20)
+
+    result_medium = model.solve(
+        t_span=(0, sim_time_medium),
+        t_eval=t_eval_medium
+    )
+
+    # Verify medium simulation results
+    assert isinstance(result_medium, dict)
+    assert len(result_medium['time']) == 20
+    assert result_medium['time'][0] == 0.0
+    assert result_medium['time'][-1] == sim_time_medium
+    assert np.all(np.isfinite(result_medium['Cgb']))
+    assert np.all(np.isfinite(result_medium['Rcb']))
+    assert np.all(result_medium['Rcb'] > 0)
+
+    # Test case 3: Long time span with many time points
+    sim_time_long = 5000
+    t_eval_long = np.linspace(0, sim_time_long, 50)
+
+    result_long = model.solve(
+        t_span=(0, sim_time_long),
+        t_eval=t_eval_long
+    )
+
+    # Verify long simulation results
+    assert isinstance(result_long, dict)
+    assert len(result_long['time']) == 50
+    assert result_long['time'][0] == 0.0
+    assert result_long['time'][-1] == sim_time_long
+    assert np.all(np.isfinite(result_long['Cgb']))
+    assert np.all(np.isfinite(result_long['Rcb']))
+    assert np.all(result_long['Rcb'] > 0)
+
+    # Test case 4: Verify consistency - final time should match regardless of t_eval density
+    # Create a new model for consistency check
+    model_consistency = GasSwellingModel(create_default_parameters())
+    sim_time_consistency = 2000
+
+    # Run with sparse t_eval
+    t_eval_sparse = np.linspace(0, sim_time_consistency, 10)
+    result_sparse = model_consistency.solve(
+        t_span=(0, sim_time_consistency),
+        t_eval=t_eval_sparse
+    )
+
+    # Run with dense t_eval
+    model_consistency2 = GasSwellingModel(create_default_parameters())
+    t_eval_dense = np.linspace(0, sim_time_consistency, 100)
+    result_dense = model_consistency2.solve(
+        t_span=(0, sim_time_consistency),
+        t_eval=t_eval_dense
+    )
+
+    # Both should have same final time
+    assert result_sparse['time'][-1] == result_dense['time'][-1]
+    assert result_sparse['time'][-1] == sim_time_consistency
+
+    # Results should be approximately similar (allowing for small numerical differences)
+    # Compare key variables at the final time point
+    assert np.isclose(result_sparse['Cgb'][-1], result_dense['Cgb'][-1], rtol=1e-3)
+    assert np.isclose(result_sparse['Rcb'][-1], result_dense['Rcb'][-1], rtol=1e-3)
+    assert np.isclose(result_sparse['Ncb'][-1], result_dense['Ncb'][-1], rtol=1e-3)
