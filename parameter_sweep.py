@@ -68,9 +68,46 @@ class SweepConfig:
 
     def __post_init__(self):
         """验证配置参数"""
+        # 验证采样方法
         valid_sampling = ['grid', 'latin_hypercube', 'random']
         if self.sampling_method not in valid_sampling:
             raise ValueError(f"sampling_method must be one of {valid_sampling}, got {self.sampling_method}")
+
+        # 验证n_samples
+        if self.n_samples <= 0:
+            raise ValueError(f"n_samples must be positive, got {self.n_samples}")
+
+        # 验证sim_time
+        if self.sim_time <= 0:
+            raise ValueError(f"sim_time must be positive, got {self.sim_time}")
+
+        # 验证output_interval
+        if self.output_interval <= 0:
+            raise ValueError(f"output_interval must be positive, got {self.output_interval}")
+
+        # 验证parameter_ranges格式
+        if self.parameter_ranges:
+            if not isinstance(self.parameter_ranges, dict):
+                raise ValueError(f"parameter_ranges must be a dictionary, got {type(self.parameter_ranges)}")
+
+            for param_name, param_values in self.parameter_ranges.items():
+                if not isinstance(param_name, str):
+                    raise ValueError(f"Parameter name must be string, got {type(param_name)}")
+
+                if not isinstance(param_values, list):
+                    raise ValueError(f"Parameter values for '{param_name}' must be a list, got {type(param_values)}")
+
+                if len(param_values) == 0:
+                    raise ValueError(f"Parameter values for '{param_name}' cannot be empty")
+
+                # 验证所有值都是数值
+                for i, val in enumerate(param_values):
+                    if not isinstance(val, (int, float)):
+                        raise ValueError(f"Parameter value {i} for '{param_name}' must be numeric, got {type(val)}: {val}")
+
+        # 验证n_jobs
+        if self.n_jobs is not None and self.n_jobs != -1 and self.n_jobs < 1:
+            raise ValueError(f"n_jobs must be -1, None, or >= 1, got {self.n_jobs}")
 
 
 @dataclass
@@ -377,16 +414,44 @@ class ParameterSweep:
             base_params: 基础参数字典
             config: 扫描配置，如果为None则使用默认配置
         """
+        # 验证base_params
+        if not isinstance(base_params, dict):
+            raise TypeError(f"base_params must be a dictionary, got {type(base_params)}")
+
+        if len(base_params) == 0:
+            raise ValueError("base_params cannot be empty")
+
+        # 验证base_params中的基本参数类型和值
+        required_params = ['temperature', 'fission_rate', 'time_step']
+        missing_params = [p for p in required_params if p not in base_params]
+        if missing_params:
+            logger.warning(f"base_params is missing recommended parameters: {missing_params}")
+
+        # 验证关键参数的值
+        if 'temperature' in base_params:
+            temp = base_params['temperature']
+            if not isinstance(temp, (int, float)) or temp <= 0:
+                raise ValueError(f"temperature must be a positive number, got {temp}")
+
+        if 'fission_rate' in base_params:
+            fission_rate = base_params['fission_rate']
+            if not isinstance(fission_rate, (int, float)) or fission_rate <= 0:
+                raise ValueError(f"fission_rate must be a positive number, got {fission_rate}")
+
         self.base_params = base_params.copy()
         self.config = config if config is not None else SweepConfig()
         self.results: List[SimulationResult] = []
 
         # 初始化缓存
-        if self.config.cache_enabled:
-            self.cache = SimulationCache(cache_dir=self.config.cache_dir)
-        else:
-            self.cache = None
-            logger.info("缓存已禁用")
+        try:
+            if self.config.cache_enabled:
+                self.cache = SimulationCache(cache_dir=self.config.cache_dir)
+            else:
+                self.cache = None
+                logger.info("缓存已禁用")
+        except Exception as e:
+            logger.error(f"缓存初始化失败: {e}")
+            raise
 
         # 导入模型（延迟导入以避免循环依赖）
         try:
@@ -422,17 +487,54 @@ class ParameterSweep:
         返回:
             模拟结果
         """
+        # 验证参数
+        try:
+            if not isinstance(params, dict):
+                raise TypeError(f"params must be a dictionary, got {type(params)}")
+
+            if len(params) == 0:
+                raise ValueError("params cannot be empty")
+
+            # 验证关键参数存在且有效
+            if 'temperature' not in params:
+                raise ValueError("params must contain 'temperature'")
+
+            if 'fission_rate' not in params:
+                raise ValueError("params must contain 'fission_rate'")
+
+            temp = params.get('temperature')
+            if not isinstance(temp, (int, float)) or temp <= 0:
+                raise ValueError(f"temperature must be a positive number, got {temp}")
+
+            fission_rate = params.get('fission_rate')
+            if not isinstance(fission_rate, (int, float)) or fission_rate <= 0:
+                raise ValueError(f"fission_rate must be a positive number, got {fission_rate}")
+
+        except Exception as e:
+            logger.error(f"参数验证失败: {e}")
+            return SimulationResult(
+                parameters=params.copy() if isinstance(params, dict) else {},
+                success=False,
+                error_message=f"参数验证失败: {str(e)}",
+                metadata={'runtime': 0, 'from_cache': False}
+            )
+
         # 检查缓存
         if self.cache is not None:
-            cached_result = self.cache.get(params)
-            if cached_result is not None:
-                # 缓存命中，记录元数据
-                cached_result.metadata['from_cache'] = True
-                return cached_result
+            try:
+                cached_result = self.cache.get(params)
+                if cached_result is not None:
+                    # 缓存命中，记录元数据
+                    cached_result.metadata['from_cache'] = True
+                    return cached_result
+            except Exception as e:
+                logger.warning(f"缓存读取失败: {e}")
 
         # 创建模型并运行模拟
         start_time = time.time()
         try:
+            logger.debug(f"开始模拟: temperature={params['temperature']}, fission_rate={params['fission_rate']}")
+
             model = self.ModelClass(params)
 
             # 设置时间点
@@ -443,6 +545,15 @@ class ParameterSweep:
                 t_span=(0, self.config.sim_time),
                 t_eval=t_eval
             )
+
+            # 验证结果
+            if not isinstance(result, dict):
+                raise TypeError(f"model.solve must return a dictionary, got {type(result)}")
+
+            required_keys = ['time', 'Rcb', 'Rcf', 'Ccb', 'Ccf', 'Ncb', 'Ncf']
+            missing_keys = [k for k in required_keys if k not in result]
+            if missing_keys:
+                raise ValueError(f"结果缺少必需的键: {missing_keys}")
 
             # 计算派生量
             Rcb = result['Rcb']
@@ -489,18 +600,30 @@ class ParameterSweep:
                 success=True
             )
 
+            logger.debug(f"模拟成功: runtime={sim_result.metadata['runtime']:.3f}s, "
+                        f"final_swelling={sim_result.metadata['final_swelling']:.4f}%")
+
             # 存入缓存
             if self.cache is not None:
-                self.cache.set(params, sim_result)
+                try:
+                    self.cache.set(params, sim_result)
+                except Exception as e:
+                    logger.warning(f"缓存写入失败: {e}")
 
             return sim_result
 
         except Exception as e:
-            logger.error(f"模拟失败 (参数: {params}): {e}")
+            error_msg = str(e)
+            logger.error(f"模拟失败 (参数: {params}): {error_msg}")
+
+            # 导入traceback以获取详细的错误信息
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+
             return SimulationResult(
                 parameters=params.copy(),
                 success=False,
-                error_message=str(e),
+                error_message=error_msg,
                 metadata={'runtime': time.time() - start_time, 'from_cache': False}
             )
 
@@ -511,47 +634,69 @@ class ParameterSweep:
         返回:
             参数字典列表
         """
-        if not self.config.parameter_ranges:
-            logger.info("未指定参数范围，仅使用基础参数")
-            return [self.base_params.copy()]
-
-        # 导入采样策略
         try:
-            from sampling_strategies import grid_sampling, latin_hypercube_sampling, random_sampling
-        except ImportError:
-            logger.warning("sampling_strategies模块不可用，使用简单的网格采样")
-            # 简单的网格采样实现
-            param_sets = []
-            param_names = list(self.config.parameter_ranges.keys())
-            param_values = [self.config.parameter_ranges[name] for name in param_names]
+            if not self.config.parameter_ranges:
+                logger.info("未指定参数范围，仅使用基础参数")
+                return [self.base_params.copy()]
 
-            # 生成所有组合
-            import itertools
-            for combination in itertools.product(*param_values):
-                params = self.base_params.copy()
-                for name, value in zip(param_names, combination):
-                    params[name] = value
-                param_sets.append(params)
+            # 验证parameter_ranges中的参数名存在于base_params中
+            invalid_params = [p for p in self.config.parameter_ranges.keys() if p not in self.base_params]
+            if invalid_params:
+                logger.warning(f"参数范围中的参数不在基础参数中: {invalid_params}。"
+                             f"这些参数将被添加到参数集中。")
 
+            # 导入采样策略
+            try:
+                from sampling_strategies import grid_sampling, latin_hypercube_sampling, random_sampling
+            except ImportError:
+                logger.warning("sampling_strategies模块不可用，使用简单的网格采样")
+                # 简单的网格采样实现
+                param_sets = []
+                param_names = list(self.config.parameter_ranges.keys())
+                param_values = [self.config.parameter_ranges[name] for name in param_names]
+
+                # 验证参数值
+                for name, values in zip(param_names, param_values):
+                    if not isinstance(values, list) or len(values) == 0:
+                        raise ValueError(f"参数 '{name}' 的值必须是非空列表，得到: {values}")
+
+                # 生成所有组合
+                import itertools
+                for combination in itertools.product(*param_values):
+                    params = self.base_params.copy()
+                    for name, value in zip(param_names, combination):
+                        params[name] = value
+                    param_sets.append(params)
+
+                logger.info(f"生成了 {len(param_sets)} 个参数集（网格采样）")
+                return param_sets
+
+            # 使用采样策略模块
+            if self.config.sampling_method == 'grid':
+                param_sets = grid_sampling(self.base_params, self.config.parameter_ranges)
+            elif self.config.sampling_method == 'latin_hypercube':
+                param_sets = latin_hypercube_sampling(
+                    self.base_params,
+                    self.config.parameter_ranges,
+                    n_samples=self.config.n_samples
+                )
+            elif self.config.sampling_method == 'random':
+                param_sets = random_sampling(
+                    self.base_params,
+                    self.config.parameter_ranges,
+                    n_samples=self.config.n_samples
+                )
+            else:
+                raise ValueError(f"未知的采样方法: {self.config.sampling_method}")
+
+            logger.info(f"生成了 {len(param_sets)} 个参数集（{self.config.sampling_method} 采样）")
             return param_sets
 
-        # 使用采样策略模块
-        if self.config.sampling_method == 'grid':
-            return grid_sampling(self.base_params, self.config.parameter_ranges)
-        elif self.config.sampling_method == 'latin_hypercube':
-            return latin_hypercube_sampling(
-                self.base_params,
-                self.config.parameter_ranges,
-                n_samples=self.config.n_samples
-            )
-        elif self.config.sampling_method == 'random':
-            return random_sampling(
-                self.base_params,
-                self.config.parameter_ranges,
-                n_samples=self.config.n_samples
-            )
-        else:
-            raise ValueError(f"未知的采样方法: {self.config.sampling_method}")
+        except Exception as e:
+            logger.error(f"生成参数集失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+            raise
 
     def run(self) -> List[SimulationResult]:
         """
@@ -852,29 +997,72 @@ class ParameterSweep:
             filepath: Excel文件路径
             include_summary: 是否包含汇总统计工作表
         """
+        # 验证filepath
+        if not filepath:
+            raise ValueError("filepath不能为空")
+
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+        # 检查目录是否存在
+        import os
+        file_dir = os.path.dirname(filepath)
+        if file_dir and not os.path.exists(file_dir):
+            try:
+                os.makedirs(file_dir, exist_ok=True)
+                logger.info(f"创建目录: {file_dir}")
+            except Exception as e:
+                raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+        # 检查是否有结果
+        if not self.results:
+            raise ValueError("没有结果可导出")
+
         try:
             with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
                 # 主结果表
                 df = self.to_dataframe(include_time_series=True)
-                df.to_excel(writer, sheet_name='Results', index=False)
 
-                # 仅成功的模拟结果
-                successful_df = df[df['success'] == True]
-                successful_df.to_excel(writer, sheet_name='Successful Only', index=False)
+                if df.empty:
+                    logger.warning("DataFrame为空，仅导出表头")
+                    df.to_excel(writer, sheet_name='Results', index=False)
+                else:
+                    df.to_excel(writer, sheet_name='Results', index=False)
+                    logger.info(f"导出主结果表: {len(df)} 行")
 
-                # 汇总统计
-                if include_summary and not df.empty:
-                    summary = self.get_summary_statistics()
-                    summary.to_excel(writer, sheet_name='Summary Statistics')
+                    # 仅成功的模拟结果
+                    successful_df = df[df['success'] == True]
+                    successful_df.to_excel(writer, sheet_name='Successful Only', index=False)
+                    logger.info(f"导出成功结果表: {len(successful_df)} 行")
 
-                    # 按关键参数汇总
-                    if 'temperature' in df.columns:
-                        temp_summary = self.aggregate_by_parameter('temperature', 'mean')
-                        temp_summary.to_excel(writer, sheet_name='By Temperature')
+                    # 汇总统计
+                    if include_summary and not df.empty:
+                        try:
+                            summary = self.get_summary_statistics()
+                            if not summary.empty:
+                                summary.to_excel(writer, sheet_name='Summary Statistics')
+                                logger.info("导出汇总统计表")
 
-                logger.info(f"结果已导出到Excel: {filepath}")
+                                # 按关键参数汇总
+                                if 'temperature' in df.columns:
+                                    temp_summary = self.aggregate_by_parameter('temperature', 'mean')
+                                    if not temp_summary.empty:
+                                        temp_summary.to_excel(writer, sheet_name='By Temperature')
+                                        logger.info("导出温度汇总表")
+                        except Exception as e:
+                            logger.warning(f"生成汇总统计失败: {e}")
+
+            logger.info(f"结果已导出到Excel: {filepath}")
+        except ImportError as e:
+            logger.error(f"缺少必需的库: {e}")
+            raise ImportError("导出Excel需要openpyxl库。请安装: pip install openpyxl")
+        except PermissionError:
+            logger.error(f"文件权限错误，无法写入: {filepath}")
+            raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限或是否被其他程序打开")
         except Exception as e:
             logger.error(f"导出Excel失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
             raise
 
     def export_json(self, filepath: str, include_time_series: bool = False) -> None:
@@ -885,6 +1073,27 @@ class ParameterSweep:
             filepath: JSON文件路径
             include_time_series: 是否包含完整的时间序列数据
         """
+        # 验证filepath
+        if not filepath:
+            raise ValueError("filepath不能为空")
+
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+        # 检查目录是否存在
+        import os
+        file_dir = os.path.dirname(filepath)
+        if file_dir and not os.path.exists(file_dir):
+            try:
+                os.makedirs(file_dir, exist_ok=True)
+                logger.info(f"创建目录: {file_dir}")
+            except Exception as e:
+                raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+        # 检查是否有结果
+        if not self.results:
+            raise ValueError("没有结果可导出")
+
         try:
             data = {
                 'config': {
@@ -899,59 +1108,81 @@ class ParameterSweep:
             }
 
             # 转换结果为可序列化的格式
-            for result in self.results:
-                result_dict = {
-                    'parameters': result.parameters,
-                    'success': result.success,
-                    'metadata': result.metadata
-                }
+            for i, result in enumerate(self.results):
+                try:
+                    result_dict = {
+                        'parameters': result.parameters,
+                        'success': result.success,
+                        'metadata': result.metadata
+                    }
 
-                if result.success:
-                    # 添加最终值
-                    result_dict['final_values'] = {}
-                    if result.state_variables:
-                        for var_name, var_data in result.state_variables.items():
-                            if len(var_data) > 0:
-                                result_dict['final_values'][var_name] = float(var_data[-1])
-
-                    if result.derived_quantities:
-                        for qty_name, qty_data in result.derived_quantities.items():
-                            if len(qty_data) > 0:
-                                result_dict['final_values'][qty_name] = float(qty_data[-1])
-
-                    # 可选：添加时间序列数据
-                    if include_time_series:
-                        result_dict['time_series'] = {}
+                    if result.success:
+                        # 添加最终值
+                        result_dict['final_values'] = {}
                         if result.state_variables:
                             for var_name, var_data in result.state_variables.items():
-                                result_dict['time_series'][var_name] = var_data.tolist()
+                                if len(var_data) > 0:
+                                    result_dict['final_values'][var_name] = float(var_data[-1])
+
                         if result.derived_quantities:
                             for qty_name, qty_data in result.derived_quantities.items():
-                                result_dict['time_series'][qty_name] = qty_data.tolist()
-                        result_dict['time'] = result.time.tolist()
-                else:
-                    result_dict['error'] = result.error_message
+                                if len(qty_data) > 0:
+                                    result_dict['final_values'][qty_name] = float(qty_data[-1])
 
-                data['results'].append(result_dict)
+                        # 可选：添加时间序列数据
+                        if include_time_series:
+                            result_dict['time_series'] = {}
+                            if result.state_variables:
+                                for var_name, var_data in result.state_variables.items():
+                                    result_dict['time_series'][var_name] = var_data.tolist()
+                            if result.derived_quantities:
+                                for qty_name, qty_data in result.derived_quantities.items():
+                                    result_dict['time_series'][qty_name] = qty_data.tolist()
+                            result_dict['time'] = result.time.tolist()
+                    else:
+                        result_dict['error'] = result.error_message
+
+                    data['results'].append(result_dict)
+                except Exception as e:
+                    logger.warning(f"结果 {i} 序列化失败: {e}")
+                    data['results'].append({
+                        'parameters': result.parameters if hasattr(result, 'parameters') else {},
+                        'success': False,
+                        'error': f"序列化失败: {str(e)}"
+                    })
 
             # 添加汇总统计
-            df = self.to_dataframe()
-            if not df.empty:
-                numeric_cols = df.select_dtypes(include=[np.number]).columns
+            try:
+                df = self.to_dataframe()
+                if not df.empty:
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns
+                    data['summary'] = {
+                        'total_runs': len(self.results),
+                        'successful_runs': sum(1 for r in self.results if r.success),
+                        'failed_runs': sum(1 for r in self.results if not r.success),
+                        'statistics': df[numeric_cols].describe().to_dict()
+                    }
+            except Exception as e:
+                logger.warning(f"生成汇总统计失败: {e}")
                 data['summary'] = {
                     'total_runs': len(self.results),
                     'successful_runs': sum(1 for r in self.results if r.success),
                     'failed_runs': sum(1 for r in self.results if not r.success),
-                    'statistics': df[numeric_cols].describe().to_dict()
+                    'error': f"统计生成失败: {str(e)}"
                 }
 
             # 写入文件
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, default=lambda x: float(x) if isinstance(x, (np.integer, np.floating)) else str(x))
 
-            logger.info(f"结果已导出到JSON: {filepath}")
+            logger.info(f"结果已导出到JSON: {filepath} ({len(data['results'])} 条结果)")
+        except PermissionError:
+            logger.error(f"文件权限错误，无法写入: {filepath}")
+            raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
         except Exception as e:
             logger.error(f"导出JSON失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
             raise
 
     def export_parquet(self, filepath: str) -> None:
@@ -961,15 +1192,43 @@ class ParameterSweep:
         参数:
             filepath: Parquet文件路径
         """
+        # 验证filepath
+        if not filepath:
+            raise ValueError("filepath不能为空")
+
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+        # 检查目录是否存在
+        import os
+        file_dir = os.path.dirname(filepath)
+        if file_dir and not os.path.exists(file_dir):
+            try:
+                os.makedirs(file_dir, exist_ok=True)
+                logger.info(f"创建目录: {file_dir}")
+            except Exception as e:
+                raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+        # 检查是否有结果
+        if not self.results:
+            raise ValueError("没有结果可导出")
+
         try:
             df = self.to_dataframe(include_time_series=True)
+            if df.empty:
+                logger.warning("DataFrame为空，导出空Parquet文件")
             df.to_parquet(filepath, index=False)
-            logger.info(f"结果已导出到Parquet: {filepath}")
-        except ImportError:
-            logger.error("pyarrow或fastparquet未安装，无法导出Parquet格式")
-            raise
+            logger.info(f"结果已导出到Parquet: {filepath} ({len(df)} 行)")
+        except ImportError as e:
+            logger.error(f"缺少必需的库: {e}")
+            raise ImportError("导出Parquet需要pyarrow或fastparquet库。请安装: pip install pyarrow")
+        except PermissionError:
+            logger.error(f"文件权限错误，无法写入: {filepath}")
+            raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
         except Exception as e:
             logger.error(f"导出Parquet失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
             raise
 
     def export_csv(self, filepath: str, include_time_series: bool = False) -> None:
@@ -980,9 +1239,41 @@ class ParameterSweep:
             filepath: CSV文件路径
             include_time_series: 是否包含时间序列数据的统计信息
         """
-        df = self.to_dataframe(include_time_series=include_time_series)
-        df.to_csv(filepath, index=False)
-        logger.info(f"结果已导出到CSV: {filepath} ({len(df)} 行)")
+        # 验证filepath
+        if not filepath:
+            raise ValueError("filepath不能为空")
+
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath必须是字符串，得到 {type(filepath)}")
+
+        # 检查目录是否存在
+        import os
+        file_dir = os.path.dirname(filepath)
+        if file_dir and not os.path.exists(file_dir):
+            try:
+                os.makedirs(file_dir, exist_ok=True)
+                logger.info(f"创建目录: {file_dir}")
+            except Exception as e:
+                raise IOError(f"无法创建目录 {file_dir}: {e}")
+
+        # 检查是否有结果
+        if not self.results:
+            raise ValueError("没有结果可导出")
+
+        try:
+            df = self.to_dataframe(include_time_series=include_time_series)
+            if df.empty:
+                logger.warning("DataFrame为空，导出空CSV文件")
+            df.to_csv(filepath, index=False)
+            logger.info(f"结果已导出到CSV: {filepath} ({len(df)} 行)")
+        except PermissionError:
+            logger.error(f"文件权限错误，无法写入: {filepath}")
+            raise PermissionError(f"无法写入文件 {filepath}，请检查文件权限")
+        except Exception as e:
+            logger.error(f"导出CSV失败: {e}")
+            import traceback
+            logger.debug(f"详细错误信息:\n{traceback.format_exc()}")
+            raise
 
 
 class ParallelRunner:
