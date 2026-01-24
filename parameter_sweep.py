@@ -100,6 +100,160 @@ class SimulationResult:
         return asdict(self)
 
 
+class ProgressTracker:
+    """
+    进度跟踪器类，用于参数扫描过程中的详细统计和时间估计
+    """
+
+    def __init__(self, total_tasks: int, desc: str = "进度"):
+        """
+        初始化进度跟踪器
+
+        参数:
+            total_tasks: 总任务数
+            desc: 进度描述
+        """
+        self.total_tasks = total_tasks
+        self.desc = desc
+        self.completed_tasks = 0
+        self.failed_tasks = 0
+        self.cache_hits = 0
+        self.start_time = time.time()
+        self.task_times = []  # 记录每个任务的执行时间
+        self.last_update_time = self.start_time
+
+    def update(self, success: bool = True, is_cache_hit: bool = False, task_time: float = None):
+        """
+        更新进度
+
+        参数:
+            success: 任务是否成功
+            is_cache_hit: 是否来自缓存
+            task_time: 任务执行时间（秒）
+        """
+        self.completed_tasks += 1
+        if not success:
+            self.failed_tasks += 1
+        if is_cache_hit:
+            self.cache_hits += 1
+        if task_time is not None:
+            self.task_times.append(task_time)
+        self.last_update_time = time.time()
+
+    def get_progress_percent(self) -> float:
+        """获取进度百分比"""
+        if self.total_tasks == 0:
+            return 0.0
+        return (self.completed_tasks / self.total_tasks) * 100
+
+    def get_elapsed_time(self) -> float:
+        """获取已用时间（秒）"""
+        return time.time() - self.start_time
+
+    def get_eta(self) -> float:
+        """
+        估计剩余时间（秒）
+
+        返回:
+            预计剩余时间（秒），如果无法估计则返回-1
+        """
+        if self.completed_tasks == 0:
+            return -1
+
+        elapsed = self.get_elapsed_time()
+        avg_time_per_task = elapsed / self.completed_tasks
+        remaining_tasks = self.total_tasks - self.completed_tasks
+
+        return avg_time_per_task * remaining_tasks
+
+    def get_average_task_time(self) -> float:
+        """
+        获取平均任务执行时间（秒）
+
+        返回:
+            平均执行时间，如果没有完成任务则返回0
+        """
+        if len(self.task_times) == 0:
+            return 0.0
+        return sum(self.task_times) / len(self.task_times)
+
+    def get_throughput(self) -> float:
+        """
+        获取吞吐量（任务/秒）
+
+        返回:
+            每秒完成任务数
+        """
+        elapsed = self.get_elapsed_time()
+        if elapsed == 0:
+            return 0.0
+        return self.completed_tasks / elapsed
+
+    def format_time(self, seconds: float) -> str:
+        """
+        格式化时间为可读字符串
+
+        参数:
+            seconds: 时间（秒）
+
+        返回:
+            格式化的时间字符串
+        """
+        if seconds < 0:
+            return "未知"
+
+        if seconds < 60:
+            return f"{seconds:.1f}秒"
+        elif seconds < 3600:
+            minutes = seconds / 60
+            return f"{minutes:.1f}分钟"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.2f}小时"
+
+    def get_summary(self) -> Dict[str, Any]:
+        """
+        获取进度摘要信息
+
+        返回:
+            包含进度统计的字典
+        """
+        eta = self.get_eta()
+        return {
+            'desc': self.desc,
+            'total': self.total_tasks,
+            'completed': self.completed_tasks,
+            'failed': self.failed_tasks,
+            'cache_hits': self.cache_hits,
+            'progress_percent': self.get_progress_percent(),
+            'elapsed_time': self.get_elapsed_time(),
+            'elapsed_time_formatted': self.format_time(self.get_elapsed_time()),
+            'eta': eta,
+            'eta_formatted': self.format_time(eta),
+            'avg_task_time': self.get_average_task_time(),
+            'throughput': self.get_throughput()
+        }
+
+    def log_summary(self, logger_instance):
+        """
+        记录进度摘要到日志
+
+        参数:
+            logger_instance: 日志记录器实例
+        """
+        summary = self.get_summary()
+        logger_instance.info(f"======== {self.desc}摘要 ========")
+        logger_instance.info(f"总任务数: {summary['total']}")
+        logger_instance.info(f"已完成: {summary['completed']} ({summary['progress_percent']:.1f}%)")
+        logger_instance.info(f"成功: {summary['completed'] - summary['failed']}")
+        logger_instance.info(f"失败: {summary['failed']}")
+        logger_instance.info(f"缓存命中: {summary['cache_hits']}")
+        logger_instance.info(f"已用时间: {summary['elapsed_time_formatted']}")
+        logger_instance.info(f"预计剩余: {summary['eta_formatted']}")
+        logger_instance.info(f"平均任务时间: {summary['avg_task_time']:.3f}秒")
+        logger_instance.info(f"吞吐量: {summary['throughput']:.3f}任务/秒")
+
+
 class SimulationCache:
     """
     模拟结果缓存类
@@ -257,12 +411,13 @@ class ParameterSweep:
         if self.config.parameter_ranges:
             logger.info(f"扫描参数: {list(self.config.parameter_ranges.keys())}")
 
-    def _run_single_simulation(self, params: Dict[str, Any]) -> SimulationResult:
+    def _run_single_simulation(self, params: Dict[str, Any], show_progress: bool = False) -> SimulationResult:
         """
         运行单次模拟
 
         参数:
             params: 参数字典
+            show_progress: 是否显示单个模拟的进度（仅用于长时间运行的模拟）
 
         返回:
             模拟结果
@@ -271,6 +426,8 @@ class ParameterSweep:
         if self.cache is not None:
             cached_result = self.cache.get(params)
             if cached_result is not None:
+                # 缓存命中，记录元数据
+                cached_result.metadata['from_cache'] = True
                 return cached_result
 
         # 创建模型并运行模拟
@@ -326,7 +483,8 @@ class ParameterSweep:
                     'runtime': time.time() - start_time,
                     'final_swelling': swelling[-1] if len(swelling) > 0 else 0.0,
                     'final_Rcb': Rcb[-1] if len(Rcb) > 0 else 0.0,
-                    'final_Rcf': Rcf[-1] if len(Rcf) > 0 else 0.0
+                    'final_Rcf': Rcf[-1] if len(Rcf) > 0 else 0.0,
+                    'from_cache': False
                 },
                 success=True
             )
@@ -343,7 +501,7 @@ class ParameterSweep:
                 parameters=params.copy(),
                 success=False,
                 error_message=str(e),
-                metadata={'runtime': time.time() - start_time}
+                metadata={'runtime': time.time() - start_time, 'from_cache': False}
             )
 
     def generate_parameter_sets(self) -> List[Dict[str, Any]]:
@@ -413,35 +571,131 @@ class ParameterSweep:
         self.results = []
         start_time = time.time()
 
+        # 统计变量
+        cache_hits = 0
+        cache_misses = 0
+        failed_sims = []
+
         if self.config.parallel and JOBLIB_AVAILABLE:
             # 并行执行
             logger.info(f"并行任务数: {self.config.n_jobs}")
-            # 根据tqdm是否可用选择迭代器
-            iter_params = tqdm(param_sets, desc="参数扫描进度") if TQDM_AVAILABLE else param_sets
+
+            if TQDM_AVAILABLE:
+                # 使用tqdm包装并行任务
+                iter_params = tqdm(
+                    param_sets,
+                    desc="参数扫描进度",
+                    total=n_simulations,
+                    unit="sim",
+                    unit_scale=True,
+                    ncols=120,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+                )
+            else:
+                iter_params = param_sets
+
             self.results = Parallel(n_jobs=self.config.n_jobs)(
                 delayed(self._run_single_simulation)(params)
                 for params in iter_params
             )
+
+            # 统计结果
+            for result in self.results:
+                if result.success:
+                    # 检查是否来自缓存（通过运行时间判断，缓存的结果通常非常快）
+                    if result.metadata.get('runtime', 0) < 0.01:  # 小于10ms认为是缓存
+                        cache_hits += 1
+                    else:
+                        cache_misses += 1
+                else:
+                    failed_sims.append(result.parameters)
+
         else:
             # 串行执行
             if TQDM_AVAILABLE:
-                param_sets = tqdm(param_sets, desc="参数扫描进度")
+                # 创建进度条，显示更多详细信息
+                pbar = tqdm(
+                    param_sets,
+                    desc="参数扫描进度",
+                    total=n_simulations,
+                    unit="sim",
+                    unit_scale=True,
+                    ncols=120,
+                    bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+                )
 
-            for params in param_sets:
-                result = self._run_single_simulation(params)
-                self.results.append(result)
+                # 手动更新进度条以显示缓存状态
+                for params in pbar:
+                    sim_start = time.time()
+                    result = self._run_single_simulation(params)
+                    sim_time = time.time() - sim_start
+
+                    self.results.append(result)
+
+                    # 更新统计
+                    if result.success:
+                        # 检查是否来自缓存
+                        if self.cache is not None:
+                            cached_result = self.cache.get(params)
+                            if cached_result is not None and sim_time < 0.01:
+                                cache_hits += 1
+                                cache_status = "缓存命中"
+                            else:
+                                cache_misses += 1
+                                cache_status = "新计算"
+                        else:
+                            cache_misses += 1
+                            cache_status = "无缓存"
+                    else:
+                        failed_sims.append(result.parameters)
+                        cache_status = "失败"
+
+                    # 更新进度条后缀显示统计信息
+                    pbar.set_postfix({
+                        '成功': sum(1 for r in self.results if r.success),
+                        '失败': len(failed_sims),
+                        '缓存': cache_hits,
+                        '状态': cache_status
+                    })
+
+                pbar.close()
+
+            else:
+                # 不使用tqdm
+                for i, params in enumerate(param_sets, 1):
+                    result = self._run_single_simulation(params)
+                    self.results.append(result)
+
+                    if i % max(1, n_simulations // 10) == 0:  # 每10%打印一次进度
+                        logger.info(f"进度: {i}/{n_simulations} ({i/n_simulations*100:.1f}%)")
 
         elapsed_time = time.time() - start_time
         n_success = sum(1 for r in self.results if r.success)
         n_failed = len(self.results) - n_success
 
         logger.info("======== 参数扫描完成 ========")
-        logger.info(f"总耗时: {elapsed_time:.2f} 秒")
-        logger.info(f"成功: {n_success}/{n_simulations}")
-        logger.info(f"失败: {n_failed}/{n_simulations}")
+        logger.info(f"总耗时: {elapsed_time:.2f} 秒 ({elapsed_time/60:.2f} 分钟)")
+
+        # 详细统计信息
+        if elapsed_time > 0:
+            avg_time = elapsed_time / n_simulations
+            logger.info(f"平均每模拟: {avg_time:.3f} 秒")
+            logger.info(f"吞吐量: {n_simulations/elapsed_time:.3f} sim/s")
+
+        logger.info(f"成功: {n_success}/{n_simulations} ({n_success/n_simulations*100:.1f}%)")
+        logger.info(f"失败: {n_failed}/{n_simulations} ({n_failed/n_simulations*100:.1f}%)")
+
+        if self.cache is not None:
+            logger.info(f"缓存命中: {cache_hits} ({cache_hits/n_simulations*100:.1f}%)")
+            logger.info(f"新计算: {cache_misses} ({cache_misses/n_simulations*100:.1f}%)")
 
         if n_failed > 0:
             logger.warning(f"有 {n_failed} 次模拟失败")
+            # 记录失败的参数（仅前5个）
+            for i, failed_params in enumerate(failed_sims[:5]):
+                logger.warning(f"失败参数 {i+1}: {failed_params}")
+            if len(failed_sims) > 5:
+                logger.warning(f"还有 {len(failed_sims)-5} 个失败参数未显示")
 
         return self.results
 
@@ -488,6 +742,102 @@ class ParameterSweep:
 
 
 # 便捷函数
+def create_progress_bar(iterable, desc: str = "进度", total: int = None,
+                       show_stats: bool = True, **kwargs):
+    """
+    创建增强的进度条
+
+    参数:
+        iterable: 可迭代对象
+        desc: 进度描述
+        total: 总数量（如果为None则从iterable推断）
+        show_stats: 是否显示统计信息
+        **kwargs: 传递给tqdm的其他参数
+
+    返回:
+        tqdm迭代器或原始iterable（如果tqdm不可用）
+    """
+    if not TQDM_AVAILABLE:
+        logger.warning("tqdm不可用，返回原始迭代器")
+        return iterable
+
+    # 默认参数
+    default_kwargs = {
+        'desc': desc,
+        'unit': 'it',
+        'unit_scale': True,
+        'ncols': 120,
+        'bar_format': '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+    }
+
+    # 合并用户提供的参数
+    default_kwargs.update(kwargs)
+
+    # 设置总数
+    if total is not None:
+        default_kwargs['total'] = total
+
+    return tqdm(iterable, **default_kwargs)
+
+
+def format_time_duration(seconds: float) -> str:
+    """
+    格式化时间持续时间为可读字符串
+
+    参数:
+        seconds: 时间（秒）
+
+    返回:
+        格式化的时间字符串
+
+    示例:
+        >>> format_time_duration(3661)
+        '1小时1分钟1秒'
+        >>> format_time_duration(65)
+        '1分钟5秒'
+        >>> format_time_duration(30)
+        '30秒'
+    """
+    if seconds < 0:
+        return "未知"
+
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours}小时")
+    if minutes > 0:
+        parts.append(f"{minutes}分钟")
+    if secs > 0 or len(parts) == 0:
+        parts.append(f"{secs}秒")
+
+    return ''.join(parts)
+
+
+def estimate_remaining_time(start_time: float, completed: int, total: int) -> float:
+    """
+    估计剩余时间
+
+    参数:
+        start_time: 开始时间戳（秒）
+        completed: 已完成数量
+        total: 总数量
+
+    返回:
+        预计剩余时间（秒），如果无法估计则返回-1
+    """
+    if completed == 0 or total == 0:
+        return -1
+
+    elapsed = time.time() - start_time
+    avg_time_per_task = elapsed / completed
+    remaining_tasks = total - completed
+
+    return avg_time_per_task * remaining_tasks
+
+
 def run_parameter_sweep(
     base_params: Dict[str, Any],
     parameter_ranges: Dict[str, List[float]],
