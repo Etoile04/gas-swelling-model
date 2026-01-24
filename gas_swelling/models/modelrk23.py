@@ -4,6 +4,7 @@ from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
 from ..params.parameters import create_default_parameters
+from .adaptive_solver import AdaptiveSolver
 
 class GasSwellingModel:
     """气体肿胀模型,实现公式1-25的数值求解, Ncb, Ncf 作为状态变量"""
@@ -534,18 +535,9 @@ class GasSwellingModel:
         Rcf = results_dict['Rcf']
         Ccb = results_dict['Ccb']
         Ccf = results_dict['Ccf']
-        Ncb = results_dict['Ncb']
-        Ncf = results_dict['Ncf']
         V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
         V_bubble_f = (4.0/3.0) * np.pi * Rcf**3 * Ccf
         results_dict['swelling'] = (V_bubble_b + V_bubble_f) * 100
-
-        # 添加气体压力计算结果
-        Pg_b = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcb, Ncb)])
-        Pg_f = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcf, Ncf)])
-        results_dict['Pg_b'] = Pg_b
-        results_dict['Pg_f'] = Pg_f
-
         return results_dict
     
 #    def plot_debug_history(self, save_dir: str = 'debug_plots/'):
@@ -843,6 +835,7 @@ from scipy.integrate._ivp.ivp import OdeResult
 from typing import Dict, Tuple
 from scipy.integrate import solve_ivp
 from ..params.parameters import create_default_parameters
+from .adaptive_solver import AdaptiveSolver
 
 class GasSwellingModel:
     """气体肿胀模型,实现公式1-25的数值求解, Ncb, Ncf 作为状态变量"""
@@ -1265,35 +1258,85 @@ class GasSwellingModel:
               max_dt: float = 100.0,
               max_steps: int = 1000000,
               output_interval: int = 1000) -> Dict:
-        """求解微分方程组"""
+        """求解微分方程组
+
+        Supports both adaptive and fixed time stepping based on the
+        adaptive_stepping_enabled parameter.
+        """
         self.step_count = 0
         self.debug_interval = output_interval
-        
+
         if t_eval is None:
             t_eval = np.linspace(t_span[0], t_span[1], 100)
 
-        # 调整求解器参数并添加异常处理
-        try:
-            sol = solve_ivp(
-                fun=self._equations,
-                t_span=t_span,
-                y0=np.clip(self.initial_state, 1e-12, 1e30),
-                t_eval=t_eval,
-                method='LSODA',
-                rtol=1e-4,
-                atol=1e-6,
-                first_step=dt,
-                max_step=max_dt,
-                max_steps=max_steps
-            )
-            self.solver_success = sol.success
-        except Exception as e:
-            print(f"Solver error: {str(e)}")
-            self.solver_success = False
-            sol = type('', (), {})()
-            sol.success = False
-            sol.t = np.array([])
-            sol.y = np.array([])
+        # Check if adaptive stepping is enabled
+        if self.params.get('adaptive_stepping_enabled', False):
+            # Use adaptive solver
+            try:
+                # Show progress unless explicitly disabled
+                show_progress = self.params.get('show_progress', True)
+                progress_interval = self.params.get('progress_interval', 100)
+
+                adaptive_solver = AdaptiveSolver(
+                    fun=self._equations,
+                    t_span=t_span,
+                    y0=np.clip(self.initial_state, 1e-12, 1e30),
+                    rtol=1e-4,
+                    atol=1e-6,
+                    min_step=self.params.get('min_step', 1e-9),
+                    max_step=self.params.get('max_step', 1e2),
+                    first_step=dt,
+                    max_steps=max_steps,
+                    method='RK23',
+                    show_progress=show_progress,
+                    progress_interval=progress_interval
+                )
+                sol_dict = adaptive_solver.solve(t_eval=t_eval)
+
+                # Convert adaptive solver output to scipy-like format
+                sol = type('', (), {})()
+                sol.success = sol_dict['success']
+                sol.t = sol_dict['time']
+                sol.y = sol_dict['y'].T  # Transpose to match scipy format (n_vars, n_points)
+                self.solver_success = sol.success
+
+                # Log solver statistics
+                if not sol.success:
+                    print(f"Adaptive solver warning: {sol_dict['message']}")
+                else:
+                    print(f"Adaptive solver completed: {sol_dict['n_steps']} steps "
+                          f"({sol_dict['n_accepted']} accepted, {sol_dict['n_rejected']} rejected)")
+
+            except Exception as e:
+                print(f"Adaptive solver error: {str(e)}")
+                self.solver_success = False
+                sol = type('', (), {})()
+                sol.success = False
+                sol.t = np.array([])
+                sol.y = np.array([])
+        else:
+            # Use scipy solve_ivp (original behavior)
+            try:
+                sol = solve_ivp(
+                    fun=self._equations,
+                    t_span=t_span,
+                    y0=np.clip(self.initial_state, 1e-12, 1e30),
+                    t_eval=t_eval,
+                    method='LSODA',
+                    rtol=1e-4,
+                    atol=1e-6,
+                    first_step=dt,
+                    max_step=max_dt,
+                    max_steps=max_steps
+                )
+                self.solver_success = sol.success
+            except Exception as e:
+                print(f"Solver error: {str(e)}")
+                self.solver_success = False
+                sol = type('', (), {})()
+                sol.success = False
+                sol.t = np.array([])
+                sol.y = np.array([])
 
 
 #        if not sol.success:
@@ -1332,18 +1375,9 @@ class GasSwellingModel:
         Rcf = results_dict['Rcf']
         Ccb = results_dict['Ccb']
         Ccf = results_dict['Ccf']
-        Ncb = results_dict['Ncb']
-        Ncf = results_dict['Ncf']
         V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
         V_bubble_f = (4.0/3.0) * np.pi * Rcf**3 * Ccf
         results_dict['swelling'] = (V_bubble_b + V_bubble_f) * 100
-
-        # 添加气体压力计算结果
-        Pg_b = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcb, Ncb)])
-        Pg_f = np.array([self._calculate_VirialEOSgas_pressure(r, n) for r, n in zip(Rcf, Ncf)])
-        results_dict['Pg_b'] = Pg_b
-        results_dict['Pg_f'] = Pg_f
-
         return results_dict
     
 #    def plot_debug_history(self, save_dir: str = 'debug_plots/'):

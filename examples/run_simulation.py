@@ -6,6 +6,8 @@ import logging
 import os
 
 # 配置日志
+# Note: This script now supports adaptive time stepping. To enable it, set adaptive_stepping=True
+# when calling run_test4() or set adaptive_stepping = True in the __main__ block below.
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,10 +17,10 @@ logging.basicConfig(
 logger = logging.getLogger('test4_run_euler')
 
 def run_test4(sim_time=7200000, dt=None, max_dt=None, max_steps=1000000, output_interval=1000,
-              save_path='test4_results.png', debug_plots_dir='test4_debug_plots/'):
+              save_path='test4_results.png', debug_plots_dir='test4_debug_plots/', adaptive_stepping=False):
     """
     运行测试4，优化气泡半径演化逻辑，重点关注表面能与气体压力平衡关系
-    
+
     参数:
         sim_time: 模拟时间（秒），默认为360秒（6分钟）
         dt: Euler方法的初始时间步长（秒），如果为None则使用参数中的默认值
@@ -27,9 +29,10 @@ def run_test4(sim_time=7200000, dt=None, max_dt=None, max_steps=1000000, output_
         output_interval: 状态输出的步数间隔，默认每1000步输出一次
         save_path: 结果图表保存路径
         debug_plots_dir: 调试图表保存目录
+        adaptive_stepping: 是否启用自适应时间步长（默认False）
     """
     logger.info(f"======== 测试4开始 ========")
-    logger.info(f"模拟参数: 模拟时间={sim_time}秒, 最大步数={max_steps}步")
+    logger.info(f"模拟参数: 模拟时间={sim_time}秒, 最大步数={max_steps}步, 自适应步长={adaptive_stepping}")
     
     # 创建参数
     params = create_default_parameters()
@@ -66,7 +69,16 @@ def run_test4(sim_time=7200000, dt=None, max_dt=None, max_steps=1000000, output_
     params['radius_smoothing_factor'] = 0.8  # 半径演化平滑因子
     params['pressure_scaling_factor'] = 0.5  # 小气泡内压力缩放因子
     params['vacancy_contribution_weight'] = 1.2  # 空位贡献项权重
-    
+
+    # 自适应步长控制参数
+    params['adaptive_stepping_enabled'] = adaptive_stepping
+    if adaptive_stepping:
+        params['rtol'] = 1e-6  # 相对误差容限
+        params['atol'] = 1e-9  # 绝对误差容限
+        params['min_step'] = 1e-12  # 最小时间步长
+        params['max_step'] = sim_time / 10  # 最大时间步长
+        logger.info(f"启用自适应步长控制: rtol={params['rtol']}, atol={params['atol']}")
+
     # 记录使用的参数
     logger.info("使用测试4的参数设置:")
     logger.info(f"- 温度: {params['temperature']}K")
@@ -326,12 +338,15 @@ def analyze_test_results():
         logger.error(f"分析测试结果时出错: {str(e)}")
 
 if __name__ == "__main__":
-    print("开始运行辐射气体气泡肿胀Euler模型 - 测试4（优化气泡半径演化逻辑）")
+    print("开始运行辐射气体气泡肿胀模型 - 测试4（优化气泡半径演化逻辑）")
     logger.info("======== 程序启动 ========")
-    
+
     # 获取并修改参数
     params = create_default_parameters()
-    
+
+    # 自适应步长控制（可选，默认关闭以保持向后兼容）
+    adaptive_stepping = False  # 设置为 True 启用自适应步长
+
     # 模拟时间为6分钟
     sim_time = 7200000*5#4176980#7200000  # 秒
     
@@ -378,9 +393,10 @@ if __name__ == "__main__":
     print(f"- 小气泡内压力缩放因子: {params['pressure_scaling_factor']}")
     print(f"- 空位贡献项权重: {params['vacancy_contribution_weight']}")
     print(f"- 最大计算步数: {max_steps}步")
-    print(f"- 模拟时间: {sim_time}秒 (6分钟)")
+    print(f"- 模拟时间: {sim_time}秒")
     print(f"- 优化目标: 改进气泡半径演化逻辑，特别是小气泡的处理")
-    
+    print(f"- 自适应步长: {adaptive_stepping}")
+
     logger.info("开始执行测试4（优化气泡半径演化逻辑）")
     # 运行测试4
     result, swelling = run_test4(
@@ -390,7 +406,8 @@ if __name__ == "__main__":
         max_steps=max_steps,
         output_interval=1000,  # 每1000步输出一次详细状态
         save_path='test4_results.png',
-        debug_plots_dir='test4_debug_plots/'
+        debug_plots_dir='test4_debug_plots/',
+        adaptive_stepping=adaptive_stepping  # 传递自适应步长参数
     )
     
     # 分析测试结果
@@ -469,7 +486,16 @@ def run_test4(sim_time=120000, dt=None, max_dt=None, max_steps=1000000, output_i
     params['radius_smoothing_factor'] = 0.8  # 半径演化平滑因子
     params['pressure_scaling_factor'] = 0.5  # 小气泡内压力缩放因子
     params['vacancy_contribution_weight'] = 1.2  # 空位贡献项权重
-    
+
+    # 自适应步长控制参数
+    params['adaptive_stepping_enabled'] = adaptive_stepping
+    if adaptive_stepping:
+        params['rtol'] = 1e-6  # 相对误差容限
+        params['atol'] = 1e-9  # 绝对误差容限
+        params['min_step'] = 1e-12  # 最小时间步长
+        params['max_step'] = sim_time / 10  # 最大时间步长
+        logger.info(f"启用自适应步长控制: rtol={params['rtol']}, atol={params['atol']}")
+
     # 记录使用的参数
     logger.info("使用测试4的参数设置:")
     logger.info(f"- 温度: {params['temperature']}K")

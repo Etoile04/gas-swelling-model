@@ -21,65 +21,9 @@ from .params.parameters import (
     GAS_CONSTANT,
     AVOGADRO_CONSTANT
 )
-
-# Visualization module
-from .visualization import (
-    # Core classes
-    GasSwellingPlotter,
-    create_standard_plotter,
-
-    # Evolution plots
-    plot_swelling_evolution,
-    plot_bubble_radius_evolution,
-    plot_gas_concentration_evolution,
-    plot_bubble_concentration_evolution,
-    plot_gas_atoms_evolution,
-    plot_gas_pressure_evolution,
-    plot_defect_concentration_evolution,
-    plot_released_gas_evolution,
-    plot_multi_panel_evolution,
-
-    # Parameter sweep plots
-    plot_temperature_sweep,
-    plot_multi_param_temperature_sweep,
-    plot_parameter_sensitivity,
-    plot_arrhenius_analysis,
-
-    # Comparison plots
-    compare_bulk_interface,
-    plot_bulk_interface_ratio,
-    plot_gas_distribution_pie,
-    plot_gas_distribution_evolution,
-    plot_correlation_matrix,
-    plot_phase_comparison,
-
-    # Style configuration
-    get_publication_style,
-    apply_publication_style,
-    get_color_palette,
-
-    # Figure utilities
-    save_figure,
-    create_figure_grid,
-    add_subfigure_labels,
-
-    # Unit conversions
-    convert_time_units,
-    convert_length_units,
-    calculate_burnup,
-
-    # Axis formatting
-    format_axis_scientific,
-    set_axis_limits,
-
-    # Labels
-    get_time_unit_label,
-    get_length_unit_label,
-    VARIABLE_LABELS,
-)
+from .analysis import SensitivityAnalyzer
 
 __all__ = [
-    # Model and parameters
     'GasSwellingModel',
     'MaterialParameters',
     'SimulationParameters',
@@ -88,57 +32,5 @@ __all__ = [
     'BOLTZMANN_CONSTANT_J',
     'GAS_CONSTANT',
     'AVOGADRO_CONSTANT',
-
-    # Core classes
-    'GasSwellingPlotter',
-    'create_standard_plotter',
-
-    # Evolution plots
-    'plot_swelling_evolution',
-    'plot_bubble_radius_evolution',
-    'plot_gas_concentration_evolution',
-    'plot_bubble_concentration_evolution',
-    'plot_gas_atoms_evolution',
-    'plot_gas_pressure_evolution',
-    'plot_defect_concentration_evolution',
-    'plot_released_gas_evolution',
-    'plot_multi_panel_evolution',
-
-    # Parameter sweep plots
-    'plot_temperature_sweep',
-    'plot_multi_param_temperature_sweep',
-    'plot_parameter_sensitivity',
-    'plot_arrhenius_analysis',
-
-    # Comparison plots
-    'compare_bulk_interface',
-    'plot_bulk_interface_ratio',
-    'plot_gas_distribution_pie',
-    'plot_gas_distribution_evolution',
-    'plot_correlation_matrix',
-    'plot_phase_comparison',
-
-    # Style configuration
-    'get_publication_style',
-    'apply_publication_style',
-    'get_color_palette',
-
-    # Figure utilities
-    'save_figure',
-    'create_figure_grid',
-    'add_subfigure_labels',
-
-    # Unit conversions
-    'convert_time_units',
-    'convert_length_units',
-    'calculate_burnup',
-
-    # Axis formatting
-    'format_axis_scientific',
-    'set_axis_limits',
-
-    # Labels
-    'get_time_unit_label',
-    'get_length_unit_label',
-    'VARIABLE_LABELS',
+    'SensitivityAnalyzer'
 ]

@@ -64,6 +64,9 @@ Documentation = "https://github.com/yourusername/gas-swelling-model/blob/main/RE
 Repository = "https://github.com/yourusername/gas-swelling-model"
 Issues = "https://github.com/yourusername/gas-swelling-model/issues"
 
+[project.scripts]
+gas-swelling-model = "gas_swelling.analysis.cli:main"
+
 [tool.setuptools]
 zip-safe = false
 

@@ -81,7 +81,14 @@ class SimulationParameters:
     time_step: float = 1e-9  # s, 调整为推荐的初始步长
     max_time_step: float = 1e2  # s, 调整为推荐的最大步长
     max_time: float = 3600 * 24 *100  # s, 最大模拟时间, 100天
-    
+
+    # 自适应步长控制参数
+    adaptive_stepping_enabled: bool = False  # 是否启用自适应步长控制
+    min_step: float = 1e-9  # s, 最小时间步长
+    max_step: float = 1e2  # s, 最大时间步长
+    show_progress: bool = True  # 是否显示进度指示器
+    progress_interval: int = 100  # 每N步输出一次进度
+
     # 气体扩散系数参数
     Dgb_prefactor: float = 1.2e-7  # 晶内扩散系数前因子
     Dgb_activation_energy: float = 1.16  # eV, 晶内扩散激活能
