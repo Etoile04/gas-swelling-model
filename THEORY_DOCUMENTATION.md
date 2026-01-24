@@ -506,7 +506,683 @@ Under irradiation, defect concentrations rapidly increase to steady-state values
 
 ## 3. Gas Transport Equations
 
-*[To be completed in subtask-1-3]*
+### 3.1 Overview of Gas Transport
+
+Gas transport in the α-uranium phase of metallic nuclear fuels involves the movement of fission gas atoms (primarily xenon and krypton) from their production sites in the fuel matrix to grain boundaries, where they accumulate in bubbles and may eventually be released. The transport process is governed by a system of **8 coupled differential equations** (Eqs. 1-8) that describe:
+
+1. **Gas production** during nuclear fission
+2. **Diffusion** through the bulk matrix to grain boundaries
+3. **Nucleation** of new gas bubbles
+4. **Growth** of existing bubbles by gas absorption
+5. **Re-solution** of gas atoms back into the matrix due to fission fragments
+6. **Release** when bubble networks interconnect
+
+These equations form the foundation of the rate theory model and are implemented in the `GasSwellingModel._equations()` method in `modelrk23.py`.
+
+The gas transport equations are divided into two domains:
+- **Bulk (superscript 'b')**: Gas behavior within the grain interior
+- **Phase Boundaries (superscript 'f')**: Gas behavior at grain boundaries and interfaces
+
+---
+
+### 3.2 Equation 1: Gas Transport in the Bulk Matrix
+
+#### Mathematical Form
+
+$$
+\frac{dC_{g}^{b}}{dt} = -16\pi F_{n}^{b} R_{c}^{b} D_{g}^{b} C_{g}^{b} C_{g}^{b} - 4\pi R_{c}^{b} D_{g}^{b} C_{g}^{b} C_{c}^{b} - \dot{g}_{0}(t) + \beta\dot{f} + B N_{c}^{b} C_{c}^{b}
+\tag{1}
+$$
+
+#### Physical Meaning of Each Term
+
+| Term | Mathematical Expression | Physical Meaning | Sign Convention |
+|------|------------------------|------------------|-----------------|
+| **Term 1** | \(-16\pi F_{n}^{b} R_{c}^{b} D_{g}^{b} C_{g}^{b} C_{g}^{b}\) | Loss of gas atoms due to **bubble nucleation** in the bulk. When two gas atoms collide, they may form a stable bubble nucleus. | Negative (loss) |
+| **Term 2** | \(-4\pi R_{c}^{b} D_{g}^{b} C_{g}^{b} C_{c}^{b}\) | Loss of gas atoms due to **diffusion to existing cavities**. Gas atoms are absorbed by the surfaces of existing bubbles. | Negative (loss) |
+| **Term 3** | \(-\dot{g}_{0}(t)\) | Loss of gas atoms due to **diffusion to grain boundaries**. Gas atoms migrate from the bulk to the phase boundaries. | Negative (loss) |
+| **Term 4** | \(+\beta\dot{f}\) | **Production of gas atoms** by nuclear fission. Each fission event produces a yield \(\beta\) of gas atoms. | Positive (source) |
+| **Term 5** | \(+B N_{c}^{b} C_{c}^{b}\) | **Re-solution of gas atoms** from bubbles back into the matrix. Fission fragments passing through bubbles knock gas atoms back into solution. | Positive (source) |
+
+#### Parameter Definitions
+
+- \(C_{g}^{b}\): Gas atom concentration in bulk (atoms/m³)
+- \(C_{c}^{b}\): Cavity (bubble) concentration in bulk (cavities/m³)
+- \(R_{c}^{b}\): Average cavity radius in bulk (m)
+- \(D_{g}^{b}\): Gas atom diffusivity in bulk (m²/s)
+- \(F_{n}^{b}\): Nucleation factor (probability that two gas atoms form a stable nucleus)
+- \(N_{c}^{b}\): Gas atoms per cavity (atoms/cavity)
+- \(\beta\): Gas yield per fission (atoms/fission)
+- \(\dot{f}\): Fission rate (fissions/m³/s)
+- \(B\): Irradiation-induced re-solution rate (s⁻¹)
+- \(\dot{g}_{0}(t)\): Gas flux to grain boundaries (atoms/m³/s), defined in Eq. 2
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 333-344
+
+```python
+# Gas production rate from fission
+term4_Cgb = self.params['gas_production_rate'] * self.params['fission_rate']
+
+# Bubble nucleation (Term 1)
+term1_Cgb = -16 * np.pi * self.params['Fnb'] * self.params['Xe_radii'] * Dgb * Cgb**2
+
+# Diffusion to existing cavities (Term 2)
+term2_Cgb = -4 * np.pi * Rcb_safe * Dgb * Cgb * Ccb
+
+# Diffusion to grain boundaries (Term 3)
+term3_Cgb = -g0  # g0 is calculated by _gas_influx()
+
+# Re-solution from bubbles (Term 5)
+term5_Cgb = self.params['resolution_rate'] * Ccb * Ncb
+
+# Combine all terms
+dCgb_dt = term1_Cgb + term2_Cgb + term3_Cgb + term4_Cgb + term5_Cgb
+```
+
+**Key Implementation Details**:
+- The nucleation factor `Fnb` is multiplied by `Xe_radii` (approximate critical nucleus radius)
+- The gas flux `g0` is computed by the `_gas_influx()` method (see Eq. 2 documentation)
+- Numerical clipping is applied to prevent overflow: `np.clip(dCgb_dt, -1e20, 1e20)`
+
+#### Physical Interpretation
+
+**Equation 1 represents the mass balance for gas atoms in the bulk matrix**. It accounts for all sources and sinks of gas atoms:
+
+1. **Source**: Fission continuously produces gas atoms at rate \(\beta\dot{f}\)
+2. **Sinks**:
+   - Nucleation removes gas atoms to form new bubbles
+   - Existing bubbles absorb gas atoms from solution
+   - Diffusion to boundaries removes gas atoms from the bulk
+3. **Re-solution**: Acts as a source, returning gas atoms from bubbles to the matrix
+
+**Competition Between Processes**:
+- At early times: Nucleation dominates (Term 1), creating many small bubbles
+- At intermediate times: Growth dominates (Term 2), existing bubbles absorb gas
+- At late times: Boundary diffusion dominates (Term 3), most gas reaches boundaries
+- Re-solution (Term 5) opposes nucleation and growth, keeping small bubbles from forming
+
+#### Typical Values and Scaling
+
+| Quantity | Typical Value | Units | Notes |
+|----------|---------------|-------|-------|
+| \(\beta\dot{f}\) | 10²⁰ - 10²² | atoms/m³/s | Depends on fission rate |
+| \(D_{g}^{b}\) | 10⁻²⁰ - 10⁻¹⁶ | m²/s | Strong temperature dependence |
+| \(F_{n}^{b}\) | 10⁻³ - 10⁻¹ | dimensionless | Nucleation probability |
+| \(B\) | 10⁻⁸ - 10⁻⁶ | s⁻¹ | Re-solution rate |
+
+---
+
+### 3.3 Equation 2: Gas Flux to Grain Boundaries
+
+#### Mathematical Form
+
+$$
+\dot{g}_{0}(t) = -\frac{6}{d} \frac{D_{g}^{b} C_{g}^{b}}{\partial r} \bigg|_{r=d/2}
+\tag{2}
+$$
+
+#### Physical Meaning
+
+**Equation 2 describes the flux of gas atoms from the grain interior to the grain boundaries**. The flux is driven by the concentration gradient of gas atoms between the bulk and the boundary.
+
+**Approximation in the Model**:
+The grain is split into two concentric regions of approximately equal volume. In each region, the gas concentration is represented by a quadratic function of the radial coordinate. This simplification allows an analytical expression for the flux:
+
+$$
+\dot{g}_{0}(t) \approx \frac{12}{d^2} D_{g}^{b} (C_{g}^{b} - C_{g}^{f})
+$$
+
+where:
+- \(d\) is the grain diameter
+- \(C_{g}^{b}\) is the gas concentration in the bulk center
+- \(C_{g}^{f}\) is the gas concentration at the boundary
+
+#### Parameter Definitions
+
+- \(d\): Grain diameter (m), typically 1-2 μm for α-uranium
+- \(r\): Radial coordinate (m)
+- \(D_{g}^{b}\): Gas diffusivity in bulk (m²/s)
+- \(C_{g}^{b}\): Gas concentration in bulk (atoms/m³)
+- \(C_{g}^{f}\): Gas concentration at boundary (atoms/m³)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 58-61
+
+```python
+def _gas_influx(self, Cgb: float, Cgf: float) -> float:
+    """计算从基体扩散到相界面的气体原子通量(公式2)"""
+    return (12.0 / (self.params['grain_diameter'])**2) * self.params['Dgb'] * (Cgb - Cgf)
+```
+
+**Key Implementation Details**:
+- Uses the simplified analytical form: \(\frac{12}{d^2} D_{gb} (C_{gb} - C_{gf})\)
+- The concentration gradient \((C_{gb} - C_{gf})\) drives the flux
+- When \(C_{gb} > C_{gf}\): Gas flows from bulk to boundary (positive flux)
+- When \(C_{gb} < C_{gf}\): Gas flows from boundary to bulk (negative flux, unlikely in practice)
+
+#### Physical Interpretation
+
+**Diffusion-Limited Transport**:
+- The flux is proportional to the gas diffusivity \(D_{g}^{b}\)
+- Higher temperatures → higher diffusivity → faster gas transport to boundaries
+- Smaller grains → larger surface-to-volume ratio → faster gas removal
+
+**Steady-State vs. Transient**:
+- Under steady-state conditions: \(C_{g}^{f}\) remains much lower than \(C_{g}^{b}\)
+- The flux is nearly constant after initial transient
+- At very high burnup: \(C_{g}^{f}\) may approach \(C_{g}^{b}\), reducing the flux
+
+#### Coupling to Other Equations
+
+**Eq. 2 appears in**:
+- **Eq. 1** (Term 3): Gas loss from bulk to boundaries
+- **Eq. 6** (Term 3): Gas gain at boundaries from bulk
+
+This coupling ensures mass conservation: gas atoms leaving the bulk (Eq. 1) appear at the boundaries (Eq. 6).
+
+---
+
+### 3.4 Equation 3: Cavity Nucleation in the Bulk
+
+#### Mathematical Form
+
+$$
+\frac{dC_{c}^{b}}{dt} = \frac{16\pi F_{n}^{b} R_{c}^{b} D_{g}^{b} C_{g}^{b} C_{g}^{b}}{N_{c}^{b}}
+\tag{3}
+$$
+
+#### Physical Meaning
+
+**Equation 3 describes the rate of formation of new cavities (bubbles) in the bulk matrix**. When gas atoms cluster together, they can form a stable bubble nucleus if the cluster reaches a critical size.
+
+**Key Insight**: The numerator is identical to Term 1 of Eq. 1 (bubble nucleation rate), but divided by \(N_{c}^{b}\) (atoms per cavity). This division converts the rate of gas atom consumption into the rate of cavity formation.
+
+#### Parameter Definitions
+
+- \(C_{c}^{b}\): Cavity concentration in bulk (cavities/m³)
+- \(F_{n}^{b}\): Nucleation factor (probability of stable nucleus formation)
+- \(R_{c}^{b}\): Critical nucleus radius (m)
+- \(D_{g}^{b}\): Gas diffusivity (m²/s)
+- \(C_{g}^{b}\): Gas concentration (atoms/m³)
+- \(N_{c}^{b}\): Gas atoms per cavity (atoms/cavity)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 346-348
+
+```python
+# Bulk cavity concentration rate (dCcb/dt - Eq. 3)
+Ncb_safe_denom = max(Ncb, 2)  # Prevent division by zero
+dCcb_dt = (16 * np.pi * self.params['Fnb'] * self.params['Xe_radii'] * Dgb * Cgb**2) / Ncb_safe_denom
+```
+
+**Key Implementation Details**:
+- The denominator `Ncb_safe_denom` is clipped to a minimum of 2 to prevent division by zero
+- `Xe_radii` (approximately the critical nucleus radius) is used for \(R_{c}^{b}\)
+- The nucleation rate is proportional to the **square** of gas concentration (\(C_{gb}^2\)), reflecting the bimolecular nature of nucleation (two gas atoms must meet)
+
+#### Physical Interpretation
+
+**Nucleation Threshold**:
+- Not every gas atom collision produces a stable cavity
+- The nucleation factor \(F_{n}^{b}\) captures the probability of forming a stable nucleus
+- Small values of \(F_{n}^{b}\) (10⁻³ - 10⁻¹) indicate that nucleation is a rare event
+
+**Dependence on Gas Concentration**:
+- Higher \(C_{g}^{b}\) → more gas atom collisions → more nucleation
+- The quadratic dependence (\(C_{g}^{b} C_{g}^{b}\)) means nucleation is very sensitive to gas concentration
+
+**Inverse Dependence on \(N_{c}^{b}\)**:
+- As \(N_{c}^{b}\) increases (cavities accumulate gas), the nucleation rate decreases
+- This reflects the fact that gas atoms are distributed among more cavities, reducing the probability of new nucleation events
+
+**Nucleation vs. Growth**:
+- Early in irradiation: \(N_{c}^{b}\) is small → high nucleation rate
+- Later: \(N_{c}^{b}\) grows → nucleation slows, growth of existing cavities dominates
+
+#### Typical Evolution
+
+| Time | Nucleation Rate | Dominant Process |
+|------|----------------|------------------|
+| Early (< 1 day) | High | Many new bubbles form |
+| Intermediate (days) | Moderate | Nucleation and growth compete |
+| Late (weeks) | Low | Growth of existing bubbles dominates |
+
+---
+
+### 3.5 Equation 4: Conservation of Gas Atoms in Bulk
+
+#### Mathematical Form
+
+$$
+N_{c}^{b} C_{c}^{b} + C_{g}^{b} + \int_0^t \dot{g}_{0}(t) \, dt = \int_0^t \beta \dot{f} \, dt
+\tag{4}
+$$
+
+#### Physical Meaning
+
+**Equation 4 is a statement of mass conservation for gas atoms in the bulk**. It states that the total number of gas atoms produced by fission must equal the sum of:
+
+1. Gas atoms in bubbles: \(N_{c}^{b} C_{c}^{b}\) (atoms/cavity × cavities/m³)
+2. Gas atoms in solution: \(C_{g}^{b}\) (dissolved in the matrix)
+3. Gas atoms that have diffused to boundaries: \(\int_0^t \dot{g}_{0}(t) \, dt\)
+
+This equation is **not solved directly** in the numerical implementation. Instead, it is used to derive Eq. 5 (rate of change of gas atoms per cavity).
+
+#### Parameter Definitions
+
+- \(N_{c}^{b}\): Gas atoms per cavity (atoms/cavity)
+- \(C_{c}^{b}\): Cavity concentration (cavities/m³)
+- \(C_{g}^{b}\): Gas concentration in bulk (atoms/m³)
+- \(\dot{g}_{0}(t)\): Gas flux to boundaries (atoms/m³/s)
+- \(\beta\dot{f}\): Gas production rate (atoms/m³/s)
+
+#### Code Implementation
+
+**Not directly implemented** as a separate equation. Instead, this conservation law is enforced by the coupled solution of Eqs. 1, 3, and 5.
+
+**Verification**: The model can verify conservation by checking:
+```python
+total_gas_produced = integral(beta * fission_rate)
+total_gas_accounted = Ncb * Ccb + Cgb + integral(g0)
+```
+
+#### Physical Interpretation
+
+**Mass Balance Check**:
+- Left side: Gas atoms currently in the system (in bubbles + in solution) + gas that left
+- Right side: Total gas produced by fission
+- If the two sides are equal, mass is conserved
+
+**Role in Deriving Eq. 5**:
+By differentiating Eq. 4 with respect to time and substituting Eqs. 1 and 3, we obtain Eq. 5 (rate of change of atoms per cavity). This ensures that the evolution of \(N_{c}^{b}\) is consistent with mass conservation.
+
+#### Practical Significance
+
+**Predicting Gas Release**:
+- The term \(\int_0^t \dot{g}_{0}(t) \, dt\) represents gas that has reached the boundaries
+- This gas is available for release once bubbles interconnect (see Eq. 9)
+- Measuring the ratio \(\frac{\int_0^t \dot{g}_{0}(t) \, dt}{\int_0^t \beta \dot{f} \, dt}\) gives the fractional gas release
+
+---
+
+### 3.6 Equation 5: Gas Atoms per Bulk Cavity
+
+#### Mathematical Form
+
+$$
+\frac{dN_{c}^{b}}{dt} = 4\pi R_{c}^{b} D_{g}^{b} C_{g}^{b} - B C_{c}^{b}
+\tag{5}
+$$
+
+#### Physical Meaning
+
+**Equation 5 describes how the number of gas atoms in each cavity changes over time**. It is derived from the conservation law (Eq. 4) and accounts for:
+
+1. **Gain**: Gas atoms diffusing to the cavity surface and being absorbed
+2. **Loss**: Gas atoms being knocked back into the matrix by fission fragments (re-solution)
+
+#### Parameter Definitions
+
+- \(N_{c}^{b}\): Gas atoms per cavity (atoms/cavity)
+- \(R_{c}^{b}\): Cavity radius (m)
+- \(D_{g}^{b}\): Gas diffusivity (m²/s)
+- \(C_{g}^{b}\): Gas concentration in bulk (atoms/m³)
+- \(B\): Re-solution rate (s⁻¹)
+- \(C_{c}^{b}\): Cavity concentration (cavities/m³)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 350-355
+
+```python
+# Atoms per cavity rate (dNcb/dt - Eq. 5)
+# Gas atoms diffusing to cavity surface
+term1_Ncb = 4 * np.pi * Rcb_safe * Dgb * Cgb
+
+# Re-solution from cavity
+term2_Ncb = self.params['resolution_rate'] * Ncb
+
+# Net rate of change
+dNcb_dt = term1_Ncb - term2_Ncb
+```
+
+**Key Implementation Details**:
+- Term 1: Absorption rate, proportional to cavity surface area \(4\pi R_{c}^{b}\)
+- Term 2: Re-solution rate, proportional to the number of atoms in the cavity \(N_{c}^{b}\)
+- Numerical clipping: `np.clip(dNcb_dt, -1e8, 1e8)` to prevent overflow
+
+#### Physical Interpretation
+
+**Absorption Term** (\(4\pi R_{c}^{b} D_{g}^{b} C_{g}^{b}\)):
+- Larger cavities have larger surface area → absorb more gas
+- Higher gas concentration → more flux to cavity surface
+- Higher diffusivity → faster transport of gas atoms to cavity
+
+**Re-solution Term** (\(B N_{c}^{b}\)):
+- Cavities with more gas atoms lose more atoms to re-solution
+- The re-solution rate \(B\) depends on fission rate (more fission fragments → more re-solution)
+- Re-solution opposes cavity growth, especially for small bubbles
+
+**Steady-State Condition**:
+Setting \(dN_{c}^{b}/dt = 0\) gives:
+$$
+N_{c}^{b} = \frac{4\pi R_{c}^{b} D_{g}^{b} C_{g}^{b}}{B}
+$$
+This represents the balance between absorption and re-solution.
+
+#### Impact on Cavity Growth
+
+As \(N_{c}^{b}\) increases:
+1. **Internal gas pressure increases** (via equation of state)
+2. **Cavity radius increases** to maintain mechanical equilibrium
+3. **Swelling increases** (volume occupied by cavities)
+
+The evolution of \(N_{c}^{b}\) is therefore central to predicting swelling behavior.
+
+---
+
+### 3.7 Equation 6: Gas Transport at Phase Boundaries
+
+#### Mathematical Form
+
+$$
+\frac{dC_{g}^{f}}{dt} = -16\pi F_{n}^{f} R_{c}^{f} D_{g}^{f} C_{g}^{f} C_{g}^{f} - 4\pi R_{c}^{f} D_{g}^{f} C_{g}^{f} C_{c}^{f} + \dot{g}_{0}(t) - \dot{h}_{0} C_{g}^{f}
+\tag{6}
+$$
+
+#### Physical Meaning of Each Term
+
+| Term | Mathematical Expression | Physical Meaning | Sign Convention |
+|------|------------------------|------------------|-----------------|
+| **Term 1** | \(-16\pi F_{n}^{f} R_{c}^{f} D_{g}^{f} C_{g}^{f} C_{g}^{f}\) | Loss of gas atoms due to **bubble nucleation at boundaries** | Negative (loss) |
+| **Term 2** | \(-4\pi R_{c}^{f} D_{g}^{f} C_{g}^{f} C_{c}^{f}\) | Loss of gas atoms due to **absorption by existing boundary cavities** | Negative (loss) |
+| **Term 3** | \(+\dot{g}_{0}(t)\) | **Gain of gas atoms** diffusing from the bulk to the boundary | Positive (source) |
+| **Term 4** | \(-\dot{h}_{0} C_{g}^{f}\) | Loss of gas atoms due to **fission gas release** when bubbles interconnect | Negative (loss) |
+
+#### Parameter Definitions
+
+- \(C_{g}^{f}\): Gas atom concentration at boundaries (atoms/m³)
+- \(C_{c}^{f}\): Cavity concentration at boundaries (cavities/m²)
+- \(R_{c}^{f}\): Average boundary cavity radius (m)
+- \(D_{g}^{f}\): Gas diffusivity at boundaries (m²/s)
+- \(F_{n}^{f}\): Nucleation factor at boundaries
+- \(\dot{g}_{0}(t)\): Gas flux from bulk to boundary (atoms/m³/s)
+- \(\dot{h}_{0}\): Gas release rate coefficient (s⁻¹)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 357-367
+
+```python
+# Boundary gas concentration rate (dCgf/dt - Eq. 6)
+# Nucleation at boundaries (Term 1)
+term1_Cgf = -16 * np.pi * self.params['Fnf'] * self.params['Xe_radii'] * Dgf * Cgf**2
+
+# Absorption by existing cavities (Term 2)
+term2_Cgf = -4 * np.pi * Rcf_safe * Dgf * Cgf * Ccf
+
+# Gas arriving from bulk (Term 3)
+term3_Cgf = g0  # g0 calculated by _gas_influx()
+
+# Gas release to plenum (Term 4)
+term4_Cgf = h0 * Cgf  # h0 calculated by _calculate_gas_release_rate()
+
+# Combine all terms
+dCgf_dt = term1_Cgf + term2_Cgf + term3_Cgf - term4_Cgf
+```
+
+**Key Implementation Details**:
+- Boundary diffusivity `Dgf` is typically a multiple of bulk diffusivity: `Dgf = multiplier * Dgb`
+- The nucleation factor `Fnf` at boundaries is often larger than `Fnb` in bulk (boundaries enhance nucleation)
+- Gas release `h0` is calculated by `_calculate_gas_release_rate()` based on cavity interconnection (see Eq. 9)
+
+#### Physical Interpretation
+
+**Boundary Accumulation**:
+- Gas atoms continuously arrive from the bulk (Term 3: \(+\dot{g}_{0}\))
+- This causes \(C_{g}^{f}\) to rise, creating a reservoir at the boundaries
+- Boundary gas concentration can become much higher than bulk concentration
+
+**Boundary Bubble Growth**:
+- Nucleation (Term 1) creates new boundary bubbles
+- Absorption (Term 2) causes existing bubbles to grow
+- Boundary bubbles tend to be larger and more numerous than bulk bubbles
+
+**Gas Release Threshold**:
+- Release (Term 4) only begins when bubbles interconnect
+- The term \(-\dot{h}_{0} C_{g}^{f}\) removes gas from the boundary and vents it to the plenum
+- This term is zero until the interconnection threshold is reached (see Eq. 11)
+
+#### Differences from Bulk (Eq. 1)
+
+| Aspect | Bulk (Eq. 1) | Boundary (Eq. 6) |
+|--------|--------------|------------------|
+| Source term | \(\beta\dot{f}\) (fission production) | \(\dot{g}_{0}(t)\) (diffusion from bulk) |
+| Re-solution | Present (\(+B N_{c}^{b} C_{c}^{b}\)) | Absent (boundary re-solution is negligible) |
+| Release | Absent (bulk gas cannot escape directly) | Present (\(-\dot{h}_{0} C_{g}^{f}\)) |
+| Nucleation factor | \(F_{n}^{b}\) (smaller) | \(F_{n}^{f}\) (larger, boundaries enhance nucleation) |
+
+---
+
+### 3.8 Equation 7: Cavity Nucleation at Phase Boundaries
+
+#### Mathematical Form
+
+$$
+\frac{dC_{c}^{f}}{dt} = \frac{16\pi F_{n}^{f} R_{c}^{f} D_{g}^{f} C_{g}^{f} C_{g}^{f}}{N_{c}^{f}}
+\tag{7}
+$$
+
+#### Physical Meaning
+
+**Equation 7 describes the rate of formation of new cavities at grain boundaries**, analogous to Eq. 3 for the bulk. The form is identical, but all quantities refer to the boundary domain.
+
+#### Parameter Definitions
+
+- \(C_{c}^{f}\): Cavity concentration at boundaries (cavities/m²)
+- \(F_{n}^{f}\): Nucleation factor at boundaries
+- \(R_{c}^{f}\): Critical nucleus radius at boundaries (m)
+- \(D_{g}^{f}\): Gas diffusivity at boundaries (m²/s)
+- \(C_{g}^{f}\): Gas concentration at boundaries (atoms/m³)
+- \(N_{c}^{f}\): Gas atoms per boundary cavity (atoms/cavity)
+
+#### Code Implementation
+
+**Location**: `modelrk23.py`, lines 369-371
+
+```python
+# Boundary cavity concentration rate (dCcf/dt - Eq. 7)
+Ncf_safe_denom = max(Ncf, 2)  # Prevent division by zero
+dCcf_dt = (16 * np.pi * self.params['Fnf'] * self.params['Xe_radii'] * Dgf * Cgf**2) / Ncf_safe_denom
+```
+
+**Key Implementation Details**:
+- Structure is identical to bulk nucleation (Eq. 3)
+- Uses boundary-specific parameters: `Fnf`, `Dgf`, `Cgf`, `Ncf`
+
+#### Physical Interpretation
+
+**Enhanced Nucleation at Boundaries**:
+- Grain boundaries act as preferential nucleation sites
+- \(F_{n}^{f}\) is typically larger than \(F_{n}^{b}\)
+- Boundary cavities are more numerous than bulk cavities
+
+**Lenticular Geometry**:
+- Boundary cavities are lens-shaped (not spherical)
+- This affects the relationship between \(N_{c}^{f}\) and cavity radius
+- The simplified model uses spherical approximation for numerical efficiency
+
+#### Coupling to Gas Release
+
+As \(C_{c}^{f}\) increases:
+1. More cavities cover the grain boundary area
+2. The areal fraction \(A_{f}\) increases (see Eq. 10)
+3. When \(A_{f}\) exceeds the threshold, gas release begins (Eq. 11)
+
+---
+
+### 3.9 Equation 8: Conservation of Gas Atoms at Boundaries
+
+#### Mathematical Form
+
+$$
+N_{c}^{f} C_{c}^{f} + C_{g}^{f} = \int_0^t \dot{g}_{0}(t) \, dt - \int_0^t \dot{h}_{0}(t) \, dt
+\tag{8}
+$$
+
+#### Physical Meaning
+
+**Equation 8 is a statement of mass conservation for gas atoms at the grain boundaries**. It states that the gas atoms that have arrived from the bulk must equal the sum of:
+
+1. Gas atoms in boundary bubbles: \(N_{c}^{f} C_{c}^{f}\)
+2. Gas atoms in solution at boundaries: \(C_{g}^{f}\)
+3. Gas atoms that have been released: \(\int_0^t \dot{h}_{0}(t) \, dt\)
+
+#### Parameter Definitions
+
+- \(N_{c}^{f}\): Gas atoms per boundary cavity (atoms/cavity)
+- \(C_{c}^{f}\): Cavity concentration at boundaries (cavities/m²)
+- \(C_{g}^{f}\): Gas concentration at boundaries (atoms/m³)
+- \(\dot{g}_{0}(t)\): Gas flux from bulk to boundary (atoms/m³/s)
+- \(\dot{h}_{0}(t)\): Gas release rate (atoms/m³/s)
+
+#### Code Implementation
+
+**Not directly implemented** as a separate equation. This conservation law is enforced by the coupled solution of Eqs. 6, 7, and 13.
+
+**Derivation of Eq. 13**:
+Differentiating Eq. 8 with respect to time and substituting Eqs. 6 and 7 yields Eq. 13 (rate of change of atoms per boundary cavity).
+
+#### Physical Interpretation
+
+**Boundary Mass Balance**:
+- **Left side**: Gas atoms currently at boundaries (in bubbles + in solution)
+- **Right side**: Total gas arrived from bulk minus total gas released
+
+**Gas Release Fraction**:
+The fractional gas release can be calculated as:
+$$
+F_{release} = \frac{\int_0^t \dot{h}_{0}(t) \, dt}{\int_0^t \dot{g}_{0}(t) \, dt}
+$$
+
+This ratio typically ranges from 0.7 to 0.8 (70-80% release) for U-Zr fuels at high burnup.
+
+#### Coupling to Gas Release Equations
+
+Eq. 8 is closely linked to Eqs. 9-12, which describe:
+- **Eq. 9**: Gas release rate \(\dot{h}_{0}\)
+- **Eq. 10**: Areal coverage of cavities \(A_{f}\)
+- **Eq. 11**: Interconnection threshold
+- **Eq. 12**: Fractional interconnection \(\chi\)
+
+These equations determine when and how much gas is released, which appears in Eq. 8 as the term \(-\int_0^t \dot{h}_{0}(t) \, dt\).
+
+---
+
+### 3.10 Summary of Gas Transport Equations
+
+#### Table of Equations 1-8
+
+| Equation | Variable | Domain | Key Physical Process |
+|----------|----------|--------|---------------------|
+| **Eq. 1** | \(dC_{g}^{b}/dt\) | Bulk | Gas production, diffusion, nucleation, re-solution |
+| **Eq. 2** | \(\dot{g}_{0}(t)\) | Bulk → Boundary | Gas flux to grain boundaries |
+| **Eq. 3** | \(dC_{c}^{b}/dt\) | Bulk | Bubble nucleation in bulk |
+| **Eq. 4** | Conservation | Bulk | Mass balance (not solved directly) |
+| **Eq. 5** | \(dN_{c}^{b}/dt\) | Bulk | Gas atoms per bulk cavity |
+| **Eq. 6** | \(dC_{g}^{f}/dt\) | Boundary | Gas accumulation, nucleation, release |
+| **Eq. 7** | \(dC_{c}^{f}/dt\) | Boundary | Bubble nucleation at boundaries |
+| **Eq. 8** | Conservation | Boundary | Mass balance at boundaries (not solved directly) |
+
+#### Coupling Diagram
+
+```
+Fission Gas Production (βḟ)
+        ↓
+    Bulk Gas (Cgb) ←→ Diffusion (ġ₀) ←→ Boundary Gas (Cgf)
+        ↓                      ↓                    ↓
+    Bulk Cavities (Ccb)                  Boundary Cavities (Ccf)
+        ↓                      ↓                    ↓
+  Atoms/Bulk Cavity (Ncb)              Atoms/Boundary Cavity (Ncf)
+        ↓                      ↓                    ↓
+    ┌────────────────────────┴────────────────────────┘
+    ↓
+Gas Release (ḣ₀) → Plenum
+```
+
+#### Code Structure Mapping
+
+The gas transport equations are implemented in the `_equations()` method:
+
+```python
+def _equations(self, t, state):
+    # ... (setup code)
+
+    # Eq. 2: Gas flux to boundaries
+    g0 = self._gas_influx(Cgb, Cgf)
+
+    # Eq. 9-12: Gas release rate
+    h0 = self._calculate_gas_release_rate(Cgf, Ccf, Rcf, Ncf)
+
+    # Eq. 1: Bulk gas concentration
+    dCgb_dt = term1_Cgb + term2_Cgb + term3_Cgb + term4_Cgb + term5_Cgb
+
+    # Eq. 3: Bulk cavity concentration
+    dCcb_dt = (16 * np.pi * Fnb * Rc * Dgb * Cgb**2) / Ncb
+
+    # Eq. 5: Gas atoms per bulk cavity
+    dNcb_dt = 4 * np.pi * Rcb * Dgb * Cgb - B * Ncb
+
+    # Eq. 6: Boundary gas concentration
+    dCgf_dt = term1_Cgf + term2_Cgf + term3_Cgf - term4_Cgf
+
+    # Eq. 7: Boundary cavity concentration
+    dCcf_dt = (16 * np.pi * Fnf * Rc * Dgf * Cgf**2) / Ncf
+
+    # Eq. 13: Gas atoms per boundary cavity
+    dNcf_dt = 4 * np.pi * Rcf * Dgf * Cgf - h0 * Ncf
+
+    return derivatives
+```
+
+---
+
+### 3.11 Key Physical Insights from Gas Transport Equations
+
+#### 1. Competition Between Nucleation and Growth
+
+- **Early time**: High nucleation rate (many small bubbles form)
+- **Late time**: Growth dominates (fewer bubbles, but larger)
+- The division by \(N_{c}\) in Eqs. 3 and 7 causes this transition
+
+#### 2. Role of Re-solution
+
+- Re-solution (\(B N_{c}^{b} C_{c}^{b}\) in Eq. 1) returns gas atoms to the matrix
+- This opposes bubble nucleation and growth
+- Higher fission rates → more re-solution → smaller bubbles
+
+#### 3. Boundary Accumulation
+
+- Gas continuously flows from bulk to boundaries (\(\dot{g}_{0}\))
+- Boundary gas concentration (\(C_{g}^{f}\)) can become very high
+- This drives extensive boundary bubble growth
+
+#### 4. Gas Release Threshold
+
+- Release only begins when bubbles interconnect
+- The threshold depends on areal coverage (Eq. 10)
+- Before threshold: All gas remains at boundaries
+- After threshold: Gas is released to the plenum
+
+#### 5. Mass Conservation
+
+- Eqs. 4 and 8 ensure mass conservation
+- These are not solved directly but guide the derivation of Eqs. 5 and 13
+- The numerical solution conserves mass by solving the coupled system
 
 ---
 
