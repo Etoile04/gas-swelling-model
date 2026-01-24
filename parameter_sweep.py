@@ -741,6 +741,248 @@ class ParameterSweep:
         logger.info(f"结果已导出到: {filepath}")
 
 
+class ParallelRunner:
+    """
+    并行执行器类，用于多进程并行运行模拟任务
+
+    使用multiprocessing.Pool或joblib.Parallel实现并行执行，
+    支持动态任务分配和进度跟踪。
+
+    属性:
+        n_jobs: 并行进程数 (-1表示使用所有CPU核心)
+        backend: 并行后端 ('multiprocessing' 或 'joblib')
+        prefer: 任务调度偏好 ('processes', 'threads', 或 None)
+        verbose: 日志详细程度
+    """
+
+    def __init__(self, n_jobs: int = -1, backend: str = 'auto', prefer: str = None, verbose: int = 0):
+        """
+        初始化并行执行器
+
+        参数:
+            n_jobs: 并行任务数，-1表示使用所有CPU核心，None表示禁用并行
+            backend: 并行后端选择
+                - 'auto': 自动选择（优先joblib，其次multiprocessing）
+                - 'joblib': 使用joblib.Parallel
+                - 'multiprocessing': 使用multiprocessing.Pool
+            prefer: 任务调度偏好（仅joblib后端支持）
+                - 'processes': 使用进程池
+                - 'threads': 使用线程池
+                - None: 自动选择
+            verbose: 日志详细程度 (0=静默, 1=简略, 2=详细)
+        """
+        self.n_jobs = n_jobs
+        self.backend = self._determine_backend(backend)
+        self.prefer = prefer
+        self.verbose = verbose
+        self._pool = None
+
+        # 确定实际使用的CPU核心数
+        if n_jobs == -1:
+            import os
+            self._actual_n_jobs = os.cpu_count() or 1
+        elif n_jobs is None:
+            self._actual_n_jobs = 1
+        else:
+            self._actual_n_jobs = max(1, n_jobs)
+
+        if self.verbose >= 1:
+            logger.info(f"并行执行器初始化: 后端={self.backend}, 任务数={self._actual_n_jobs}")
+
+    def _determine_backend(self, backend: str) -> str:
+        """
+        确定使用的后端
+
+        参数:
+            backend: 用户指定的后端
+
+        返回:
+            实际使用的后端名称
+        """
+        if backend == 'auto':
+            # 优先使用joblib（如果可用），其次使用multiprocessing
+            if JOBLIB_AVAILABLE:
+                return 'joblib'
+            else:
+                return 'multiprocessing'
+        elif backend == 'joblib':
+            if JOBLIB_AVAILABLE:
+                return 'joblib'
+            else:
+                logger.warning("joblib不可用，回退到multiprocessing")
+                return 'multiprocessing'
+        elif backend == 'multiprocessing':
+            return 'multiprocessing'
+        else:
+            logger.warning(f"未知的后端 '{backend}'，使用auto选择")
+            return self._determine_backend('auto')
+
+    def run(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        并行执行函数任务列表
+
+        参数:
+            func: 要执行的函数，接受单个参数
+            tasks: 任务参数列表
+            **kwargs: 额外的并行参数（传递给后端）
+
+        返回:
+            函数执行结果列表，顺序与输入任务相同
+
+        示例:
+            >>> runner = ParallelRunner(n_jobs=4)
+            >>> results = runner.run(simulation_function, [params1, params2, params3])
+        """
+        if not tasks:
+            logger.warning("任务列表为空，返回空结果")
+            return []
+
+        # 如果n_jobs为None或1，使用串行执行
+        if self.n_jobs is None or self.n_jobs == 1 or len(tasks) == 1:
+            if self.verbose >= 1:
+                logger.info(f"串行执行 {len(tasks)} 个任务")
+            return [func(task) for task in tasks]
+
+        # 并行执行
+        if self.verbose >= 1:
+            logger.info(f"并行执行 {len(tasks)} 个任务，使用 {self._actual_n_jobs} 个进程")
+
+        if self.backend == 'joblib':
+            return self._run_with_joblib(func, tasks, **kwargs)
+        else:  # multiprocessing
+            return self._run_with_multiprocessing(func, tasks, **kwargs)
+
+    def _run_with_joblib(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        使用joblib.Parallel执行并行任务
+
+        参数:
+            func: 要执行的函数
+            tasks: 任务列表
+            **kwargs: 额外参数
+
+        返回:
+            结果列表
+        """
+        try:
+            from joblib import Parallel, delayed
+
+            # 合并额外参数
+            joblib_kwargs = {
+                'n_jobs': self.n_jobs,
+                'verbose': max(0, self.verbose - 1),  # joblib的verbose级别不同
+                'prefer': self.prefer,
+                'backend': 'multiprocessing' if self.prefer == 'processes' else None
+            }
+            joblib_kwargs.update(kwargs)
+
+            # 执行并行任务
+            results = Parallel(**joblib_kwargs)(
+                delayed(func)(task) for task in tasks
+            )
+
+            if self.verbose >= 1:
+                logger.info(f"joblib并行执行完成: {len(results)} 个结果")
+
+            return results
+
+        except Exception as e:
+            logger.error(f"joblib并行执行失败: {e}，尝试使用multiprocessing")
+            return self._run_with_multiprocessing(func, tasks, **kwargs)
+
+    def _run_with_multiprocessing(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        使用multiprocessing.Pool执行并行任务
+
+        参数:
+            func: 要执行的函数
+            tasks: 任务列表
+            **kwargs: 额外参数
+
+        返回:
+            结果列表
+        """
+        import multiprocessing as mp
+        from multiprocessing import Pool
+
+        # 确定进程池大小
+        pool_size = self._actual_n_jobs
+
+        # 准备参数
+        pool_kwargs = {
+            'processes': pool_size,
+        }
+        pool_kwargs.update(kwargs)
+
+        results = []
+        try:
+            with Pool(**pool_kwargs) as pool:
+                if self.verbose >= 1:
+                    logger.info(f"创建进程池: {pool_size} 个进程")
+
+                # 使用imap_unordered以获得更好的性能，然后重新排序
+                if TQDM_AVAILABLE and self.verbose >= 1:
+                    # 使用tqdm显示进度
+                    from tqdm import tqdm
+                    results = list(tqdm(
+                        pool.imap(func, tasks),
+                        total=len(tasks),
+                        desc="并行执行",
+                        unit="task"
+                    ))
+                else:
+                    # 不使用进度条
+                    results = pool.map(func, tasks)
+
+                if self.verbose >= 1:
+                    logger.info(f"multiprocessing并行执行完成: {len(results)} 个结果")
+
+        except Exception as e:
+            logger.error(f"multiprocessing并行执行失败: {e}")
+            # 回退到串行执行
+            logger.info("回退到串行执行")
+            results = [func(task) for task in tasks]
+
+        return results
+
+    def map(self, func: Callable, tasks: List[Any], **kwargs) -> List[Any]:
+        """
+        map函数的别名，与run方法功能相同
+
+        参数:
+            func: 要执行的函数
+            tasks: 任务列表
+            **kwargs: 额外参数
+
+        返回:
+            结果列表
+        """
+        return self.run(func, tasks, **kwargs)
+
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口，确保资源清理"""
+        self.close()
+        return False
+
+    def close(self):
+        """关闭并行执行器，释放资源"""
+        if self._pool is not None:
+            self._pool.close()
+            self._pool.join()
+            self._pool = None
+            if self.verbose >= 1:
+                logger.info("并行执行器已关闭")
+
+    @property
+    def n_jobs_actual(self) -> int:
+        """获取实际使用的CPU核心数"""
+        return self._actual_n_jobs
+
+
 # 便捷函数
 def create_progress_bar(iterable, desc: str = "进度", total: int = None,
                        show_stats: bool = True, **kwargs):
