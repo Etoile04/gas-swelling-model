@@ -312,3 +312,98 @@ def test_swelling_calculation():
         decimal=10,
         err_msg="Swelling calculation should match manual calculation"
     )
+
+
+def test_mass_conservation():
+    """Test that gas atoms are conserved or properly accounted for during simulation"""
+    # Create model with default parameters
+    params = create_default_parameters()
+    model = GasSwellingModel(params)
+
+    # Run a simulation
+    sim_time = 10000  # 10,000 seconds (long enough for significant gas production)
+    t_eval = np.linspace(0, sim_time, 50)
+
+    result = model.solve(
+        t_span=(0, sim_time),
+        t_eval=t_eval
+    )
+
+    # Calculate initial total gas (atoms per m³)
+    # Gas exists in: bulk matrix (Cgb), bulk bubbles (Ccb * Ncb),
+    #                interface (Cgf), interface bubbles (Ccf * Ncf)
+    initial_gas_total = (
+        model.initial_state[0] +  # Cgb: gas in bulk matrix
+        model.initial_state[4] +  # Cgf: gas at phase boundaries
+        model.initial_state[1] * model.initial_state[2] +  # Ccb * Ncb: gas in bulk bubbles
+        model.initial_state[5] * model.initial_state[6]    # Ccf * Ncf: gas in interface bubbles
+    )
+
+    # Calculate final total gas (atoms per m³)
+    # Gas exists in: bulk matrix, bulk bubbles, interface, interface bubbles, and released gas
+    final_gas_total = (
+        result['Cgb'][-1] +                    # Gas in bulk matrix
+        result['Cgf'][-1] +                    # Gas at phase boundaries
+        result['Ccb'][-1] * result['Ncb'][-1] +  # Gas in bulk bubbles
+        result['Ccf'][-1] * result['Ncf'][-1] +  # Gas in interface bubbles
+        result['released_gas'][-1]             # Released gas (accounted for)
+    )
+
+    # Calculate total gas produced during simulation
+    # Gas production rate * fission rate * simulation time
+    gas_production_rate = params.get('gas_production_rate', 0.3)
+    fission_rate = params.get('fission_rate', 1e19)
+    total_gas_produced = gas_production_rate * fission_rate * sim_time
+
+    # Expected final gas = initial gas + gas produced
+    expected_gas_total = initial_gas_total + total_gas_produced
+
+    # Check that gas is conserved (accounting for numerical errors)
+    # Allow 1% relative tolerance for numerical integration errors
+    relative_error = abs(final_gas_total - expected_gas_total) / expected_gas_total
+
+    assert relative_error < 0.01, \
+        f"Gas not conserved: expected {expected_gas_total:.4e}, got {final_gas_total:.4e} " \
+        f"(relative error: {relative_error:.2%})"
+
+    # Verify all gas components are non-negative
+    assert result['Cgb'][-1] >= 0, "Bulk gas concentration should be non-negative"
+    assert result['Cgf'][-1] >= 0, "Interface gas concentration should be non-negative"
+    assert result['Ccb'][-1] >= 0, "Bulk cavity concentration should be non-negative"
+    assert result['Ccf'][-1] >= 0, "Interface cavity concentration should be non-negative"
+    assert result['Ncb'][-1] >= 0, "Gas atoms per bulk cavity should be non-negative"
+    assert result['Ncf'][-1] >= 0, "Gas atoms per interface cavity should be non-negative"
+    assert result['released_gas'][-1] >= 0, "Released gas should be non-negative"
+
+    # Check that final gas is greater than or equal to initial gas
+    # (since gas is being produced continuously)
+    assert final_gas_total >= initial_gas_total, \
+        f"Final gas ({final_gas_total:.4e}) should be >= initial gas ({initial_gas_total:.4e})"
+
+    # Check gas mass balance at multiple time points (not just final)
+    for i in range(len(result['time'])):
+        t = result['time'][i]
+
+        # Gas at this time point
+        gas_at_time = (
+            result['Cgb'][i] +
+            result['Cgf'][i] +
+            result['Ccb'][i] * result['Ncb'][i] +
+            result['Ccf'][i] * result['Ncf'][i] +
+            result['released_gas'][i]
+        )
+
+        # Expected gas at this time point
+        expected_gas_at_time = initial_gas_total + gas_production_rate * fission_rate * t
+
+        # Use absolute error for very small expected values, relative error otherwise
+        if expected_gas_at_time > 1e-10:  # Use relative error for significant values
+            relative_error_at_time = abs(gas_at_time - expected_gas_at_time) / expected_gas_at_time
+            assert relative_error_at_time < 0.01, \
+                f"Gas not conserved at t={t:.2f}s: expected {expected_gas_at_time:.4e}, " \
+                f"got {gas_at_time:.4e} (relative error: {relative_error_at_time:.2%})"
+        else:  # Use absolute error for very small values (near t=0)
+            absolute_error = abs(gas_at_time - expected_gas_at_time)
+            assert absolute_error < 1e-8, \
+                f"Gas not conserved at t={t:.2f}s: expected {expected_gas_at_time:.4e}, " \
+                f"got {gas_at_time:.4e} (absolute error: {absolute_error:.4e})"
