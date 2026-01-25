@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 import logging
 import os
 
@@ -403,8 +403,8 @@ if __name__ == "__main__":
 
 import numpy as np
 import matplotlib.pyplot as plt
-from models.euler_model import EulerGasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.euler_model import EulerGasSwellingModel
+from gas_swelling.params import create_default_parameters
 import logging
 import os
 
@@ -823,8 +823,8 @@ from typing import Dict, List, Tuple, Optional
 import logging
 
 # 导入我们优化后的模型
-from models.euler_model_v5 import EnhancedEulerGasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models.euler_model_v5 import EnhancedEulerGasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
@@ -1627,8 +1627,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -1770,8 +1770,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -1937,8 +1937,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from models.modelrk23 import GasSwellingModel
-from params.parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
