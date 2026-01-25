@@ -337,16 +337,18 @@ def plot_swelling_heatmap(
     cmap: str = 'YlOrRd',
     show_colorbar: bool = True,
     colorbar_orientation: str = 'vertical',
+    show_contour_lines: bool = True,
+    contour_levels: Optional[int] = None,
     annotate_values: bool = False,
     annotation_format: str = '%.2f',
     **kwargs
 ) -> plt.Figure:
     """
-    Create a heatmap visualization of swelling with enhanced colorbar and annotations.
+    Create a heatmap visualization of swelling with colorbar and contour lines.
 
-    Creates a clean, publication-quality heatmap showing swelling as a function
-    of temperature and another parameter, with optional value annotations and
-    customizable colorbar positioning.
+    Creates a publication-quality heatmap showing swelling as a function
+    of temperature and another parameter, with a colorbar and optional contour
+    lines for enhanced visualization of data gradients.
 
     Args:
         temperatures: 1D array of temperature values (K)
@@ -361,6 +363,8 @@ def plot_swelling_heatmap(
         cmap: Colormap name
         show_colorbar: Whether to show colorbar
         colorbar_orientation: Orientation of colorbar ('vertical' or 'horizontal')
+        show_contour_lines: Whether to draw contour lines on top of the heatmap
+        contour_levels: Number of contour levels (None for automatic)
         annotate_values: Whether to annotate each cell with its value
         annotation_format: Format string for annotations (e.g., '%.2f', '%.1f')
         **kwargs: Additional matplotlib kwargs
@@ -373,21 +377,23 @@ def plot_swelling_heatmap(
 
     Examples:
         >>> import numpy as np
-        >>> temps = np.linspace(600, 800, 10)
-        >>> burnups = np.linspace(0, 5, 10)
-        >>> swelling = np.random.rand(10, 10) * 3
+        >>> temps = np.linspace(600, 800, 20)
+        >>> burnups = np.linspace(0, 5, 20)
+        >>> swelling = np.random.rand(20, 20) * 3
         >>> fig = plot_swelling_heatmap(
         ...     temps, burnups, swelling,
         ...     param_name='Burnup',
+        ...     show_contour_lines=True,
         ...     save_path='swelling_heatmap.png'
         ... )
         >>> plt.close(fig)
 
     Notes:
-        - This function uses imshow for heatmap display, which is faster for large datasets
+        - This function uses contourf for filled contours with optional overlay lines
         - Temperature is on the y-axis, parameter is on the x-axis
         - The 'YlOrRd' (Yellow-Orange-Red) colormap is commonly used for swelling visualization
         - For diverging data, consider 'coolwarm' or 'RdYlBu_r' colormaps
+        - Contour lines help visualize gradients and identify regions of similar swelling values
     """
     # Apply publication style
     apply_publication_style(style)
@@ -405,54 +411,57 @@ def plot_swelling_heatmap(
             f"temperatures ({len(temperatures)}) and param_values ({len(param_values)})"
         )
 
+    # Create meshgrid for contour plotting
+    X, Y = np.meshgrid(param_values, temperatures)
+
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Create heatmap using imshow
-    im = ax.imshow(
-        swelling_data,
+    # Determine contour levels
+    if contour_levels is None:
+        contour_levels = 15
+
+    # Create filled contour plot (heatmap)
+    contour_fill = ax.contourf(
+        X, Y, swelling_data,
+        levels=contour_levels,
         cmap=cmap,
-        aspect='auto',
-        origin='lower',
-        interpolation='bilinear'
+        alpha=0.9
     )
 
-    # Set tick labels
-    ax.set_xticks(np.arange(len(param_values)))
-    ax.set_yticks(np.arange(len(temperatures)))
-
-    # Format tick labels to avoid overcrowding
-    n_params = len(param_values)
-    n_temps = len(temperatures)
-
-    # Show subset of ticks if too many
-    x_step = max(1, n_params // 10)
-    y_step = max(1, n_temps // 10)
-
-    ax.set_xticks(np.arange(0, n_params, x_step))
-    ax.set_yticks(np.arange(0, n_temps, y_step))
-
-    ax.set_xticklabels([f'{v:.2g}' for v in param_values[::x_step]])
-    ax.set_yticklabels([f'{v:.0f}' for v in temperatures[::y_step]])
+    # Add contour lines if requested
+    if show_contour_lines:
+        contour_lines = ax.contour(
+            X, Y, swelling_data,
+            levels=contour_levels,
+            colors='black',
+            linewidths=0.5,
+            alpha=0.4
+        )
+        # Add labels to contour lines
+        ax.clabel(contour_lines, inline=True, fontsize=9, fmt='%1.1f')
 
     # Add colorbar
     if show_colorbar:
         if colorbar_orientation == 'horizontal':
-            cbar = fig.colorbar(im, ax=ax, orientation='horizontal', pad=0.15)
+            cbar = fig.colorbar(contour_fill, ax=ax, orientation='horizontal', pad=0.15)
             cbar_label = 'Swelling (%)'
             cbar.set_label(cbar_label)
         else:
-            cbar = fig.colorbar(im, ax=ax)
+            cbar = fig.colorbar(contour_fill, ax=ax)
             cbar.set_label('Swelling (%)')
 
-    # Annotate values if requested
+    # Annotate values if requested (only for small grids)
     if annotate_values:
+        n_params = len(param_values)
+        n_temps = len(temperatures)
+
         # Only annotate if grid is not too large
         if n_params * n_temps <= 100:
             for i in range(n_temps):
                 for j in range(n_params):
                     text = ax.text(
-                        j, i,
+                        param_values[j], temperatures[i],
                         annotation_format % swelling_data[i, j],
                         ha="center",
                         va="center",
@@ -462,7 +471,7 @@ def plot_swelling_heatmap(
         else:
             warnings.warn(
                 "Grid too large for annotation. "
-                "Consider using contour lines instead (show_contour_lines=True in plot_temperature_contour)"
+                "Consider using contour lines instead (show_contour_lines=True)"
             )
 
     # Labels
