@@ -4,6 +4,7 @@
 ![codecov](https://codecov.io/gh/Etoile04/gas-swelling-model/branch/main/graph/badge.svg)
 ![Lint](https://github.com/Etoile04/gas-swelling-model/workflows/Lint/badge.svg)
 ![Docs](https://github.com/Etoile04/gas-swelling-model/workflows/Docs/badge.svg)
+![Pages](https://github.com/Etoile04/gas-swelling-model/workflows/Pages/badge.svg)
 
 A physics-based computational model for simulating fission gas bubble evolution and void swelling behavior in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys).
 
