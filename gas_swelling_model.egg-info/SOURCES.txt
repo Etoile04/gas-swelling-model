@@ -26,6 +26,7 @@ gas_swelling/params/parameters.py
 gas_swelling/physics/__init__.py
 gas_swelling/physics/gas_transport.py
 gas_swelling/physics/pressure.py
+gas_swelling/physics/thermal.py
 gas_swelling_model.egg-info/PKG-INFO
 gas_swelling_model.egg-info/SOURCES.txt
 gas_swelling_model.egg-info/dependency_links.txt

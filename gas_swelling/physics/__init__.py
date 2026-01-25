@@ -23,6 +23,12 @@ from .gas_transport import (
     calculate_gas_transport_terms
 )
 
+from .thermal import (
+    calculate_cv0,
+    calculate_ci0,
+    calculate_thermal_equilibrium_concentrations
+)
+
 __all__ = [
     'calculate_ideal_gas_pressure',
     'calculate_modified_vdw_pressure',
@@ -35,5 +41,8 @@ __all__ = [
     'calculate_gas_absorption_rate',
     'calculate_gas_resolution_rate',
     'calculate_gas_production_rate',
-    'calculate_gas_transport_terms'
+    'calculate_gas_transport_terms',
+    'calculate_cv0',
+    'calculate_ci0',
+    'calculate_thermal_equilibrium_concentrations'
 ]
