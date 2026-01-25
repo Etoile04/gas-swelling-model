@@ -1,0 +1,38 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/lwj04/ZCodeProject/swelling/.auto-claude/worktrees/tasks/020-refactor-monolithic-architecture
+configfile: pyproject.toml
+plugins: anyio-4.12.1, mock-3.15.1, asyncio-1.2.0, timeout-2.4.0, cov-7.0.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 36 items / 6 deselected / 30 selected
+
+tests/test_import.py::test_import_package PASSED                         [  3%]
+tests/test_import.py::test_import_gas_swelling_model PASSED              [  6%]
+tests/test_import.py::test_import_from_models PASSED                     [ 10%]
+tests/test_import.py::test_import_parameters PASSED                      [ 13%]
+tests/test_import.py::test_import_constants PASSED                       [ 16%]
+tests/test_import.py::test_create_default_parameters PASSED              [ 20%]
+tests/test_import.py::test_gas_swelling_model_instantiation PASSED       [ 23%]
+tests/test_import.py::test_import_refactored_model PASSED                [ 26%]
+tests/test_import.py::test_import_refactored_model_from_models PASSED    [ 30%]
+tests/test_import.py::test_import_physics_functions PASSED               [ 33%]
+tests/test_import.py::test_import_ode_system PASSED                      [ 36%]
+tests/test_import.py::test_import_solvers PASSED                         [ 40%]
+tests/test_import.py::test_import_io_utilities PASSED                    [ 43%]
+tests/test_import.py::test_refactored_model_instantiation PASSED         [ 46%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_default_initialization PASSED [ 50%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_custom_parameters_initialization PASSED [ 53%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_initial_state_structure PASSED [ 56%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_initial_state_values PASSED [ 60%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_debug_initialization PASSED [ 63%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelInitialization::test_repr PASSED [ 66%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelPhysics::test_get_gas_pressure_bulk PASSED [ 70%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelPhysics::test_get_gas_pressure_boundary PASSED [ 73%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelPhysics::test_get_gas_influx PASSED [ 76%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelPhysics::test_get_gas_release_rate PASSED [ 80%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelPhysics::test_get_thermal_equilibrium_concentrations PASSED [ 83%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelDebug::test_enable_debug PASSED [ 86%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelDebug::test_disable_debug PASSED [ 90%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelDebug::test_debug_config_persistence PASSED [ 93%]
+tests/test_refactored_model.py::TestRefactoredGasSwellingModelIntegration::test_model_with_different_eos_models 

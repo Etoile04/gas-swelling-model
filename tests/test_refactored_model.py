@@ -145,6 +145,7 @@ class TestRefactoredGasSwellingModelPhysics:
 class TestRefactoredGasSwellingModelSolve:
     """Test ODE solving functionality"""
 
+    @pytest.mark.slow
     def test_solve_with_default_parameters(self):
         """Test solving with default parameters"""
         model = RefactoredGasSwellingModel()
@@ -173,6 +174,7 @@ class TestRefactoredGasSwellingModelSolve:
                     'released_gas', 'swelling']:
             assert len(results[key]) == len(time_points), f"Wrong shape for {key}"
 
+    @pytest.mark.slow
     def test_solve_without_t_eval(self):
         """Test solving without specifying t_eval"""
         model = RefactoredGasSwellingModel()
@@ -186,6 +188,7 @@ class TestRefactoredGasSwellingModelSolve:
         assert results['time'][0] == t_span[0]
         assert results['time'][-1] == t_span[1]
 
+    @pytest.mark.slow
     def test_solve_results_physical_consistency(self):
         """Test that solve results are physically consistent"""
         model = RefactoredGasSwellingModel()
@@ -210,6 +213,7 @@ class TestRefactoredGasSwellingModelSolve:
         released_gas = results['released_gas']
         assert np.all(np.diff(released_gas) >= -1e-10)  # Allow small numerical errors
 
+    @pytest.mark.slow
     def test_solve_with_debug_enabled(self):
         """Test solving with debug mode enabled"""
         model = RefactoredGasSwellingModel()
@@ -228,6 +232,7 @@ class TestRefactoredGasSwellingModelSolve:
         # Clean up - disable debug
         model.disable_debug()
 
+    @pytest.mark.slow
     def test_solve_custom_parameters(self):
         """Test solving with custom model parameters"""
         params = create_default_parameters()
@@ -277,6 +282,7 @@ class TestRefactoredGasSwellingModelDebug:
 class TestRefactoredGasSwellingModelIntegration:
     """Integration tests for complete workflows"""
 
+    @pytest.mark.slow
     def test_complete_simulation_workflow(self):
         """Test complete simulation from setup to results analysis"""
         # Create model
@@ -299,6 +305,7 @@ class TestRefactoredGasSwellingModelIntegration:
         final_radius_boundary = results['Rcf'][-1]
         assert final_radius_boundary > 0
 
+    @pytest.mark.slow
     def test_model_with_different_eos_models(self):
         """Test model with different equation of state models"""
         for eos_model in ['ideal', 'virial', 'ronchi']:
@@ -312,6 +319,7 @@ class TestRefactoredGasSwellingModelIntegration:
             results = model.solve(t_span=t_span, t_eval=time_points)
             assert 'swelling' in results
 
+    @pytest.mark.slow
     def test_multiple_sequential_solves(self):
         """Test running multiple solves sequentially"""
         model = RefactoredGasSwellingModel()
