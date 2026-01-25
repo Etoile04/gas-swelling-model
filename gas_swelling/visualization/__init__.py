@@ -40,6 +40,11 @@ from .comparison_plots import (
     plot_correlation_matrix,
     plot_phase_comparison,
 )
+from .distribution_plots import (
+    plot_bubble_size_distribution,
+    plot_bubble_radius_distribution,
+    plot_gas_distribution_histogram,
+)
 from .utils import (
     # Style configuration
     get_publication_style,
@@ -95,6 +100,11 @@ __all__ = [
     'plot_gas_distribution_evolution',
     'plot_correlation_matrix',
     'plot_phase_comparison',
+
+    # Distribution plots
+    'plot_bubble_size_distribution',
+    'plot_bubble_radius_distribution',
+    'plot_gas_distribution_histogram',
 
     # Style configuration
     'get_publication_style',
