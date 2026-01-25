@@ -75,8 +75,8 @@ jobs:
 
     - name: Check docstrings
       run: |
-        # Check docstring presence and style (non-blocking)
-        flake8 gas_swelling/ --select=D --extend-ignore=D100,D104,D105,D107 --exit-zero
+        # Check docstring presence and style
+        flake8 gas_swelling/ --select=D --extend-ignore=D100,D104,D105,D107
 
   type-hint-check:
     # Optional: Check for type hints using mypy or similar
