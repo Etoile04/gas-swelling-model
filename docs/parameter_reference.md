@@ -207,6 +207,28 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
 - **Typical Range**: 1.0 - 1.02
 - **Impact**: Lower than Zi means vacancies are less strongly attracted to dislocations than interstitials
 
+**Experimental Uncertainty:** ±5-10% (theoretical calculations)
+
+**Measurement Techniques:**
+- **Molecular Dynamics (MD) Simulations** - Atomistic calculation of bias factors
+  - Accuracy: ±5-10% (depends on interatomic potential)
+  - Calculates capture efficiency of dislocations for point defects
+  - Reference: Was, Fundamentals of Radiation Materials Science, 2016
+- **Rate Theory Modeling** - Indirect inference from swelling data
+  - Accuracy: ±10-20% (highly correlated with other parameters)
+  - Challenging to separate from dislocation density effects
+- **No direct experimental measurement** - Bias factors are too small to measure directly
+
+> ### ⚠️ Theoretical Parameter
+>
+> Bias factors are **calculated from theory**, not directly measured:
+>
+> - **Physical origin**: Strain field interaction between dislocations and point defects
+> - **Zi > Zv**: Interstitials interact more strongly (elastic size effect)
+> - **Bias (Zi - Zv)**: Drives vacancy supersaturation → void swelling
+> - **Recommendation**: Use default values (1.0, 1.025) unless specifically modeling bias effects
+> - **For sensitivity analysis**: Test Zi values from 1.01 to 1.05
+
 #### `Zi`
 - **Type**: `float`
 - **Default**: `1.025`
@@ -214,6 +236,21 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
 - **Physical Meaning**: Relative strength of dislocations as interstitial sinks
 - **Typical Range**: 1.02 - 1.05
 - **Impact**: Higher Zᵢ creates vacancy supersaturation, driving void swelling
+
+**Experimental Uncertainty:** ±5-10% (theoretical calculations)
+
+**Measurement Techniques:**
+Same as Zv (calculated, not measured)
+
+> ### ⚠️ High Sensitivity, Low Uncertainty
+>
+> Unlike nucleation factors, bias factors are **well-constrained by theory**:
+>
+> - **Consistent across materials**: Similar values for most bcc metals (U, Fe, W)
+> - **Low sensitivity to temperature**: Bias factors vary <5% from 300-1000 K
+> - **Strong effect on swelling**: ΔZi = 0.02 can cause ±20% swelling change
+> - **Recommendation**: Keep at default (1.025) unless specifically studying bias effects
+> - **Literature consensus**: Most models use Zi = 1.02-1.03 for bcc metals
 
 #### `dislocation_density`
 - **Type**: `float`
@@ -225,6 +262,30 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
   - Cold-worked material: ~10¹⁴ m⁻²
 - **Impact**: HIGH SENSITIVITY - ±40% swelling change for ±50% density change
 - **Sink Strength**: kᵥ = √(Zᵥ × ρ), kᵢ = √(Zᵢ × ρ)
+
+**Experimental Uncertainty:** ±50-100% (highly variable depending on material state and irradiation history)
+
+**Measurement Techniques:**
+- **Transmission Electron Microscopy (TEM)** - Direct imaging of dislocation lines
+  - Accuracy: ±20-30% for well-prepared samples
+  - Sample requirements: Thin foils (<100 nm), careful preparation to avoid introducing artifacts
+  - Reference: Williams et al., J. Nucl. Mater. 2020
+- **X-Ray Diffraction (XRD)** - Line profile analysis (Williamson-Hall or Warren-Averbach methods)
+  - Accuracy: ±30-50% for deformed materials
+  - Non-destructive, bulk measurement
+  - Reference: Kaufmann, J. Appl. Phys. 1998
+- **Neutron Diffraction** - Bulk measurement, better penetration than XRD
+  - Accuracy: ±25-40%
+  - Useful for irradiated samples (minimal preparation)
+
+> ### ⚠️ Measurement Challenges
+>
+> Dislocation density is **highly sensitive** to sample preparation and measurement technique:
+>
+> - **TEM artifacts**: Sample thinning can introduce or annihilate dislocations
+> - **XRD limitations**: Assumes isotropic dislocation distribution (may not hold after irradiation)
+> - **Irradiation effects**: Density evolves with burnup (typically increases 2-5×)
+> - **Recommendation**: Use multiple measurement techniques when possible; report method and uncertainty
 
 > ### ⚠️ Out-of-Range Warning
 >
@@ -260,6 +321,36 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
 - **Typical Range**: 0.3 - 0.7 J/m²
 - **Impact**: Affects critical cavity radius and mechanical equilibrium
 
+**Experimental Uncertainty:** ±20-30% (moderate uncertainty)
+
+**Measurement Techniques:**
+- **Contact Angle Measurements** - Wetting experiments on U-Zr surfaces
+  - Accuracy: ±15-25%
+  - Challenge: Surface oxidation affects measurements
+  - Requires inert atmosphere (Ar or He glovebox)
+- **Zero Creep Method** - High-temperature deformation under controlled stress
+  - Accuracy: ±20-30%
+  - Measures grain boundary energy at elevated temperatures
+  - Reference: Classical metallurgical technique
+- **Molecular Dynamics (MD) Simulations** - First-principles calculation
+  - Accuracy: ±10-20% (depends on interatomic potential)
+  - Useful for temperature-dependent extrapolation
+  - Complements experimental data
+- **Bubble Shape Analysis (TEM)** - Critical radius from equilibrium bubbles
+  - Accuracy: ±25-40%
+  - Indirect method: R_critical = 2γ/P
+  - Requires measurement of bubble pressure
+
+> ### ⚠️ Temperature and Composition Dependence
+>
+> Surface energy is **not constant** across conditions:
+>
+> - **Temperature effect**: Decreases ~10-20% from 600 K to 900 K
+> - **Composition effect**: Zr content affects surface energy (U-Zr vs. pure U)
+> - **Interface type**: Grain boundary energy differs from free surface energy
+> - **Recommendation**: Use 0.5 J/m² as baseline for U-10Zr at 700 K
+> - **For sensitivity analysis**: Test range 0.3-0.7 J/m²
+
 #### `Fnb`
 - **Type**: `float`
 - **Default**: `1e-5`
@@ -268,6 +359,32 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
 - **Typical Range**: 10⁻⁶ - 10⁻⁴
 - **Impact**: Higher values increase number density of bubbles
 
+**Experimental Uncertainty:** ±1-2 orders of magnitude (poorly constrained)
+
+**Measurement Techniques:**
+- **Bubble Density Counting (TEM)** - Direct measurement of bubble number density
+  - Accuracy: ±50-100% (statistical limitations)
+  - Sample size: Typically count 100-500 bubbles per micrograph
+  - Challenge: Distinguishing nucleation from growth effects
+  - Reference: Rest, J. Nucl. Mater. 1992
+- **Small-Angle Neutron Scattering (SANS)** - Statistical bubble size distribution
+  - Accuracy: ±40-60% for number density
+  - Non-destructive, bulk measurement
+  - Limitation: Cannot resolve location (bulk vs. boundary)
+- **Model Calibration** - Fit to swelling data (inverse method)
+  - Most common approach
+  - Accuracy: Depends on quality of swelling data and constraint of other parameters
+
+> ### ⚠️ Physical Interpretation Challenges
+>
+> The nucleation factor is a **lumped parameter** that combines multiple physical processes:
+>
+> - **Heterogeneous nucleation** on precipitates or defects
+> - **Critical radius** for bubble stability (temperature-dependent)
+> - **Gas atom supersaturation** driving nucleation
+> - **Recommendation**: Treat Fnb as an adjustable calibration parameter rather than directly measurable quantity
+> - **Constraining approach**: Use measured bubble density from TEM as upper bound
+
 #### `Fnf`
 - **Type**: `float`
 - **Default**: `1e-5`
@@ -275,6 +392,35 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
 - **Physical Meaning**: Nucleation rate enhancement at grain boundaries and phase interfaces
 - **Typical Range**: 10⁻⁶ - 10⁻³
 - **Impact**: HIGH SENSITIVITY - Controls incubation period before rapid swelling
+
+**Experimental Uncertainty:** ±1-2 orders of magnitude (very poorly constrained)
+
+**Measurement Techniques:**
+- **Grain Boundary Bubble Analysis (TEM)** - Direct imaging of boundary bubbles
+  - Accuracy: ±50-100% (highly variable)
+  - Requires focused ion beam (FIB) sample preparation to target boundaries
+  - Statistical challenges: Limited number of boundaries in thin foils
+  - Reference: Hofman et al., J. Nucl. Mater. 2023
+- **Fracture Surface Examination (SEM)** - Intergranular fracture reveals boundary bubbles
+  - Accuracy: ±40-70%
+  - Advantage: Larger area coverage than TEM
+  - Challenge: May introduce artifacts during fracturing
+- **Swelling Incubation Analysis** - Indirect measurement from swelling vs. burnup curves
+  - Accuracy: Depends on data quality (typically ±30-50%)
+  - Most reliable method for fuel-specific calibration
+  - Fnf correlates with incubation period length
+
+> ### ⚠️ Critical Parameter Warning
+>
+> Fnf is the **most uncertain** high-sensitivity parameter:
+>
+> - **Physical basis**: Poorly understood nucleation enhancement at boundaries
+> - **Calibration**: Primary method is fitting to swelling incubation data
+> - **Validation challenge**: Limited direct measurements of boundary bubble nucleation rates
+> - **Recommendation for U-10Zr**: Use 1×10⁻⁵ (validated against EBR-II data)
+> - **Recommendation for U-Pu-Zr**: Use 1×10⁻⁵ (similar to U-10Zr)
+> - **Recommendation for high-purity U**: Use 1.0 (dramatically higher - causes rapid swelling)
+> - **If uncertain**: Perform sensitivity analysis; Fnf variations cause ±50% swelling changes
 
 #### `hydrastatic_pressure`
 - **Type**: `float`
@@ -491,6 +637,40 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
   - High flux: ~10²¹ fissions/m³/s
 - **Impact**: Directly proportional to gas production rate and defect generation
 
+**Experimental Uncertainty:** ±10-15% (reactor physics calculations)
+
+**Measurement Techniques:**
+- **Neutron Flux Monitoring** - Activation foils or fission chambers
+  - Accuracy: ±5-10% for well-instrumented reactors
+  - In-situ measurement during irradiation
+  - Reference: Standard reactor dosimetry methods
+- **Reactor Physics Calculations** - Neutron transport codes (MCNP, SERPENT)
+  - Accuracy: ±10-15% (depends on cross-section data)
+  - Requires detailed geometry and composition data
+- **Post-Irradiation Examination (PIE)** - Burnup measurement via mass spectrometry
+  - Accuracy: ±3-5% (most accurate)
+  - Techniques: Nd-148 method, radiochemical analysis
+  - Reference: ASTM E321-16
+
+**Calculation from Neutron Flux:**
+```
+fission_rate = φ × N_fuel × σ_f
+```
+where:
+- φ = neutron flux (neutrons/cm²/s)
+- N_fuel = fuel atom density (atoms/cm³)
+- σ_f = macroscopic fission cross section (cm)
+
+> ### ⚠️ Spatial and Temporal Variations
+>
+> Fission rate is **not uniform** in real fuel pins:
+>
+> - **Axial variation**: Cosine-shaped flux profile (±20% from mid-plane)
+> - **Radial variation**: Self-shielding causes lower rate at center (±10%)
+> - **Temporal evolution**: Decreases with burnup as fissile isotopes deplete
+> - **Recommendation**: Use axially-averaged value; for long irradiations, account for depletion effects
+> - **For EBR-II conditions**: 2.0×10²⁰ fissions/m³/s is well-validated
+
 > ### ⚠️ Out-of-Range Warning
 >
 > **Valid Range**: 1×10¹⁸ - 1×10²² fissions/m³/s
@@ -561,6 +741,36 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
   - Coarse-grained fuel: ~5 μm
 - **Impact**: Affects fraction of atoms near grain boundaries
 
+**Experimental Uncertainty:** ±10-20% (well-measured)
+
+**Measurement Techniques:**
+- **Optical Microscopy (OM)** - Polarized light reveals grain structure
+  - Accuracy: ±15-25%
+  - Sample preparation: Mechanical polishing + chemical etching
+  - ASTM E112 standard for grain size measurement
+  - Reference: Standard metallurgical technique
+- **Scanning Electron Microscopy (SEM)** - Higher resolution than OM
+  - Accuracy: ±10-20%
+  - Electron backscatter diffraction (EBSD) provides crystallographic orientation
+  - Automated grain boundary detection
+- **Electron Backscatter Diffraction (EBSD)** - Crystallographic orientation mapping
+  - Accuracy: ±5-10% (most accurate)
+  - Provides grain size distribution, not just average
+  - Distinguishes between different phases in U-Zr alloys
+- **X-Ray Diffraction (XRD)** - Line profile analysis
+  - Accuracy: ±20-30%
+  - Coherent scattering domain size (may differ from physical grain size)
+
+> ### ⚠️ Measurement Considerations
+>
+> Grain diameter is **straightforward to measure** but has important nuances:
+>
+> - **Distribution**: Real materials have log-normal distribution (report mean ± std)
+> - **Anisotropy**: Extruded fuel pins may have elongated grains (aspect ratio 2-5)
+> - **Irradiation effects**: Grain size can evolve with burnup (grain subdivision)
+> - **Recommendation**: Use EBSD for most accurate results; report both mean and distribution
+> - **For U-10Zr fuel**: Typical range 0.3-1.0 μm (fine-grained due to rapid solidification)
+
 ### Temperature & Time
 
 #### `temperature`
@@ -574,6 +784,30 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
   - High-temperature regime: 900-1200 K
 - **Impact**: CRITICAL - Controls exponential Arrhenius terms in diffusion
 - **Sensitivity**: Bell-shaped swelling curve with maximum at 700-800 K
+
+**Experimental Uncertainty:** ±10-20 K (well-measured)
+
+**Measurement Techniques:**
+- **Thermocouples (Type K or Type N)** - Direct temperature measurement
+  - Accuracy: ±2-5 K for calibrated thermocouples
+  - Placement: Embedded in fuel pin or cladding
+  - Reference: Standard reactor instrumentation
+- **Infrared Pyrometry** - Non-contact surface temperature
+  - Accuracy: ±10-20 K
+  - Useful for validation experiments
+- **Calorimetric Methods** - Heat balance calculations
+  - Accuracy: ±15-30 K
+  - Indirect method based on fission rate and cooling
+
+> ### ⚠️ Temperature Gradient Considerations
+>
+> Real fuel pins have **significant radial temperature gradients**:
+>
+> - **Centerline temperature**: Typically 100-200 K higher than surface
+> - **Gradient magnitude**: Depends on linear heat rate (typically 300-500 W/cm for fast reactors)
+> - **Model assumption**: Current model uses isothermal approximation
+> - **Recommendation**: Use volume-averaged temperature or centerline temperature for conservative swelling estimates
+> - **For detailed analysis**: Consider multi-zone modeling with radial temperature profile
 
 > ### ⚠️ Out-of-Range Warning
 >
@@ -651,6 +885,35 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
 - **Typical Range**: 10⁻⁸ - 10⁻⁶ m²/s
 - **Impact**: Controls gas atom mobility to bubbles
 
+**Experimental Uncertainty:** ±50-100% (combined with activation energy uncertainty)
+
+**Measurement Techniques:**
+- **In-Reactor Gas Release Measurements** - Time-resolved fission gas release
+  - Accuracy: ±30-50% for combined D₀ and Ea
+  - Requires temperature-programmed release experiments
+  - Reference: Grimes et al., J. Nucl. Mater. 1992
+- **Post-Irradiation Annealing** - Gas release during controlled heating
+  - Accuracy: ±40-60%
+  - Measures effective diffusion coefficient (includes trapping effects)
+  - Challenging to separate thermal vs. athermal diffusion
+- **Ion Implantation + Depth Profiling (SIMS)** - Direct diffusion measurement
+  - Accuracy: ±20-30% (most direct but limited to unirradiated material)
+  - Secondary Ion Mass Spectrometry (SIMS) measures Xe concentration profiles
+  - Does not capture fission-enhanced diffusion
+- **First-Principles Calculations (DFT)** - Ab initio diffusion barriers
+  - Accuracy: ±15-25% for migration energies
+  - Useful for validating experimental trends
+
+> ### ⚠️ Fission-Enhanced Diffusion
+>
+> Gas diffusion in irradiated fuel has **two components**:
+>
+> - **Thermal diffusion**: D_thermal = D₀ × exp(-Ea/kBT) (dominant at high T)
+> - **Athermal diffusion**: D_fission = Dgb_fission_term × fission_rate (dominant at low T)
+> - **Combined**: D_total = D_thermal + D_fission
+> - **Uncertainty**: Fission term has ±100% uncertainty (poorly constrained)
+> - **Recommendation**: Use default values for most studies; calibrate fission term if matching low-temperature data
+
 #### `Dgb_activation_energy`
 - **Type**: `float`
 - **Default**: `1.16` eV
@@ -658,6 +921,20 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
 - **Physical Meaning**: Energy barrier for gas atom migration through lattice
 - **Typical Range**: 0.8 - 1.5 eV
 - **Impact**: Higher values reduce gas mobility exponentially
+
+**Experimental Uncertainty:** ±0.1-0.2 eV (±10-20%)
+
+**Measurement Techniques:**
+Same as Dgb_prefactor (measured simultaneously in temperature-programmed experiments)
+
+> ### ⚠️ Correlation with Pre-exponential Factor
+>
+> Activation energy and pre-exponential factor are **correlated**:
+>
+> - **Compensation effect**: Higher Ea often compensated by higher D₀
+> - **Fitting challenge**: Large confidence ellipse in (D₀, Ea) parameter space
+> - **Recommendation**: When calibrating, adjust both parameters simultaneously using multi-temperature data
+> - **Temperature range**: Fit requires data spanning at least 200-300 K
 
 #### `Dgb_fission_term`
 - **Type**: `float`
@@ -724,41 +1001,134 @@ Based on the theoretical paper (Section 5), here are the parameters that have th
 1. **Dislocation Density** (`dislocation_density`)
    - ±50% density → ±40% swelling
    - Mechanism: Controls sink strength for defect absorption
+   - **Uncertainty**: ±50-100% (highly variable)
+   - **Measurement**: TEM (±20-30%), XRD (±30-50%)
+   - **Recommendation**: Measure directly via TEM for critical studies
 
 2. **Dislocation Bias** (`Zi`, `Zv`)
    - ΔZi = 0.02 → large swelling change
    - Mechanism: Bias factor creates vacancy supersaturation
+   - **Uncertainty**: ±5-10% (well-constrained by theory)
+   - **Measurement**: Calculated via MD simulations (not directly measurable)
+   - **Recommendation**: Use default values (theoretical)
 
 3. **Boundary Nucleation Factor** (`Fnf`)
    - Controls incubation period before rapid swelling
    - Critical for matching experimental swelling curves
+   - **Uncertainty**: ±1-2 orders of magnitude (very poorly constrained)
+   - **Measurement**: Indirect (swelling incubation analysis, TEM boundary bubble counting)
+   - **Recommendation**: Calibrate to swelling data; perform sensitivity analysis
 
 4. **Temperature** (`temperature`)
    - Non-linear: bell-shaped curve
    - Peak swelling at 700-800 K
    - Changes diffusion exponentially via Arrhenius terms
+   - **Uncertainty**: ±10-20 K (well-measured)
+   - **Measurement**: Thermocouples (±2-5 K), pyrometry (±10-20 K)
+   - **Recommendation**: Use volume-averaged temperature; account for radial gradient
 
 ### Medium Sensitivity (±10-30% swelling change)
 
 5. **Surface Energy** (`surface_energy`)
    - Affects critical cavity radius
    - Higher energy → larger stable bubbles
+   - **Uncertainty**: ±20-30%
+   - **Measurement**: Contact angle (±15-25%), MD simulations (±10-20%)
+   - **Recommendation**: Use 0.5 J/m² for U-10Zr; test range 0.3-0.7 in sensitivity studies
 
 6. **Gas Production Rate** (`gas_production_rate`)
    - Linear effect on total gas inventory
    - Directly proportional to swelling
+   - **Uncertainty**: ±5% (well-known nuclear physics)
+   - **Measurement**: Known from fission yields (U-235: 0.25, Pu-239: 0.28)
+   - **Recommendation**: Use isotope-specific values; minimal uncertainty
 
 7. **Grain Diameter** (`grain_diameter`)
    - Smaller grains → more boundary area → faster gas release
    - Can reduce swelling by venting gas
+   - **Uncertainty**: ±10-20% (well-measured)
+   - **Measurement**: EBSD (±5-10%), SEM (±10-20%), OM (±15-25%)
+   - **Recommendation**: Measure directly via EBSD; report distribution
 
 ### Low Sensitivity (<±10% swelling change)
 
 8. **Recombination Radius** (`recombination_radius`)
    - Moderate effect on defect recombination rate
+   - **Uncertainty**: ±10-20% (physical constraint ~2Å)
+   - **Measurement**: Calculated from atomic theory
 
 9. **Resolution Rate** (`resolution_rate`)
    - Secondary effect for most conditions
+   - **Uncertainty**: ±50% (poorly constrained)
+   - **Measurement**: Indirect (gas release modeling)
+   - **Recommendation**: Use default value
+
+---
+
+## Parameter Measurement Uncertainty Summary
+
+### Well-Measured Parameters (Low Uncertainty)
+
+| Parameter | Uncertainty | Primary Method | Notes |
+|-----------|-------------|----------------|-------|
+| **Temperature** | ±10-20 K | Thermocouples, pyrometry | Direct measurement |
+| **Gas Production Rate** | ±5% | Nuclear data (fission yields) | Known from physics |
+| **Grain Diameter** | ±10-20% | EBSD, SEM | Direct imaging |
+| **Lattice Constant** | ±0.5% | XRD | Very well-known |
+| **Physical Constants** | <±0.1% | CODATA values | Use standard values |
+
+### Moderate Uncertainty Parameters
+
+| Parameter | Uncertainty | Primary Method | Notes |
+|-----------|-------------|----------------|-------|
+| **Surface Energy** | ±20-30% | Contact angle, MD simulations | Temperature-dependent |
+| **Dislocation Density** | ±50-100% | TEM, XRD | Highly variable with material state |
+| **Gas Diffusion (D₀, Ea)** | ±50-100% | Gas release experiments | Correlated parameters |
+| **Dislocation Bias** | ±5-10% | MD simulations (theory) | Well-constrained |
+| **Fission Rate** | ±10-15% | Reactor physics, neutron flux | Calculated from flux |
+
+### High Uncertainty Parameters (Poorly Constrained)
+
+| Parameter | Uncertainty | Primary Method | Notes |
+|-----------|-------------|----------------|-------|
+| **Fnb (bulk nucleation)** | ±1-2 orders | Calibration to swelling data | Indirect measurement |
+| **Fnf (boundary nucleation)** | ±1-2 orders | Calibration to swelling data | Critical parameter! |
+| **Resolution Rate** | ±50% | Gas release modeling | Limited experimental data |
+| **Recombination Radius** | ±10-20% | Theoretical calculation | Physical constraint |
+
+---
+
+## Recommended Measurement Strategies
+
+### For Calibration Studies
+
+**Priority 1: Direct Measurements (Required)**
+1. **Dislocation density** - TEM or XRD
+2. **Grain diameter** - EBSD preferred
+3. **Temperature** - Thermocouple data from irradiation
+4. **Fission rate** - Reactor physics calculations
+
+**Priority 2: Literature Values (Acceptable)**
+1. **Surface energy** - Use 0.5 J/m² for U-10Zr
+2. **Gas production rate** - Use isotope-specific yields
+3. **Dislocation bias** - Use theoretical values (Zi=1.025, Zv=1.0)
+4. **Diffusion parameters** - Use literature values for U-Zr
+
+**Priority 3: Calibrated Parameters (Adjust to Match Data)**
+1. **Fnf** - Primary calibration parameter
+2. **Fnb** - Secondary calibration parameter
+3. **Resolution rate** - Tertiary adjustment (if needed)
+
+### For Sensitivity Analysis Studies
+
+**Include These Parameters:**
+- **High uncertainty + high sensitivity**: Fnf, Fnb, dislocation_density
+- **Moderate uncertainty + medium sensitivity**: surface_energy, grain_diameter
+- **Low uncertainty + high sensitivity**: temperature, fission_rate
+
+**Exclude These Parameters:**
+- **Very well-known**: Physical constants, lattice parameters
+- **Very low sensitivity**: Recombination radius, resolution rate (unless specifically studying these effects)
 
 ---
 
@@ -797,6 +1167,215 @@ Different research objectives require different parameter selection strategies. 
 │     └─ Use experimentally measured parameters                   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Experimental Design for Parameter Measurement
+
+This section provides guidance on planning experiments to measure the most critical model parameters.
+
+### Measuring Dislocation Density
+
+**Recommended Approach: Multi-Technique Validation**
+
+```python
+# Experimental workflow for dislocation density measurement
+experimental_plan = {
+    'sample_preparation': [
+        'Section fuel pin perpendicular to axial direction',
+        'Mechanical grinding to 100 μm thickness',
+        'Electropolishing or ion milling to electron transparency',
+        'Document preparation parameters'
+    ],
+    'primary_technique': {
+        'method': 'Transmission Electron Microscopy (TEM)',
+        'accelerating_voltage': '200-300 kV (good penetration in U alloys)',
+        'imaging_conditions': 'Two-beam condition with g-vector diffraction',
+        'number_of_foils': 'Minimum 5 foils from different radial positions',
+        'images_per_foil': '10-20 micrographs at different locations',
+        'analysis': 'Count dislocation intersections with test lines',
+        'expected_uncertainty': '±20-30%'
+    },
+    'secondary_technique': {
+        'method': 'X-Ray Diffraction (XRD)',
+        'type': 'Line profile analysis (Williamson-Hall method)',
+        'advantage': 'Non-destructive, measures bulk volume',
+        'expected_uncertainty': '±30-50%',
+        'purpose': 'Cross-validation of TEM results'
+    },
+    'quality_control': [
+        'Check for sample preparation artifacts (dislocation loops)',
+        'Compare TEM and XRD results (should agree within factor of 2)',
+        'Report radial variation (center vs. edge of fuel pin)',
+        'Document irradiation conditions (burnup, temperature)'
+    ],
+    'reporting': {
+        'mean_value': 'Average across all measurements',
+        'standard_deviation': 'Statistical uncertainty',
+        'systematic_uncertainty': 'Technique-specific uncertainty',
+        'confidence_interval': '95% confidence interval recommended'
+    }
+}
+```
+
+**Common Pitfalls:**
+- **Insufficient statistics**: Fewer than 100 dislocations counted → high uncertainty
+- **Preparation artifacts**: Mechanical grinding introduces dislocations
+- **Single technique**: Relying on only TEM or only XRD
+- **No radial profiling**: Assuming uniform density across fuel pin
+
+### Measuring Grain Size
+
+**Recommended Approach: EBSD Mapping**
+
+```python
+grain_size_measurement = {
+    'sample_preparation': [
+        'Mount sample in conductive epoxy',
+        'Polish with diamond suspensions (9, 3, 1, 0.25 μm)',
+        'Final polish with colloidal silica (0.05 μm)',
+        'Avoid etching (EBSD requires polished surface)'
+    ],
+    'primary_technique': {
+        'method': 'Electron Backscatter Diffraction (EBSD)',
+        'instrument': 'SEM with EBSD detector',
+        'accelerating_voltage': '15-20 kV',
+        'step_size': '0.2-0.5 μm (depending on grain size)',
+        'scan_area': 'Minimum 10×10 grains for statistics',
+        'number_of_scans': '5 scans from different regions',
+        'analysis_software': 'HKL Channel 5, AZtec, or similar'
+    },
+    'output_metrics': [
+        'Mean grain diameter (circle-equivalent)',
+        'Grain size distribution (histogram)',
+        'Standard deviation',
+        'Aspect ratio (for anisotropic grains)',
+        'Grain boundary character distribution'
+    ],
+    'expected_uncertainty': '±5-10%'
+}
+```
+
+**Alternative Techniques:**
+- **Optical microscopy** (lower cost, ±15-25% uncertainty)
+- **SEM imaging** (no orientation info, ±10-20% uncertainty)
+
+### Measuring Temperature
+
+**In-Reactor Monitoring:**
+
+```python
+temperature_measurement = {
+    'in_reactor': {
+        'primary_method': 'Thermocouples embedded in fuel pin',
+        'thermocouple_type': 'Type K (Chromel-Alumel) or Type N (Nicrosil-Nisil)',
+        'placement': 'Between fuel and cladding, or at fuel centerline',
+        'accuracy': '±5-10 K (in-reactor conditions)',
+        'challenges': [
+            'Drift due to neutron irradiation',
+            'Electromagnetic interference',
+            'Calibration changes at high temperature'
+        ]
+    },
+    'post_irradiation': {
+        'method': 'Calorimetric reconstruction',
+        'technique': 'Calculate from fission rate and thermal properties',
+        'accuracy': '±15-30 K',
+        'inputs': [
+            'Measured fission rate',
+            'Fuel thermal conductivity',
+            'Linear heat rate',
+            'Coolant temperature'
+        ]
+    },
+    'recommendation': 'Combine in-reactor and post-irradiation methods for validation'
+}
+```
+
+### Measuring Bubble Density and Size Distribution
+
+**For Bulk Bubble Density (Fnb calibration):**
+
+```python
+bulk_bubble_analysis = {
+    'technique': 'Transmission Electron Microscopy (TEM)',
+    'sample_requirements': [
+        'Thin foils (<100 nm)',
+        'Avoid FIB damage (prefer electropolishing)',
+        'Multiple foils for statistics'
+    ],
+    'imaging': [
+        'Underfocus/overfocus imaging for bubble contrast',
+        'Magnification: 50,000-100,000× for 10-100 nm bubbles',
+        'Count minimum 200-500 bubbles'
+    ],
+    'analysis': [
+        'Measure bubble diameter (equivalent circle)',
+        'Calculate number density (bubbles/m³)',
+        'Fit size distribution (log-normal)',
+        'Report mean ± standard deviation'
+    ],
+    'expected_uncertainty': '±50-100% (statistical)'
+}
+```
+
+**For Grain Boundary Bubble Density (Fnf calibration):**
+
+```python
+boundary_bubble_analysis = {
+    'technique': 'Focused Ion Beam (FIB) lift-out + TEM',
+    'challenges': [
+        'Difficult to locate grain boundaries in thin foils',
+        'FIB can introduce artifacts',
+        'Limited statistics (few boundaries per sample)'
+    ],
+    'alternative': 'Intergranular fracture + SEM',
+    'analysis': [
+        'Fracture sample along grain boundaries',
+        'Image fracture surface in SEM',
+        'Count bubbles on exposed boundaries',
+        'Calculate boundary bubble density'
+    ],
+    'expected_uncertainty': '±50-100%'
+}
+```
+
+---
+
+## Best Practices for Parameter Reporting
+
+When reporting model parameters in publications or technical reports, include:
+
+### Required Information
+
+1. **All material parameters** (even if using defaults)
+   - List each parameter with value and units
+   - Cite source (literature, measurement, or calibration)
+
+2. **Measurement uncertainty**
+   - Report ± uncertainty for each measured parameter
+   - Use 95% confidence intervals where possible
+
+3. **Calibration parameters**
+   - Clearly distinguish between measured and calibrated values
+   - Describe calibration procedure and data used
+
+4. **Validation data**
+   - Compare predictions with independent experimental data
+   - Report error metrics (MAE, RMSE, maximum error)
+
+### Example Parameter Table Format
+
+```markdown
+| Parameter | Value | Units | Uncertainty | Source | Measurement Method |
+|-----------|-------|-------|-------------|--------|-------------------|
+| Dislocation density | 7.0×10¹³ | m⁻² | ±30% | This work | TEM (Williams et al. 2020) |
+| Grain diameter | 0.5 | μm | ±10% | This work | EBSD |
+| Temperature | 700 | K | ±10 | Experimental | Thermocouple |
+| Fnb | 1×10⁻⁵ | - | ±50% | Calibrated | Fit to swelling data |
+| Fnf | 3×10⁻⁵ | - | ±100% | Calibrated | Fit to swelling data |
+| Surface energy | 0.5 | J/m² | - | Literature | Rest 1992 |
 ```
 
 ---
