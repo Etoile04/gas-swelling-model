@@ -1,9 +1,11 @@
 """
 Euler Numerical Solver for Gas Swelling Model
+欧拉数值求解器模块 (气体肿胀模型)
 
 This module provides an explicit Euler method solver for solving the gas
 swelling ODE system. Simple and easy to understand, but requires careful
 choice of time step for stability.
+本模块提供显式欧拉方法求解器，用于求解气体肿胀ODE系统。简单易懂，但需要仔细选择时间步长以保证稳定性。
 """
 
 import numpy as np
@@ -12,11 +14,14 @@ from typing import Callable, Dict, Tuple, Optional
 
 class EulerSolver:
     """
-    Explicit Euler method solver for gas swelling equations.
+    Explicit Euler Method Solver for Gas Swelling Equations
+    显式欧拉方法求解器 (气体肿胀方程)
 
     This solver implements the forward Euler method, a first-order numerical
     procedure for solving ODEs. Simple and computationally efficient per step,
     but requires small time steps for stability and accuracy.
+    该求解器实现前向欧拉方法，一种用于求解ODE的一阶数值方法。
+    每步计算简单高效，但需要小时间步长以保证稳定性和精度。
 
     Parameters
     ----------

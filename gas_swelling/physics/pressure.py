@@ -16,20 +16,23 @@ from typing import Dict, Optional
 
 
 # Pressure calculation constants (Virial EOS coefficients)
+# 压力计算常数（维里状态方程系数）
 # These constants are specific to Xenon gas
-VIRIAL_B0 = 197.229
-VIRIAL_B1 = 120307.145
-VIRIAL_B2 = 60.555
-VIRIAL_C0 = -22038.723
-VIRIAL_C1 = 2292.793
-VIRIAL_C2 = -117.564
-VIRIAL_D0 = 1030015.045
-VIRIAL_D1 = -5.200
-VIRIAL_D2 = -280.677
+# 这些常数专门用于Xe（氙）气体
+VIRIAL_B0 = 197.229  # Virial coefficient B0 (维里系数B0)
+VIRIAL_B1 = 120307.145  # Virial coefficient B1 (维里系数B1)
+VIRIAL_B2 = 60.555  # Virial coefficient B2 (维里系数B2)
+VIRIAL_C0 = -22038.723  # Virial coefficient C0 (维里系数C0)
+VIRIAL_C1 = 2292.793  # Virial coefficient C1 (维里系数C1)
+VIRIAL_C2 = -117.564  # Virial coefficient C2 (维里系数C2)
+VIRIAL_D0 = 1030015.045  # Virial coefficient D0 (维里系数D0)
+VIRIAL_D1 = -5.200  # Virial coefficient D1 (维里系数D1)
+VIRIAL_D2 = -280.677  # Virial coefficient D2 (维里系数D2)
 
 # Modified Van der Waals constants
-HS_PARAMETER = 0.6  # Hard sphere parameter
-BV_PARAMETER = 8.5e-29  # Volume parameter (m³)
+# 修正的范德瓦尔方程常数
+HS_PARAMETER = 0.6  # Hard sphere parameter (硬球参数, dimensionless)
+BV_PARAMETER = 8.5e-29  # Volume parameter (体积参数, m³)
 
 
 def calculate_ideal_gas_pressure(
@@ -307,9 +310,10 @@ def calculate_gas_pressure(
     **params
 ) -> float:
     """
-    通用气体压力计算接口
+    通用气体压力计算接口 (Generic Gas Pressure Calculation Interface)
 
     Generic interface for calculating gas pressure using different EOS models.
+    通用接口，支持使用不同的状态方程模型计算气体压力。
 
     Parameters
     ----------
@@ -375,17 +379,17 @@ if __name__ == '__main__':
     print("气体压力计算测试 (Gas Pressure Calculation Tests)")
     print("=" * 50)
 
-    # Test conditions
-    Rc_test = 1e-8  # 10 nm
-    Nc_test = 100   # 100 atoms
-    T_test = 600    # 600 K
+    # Test conditions (测试条件)
+    Rc_test = 1e-8  # 10 nm (气泡半径)
+    Nc_test = 100   # 100 atoms (气体原子数)
+    T_test = 600    # 600 K (温度)
 
     print(f"\n测试条件 (Test conditions):")
-    print(f"  气泡半径 R = {Rc_test*1e9:.1f} nm")
-    print(f"  气体原子数 N = {Nc_test}")
-    print(f"  温度 T = {T_test} K")
+    print(f"  气泡半径 Bubble Radius R = {Rc_test*1e9:.1f} nm")
+    print(f"  气体原子数 Gas Atoms N = {Nc_test}")
+    print(f"  温度 Temperature T = {T_test} K")
 
-    # Test all EOS models
+    # Test all EOS models (测试所有状态方程模型)
     models = ['ideal', 'vdw', 'virial', 'ronchi']
     for model in models:
         try:

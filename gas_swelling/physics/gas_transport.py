@@ -10,6 +10,9 @@ References: Eqs. 1-12 in the swelling rate theory paper.
 import numpy as np
 from typing import Dict, Tuple
 
+# Physical constants (物理常数)
+ATOMIC_VOLUME = 4.09e-29  # m³, atomic volume (原子体积)
+
 
 def calculate_gas_influx(
     Cgb: float,
@@ -134,38 +137,49 @@ def calculate_gas_release_rate(
         raise ValueError("Rcf, Ccf, Ncf, and Cgf must be non-negative")
 
     # Geometric factor for spherical cap bubbles at grain boundaries
+    # 晶界球冠状气泡的几何因子
     # θ = 50° is the typical dihedral angle for U-Zr alloys
-    theta = 50.0 / 180.0 * np.pi  # Convert to radians
+    # θ = 50° 是U-Zr合金的典型二面角
+    theta = 50.0 / 180.0 * np.pi  # Convert to radians (转换为弧度)
     ff_theta = 1.0 - 1.5 * np.cos(theta) + 0.5 * np.cos(theta)**3
 
     # Bubble coverage area on grain faces (Eq. 10)
+    # 晶面上的气泡覆盖面积 (公式10)
     Af = np.pi * Rcf**2 * Ccf * ff_theta  # m⁻¹
 
     # Grain-face area per unit volume (m⁻¹)
+    # 单位体积的晶界面积 (m⁻¹)
     Sv_aa = 6.0 / grain_diameter
 
     # Maximum bubble coverage for interconnection (Eq. 11)
+    # 发生连通时的最大气泡覆盖 (公式11)
     Af_max = 0.907 * Sv_aa
 
-    # Calculate coverage ratio
+    # Calculate coverage ratio (计算覆盖比)
     if Af_max <= 0:
         Af_ratio = 0.0
     else:
         Af_ratio = Af / Af_max
 
     # Calculate interconnectivity coefficient (Eq. 12)
+    # 计算连通性系数 (公式12)
     if Af_ratio <= 0.25:
         # No gas release - bubbles are isolated
+        # 无气体释放 - 气泡孤立
         chi = 0.0
     elif Af_ratio >= 1.0:
         # Full gas release - complete interconnection
+        # 完全气体释放 - 完全连通
         chi = 1.0
     else:
         # Partial release - linear transition region
+        # 部分释放 - 线性过渡区
         chi = Af_ratio
 
     # Calculate gas release rate coefficient
     # h0 represents the fraction of gas released per unit time
+    # 计算气体释放率系数
+    # h0 表示单位时间内释放的气体分数
     h0 = chi * (Cgf + Ccf * Ncf)
 
     return h0

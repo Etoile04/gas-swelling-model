@@ -49,6 +49,9 @@ from ..io import (
     print_simulation_summary
 )
 
+# Physical constants (物理常数)
+BOLTZMANN_CONSTANT_J = 1.380649e-23  # J/K (玻尔兹曼常数)
+
 
 class RefactoredGasSwellingModel:
     """

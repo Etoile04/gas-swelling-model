@@ -1,8 +1,10 @@
 """
 Debug Output Module for Gas Swelling Model
+调试输出模块 (气体肿胀模型)
 
 This module provides utilities for managing and formatting debug output
 during gas swelling simulations.
+本模块提供在气体肿胀模拟期间管理和格式化调试输出的实用工具。
 """
 
 import logging
@@ -11,13 +13,13 @@ from dataclasses import dataclass, field
 import numpy as np
 
 
-# 设置日志
+# 设置日志 (Setup logging)
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class DebugConfig:
-    """调试配置参数"""
+    """调试配置参数 (Debug Configuration Parameters)"""
     enabled: bool = False  # 是否启用调试模式
     time_step_interval: int = 100  # 每隔多少时间步记录一次
     save_to_file: bool = False  # 是否保存到文件
@@ -27,7 +29,7 @@ class DebugConfig:
 
 @dataclass
 class DebugHistory:
-    """调试历史数据容器"""
+    """调试历史数据容器 (Debug History Data Container)"""
     time: List[float] = field(default_factory=list)
     Cgb: List[float] = field(default_factory=list)  # 晶内气体浓度
     Ccb: List[float] = field(default_factory=list)  # 晶内气泡浓度

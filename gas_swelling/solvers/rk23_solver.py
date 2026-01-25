@@ -1,8 +1,10 @@
 """
 RK23 Numerical Solver for Gas Swelling Model
+RK23数值求解器模块 (气体肿胀模型)
 
 This module provides a wrapper around scipy's RK23 (Runge-Kutta 2(3)) adaptive
 solver for solving the gas swelling ODE system.
+本模块提供scipy的RK23（龙格-库塔2(3)）自适应求解器的包装器，用于求解气体肿胀ODE系统。
 """
 
 import numpy as np
@@ -12,11 +14,14 @@ from scipy.integrate import solve_ivp
 
 class RK23Solver:
     """
-    Runge-Kutta 2(3) adaptive solver wrapper for gas swelling equations.
+    Runge-Kutta 2(3) Adaptive Solver for Gas Swelling Equations
+    龙格-库塔2(3)自适应求解器 (气体肿胀方程)
 
     This solver uses scipy's solve_ivp with the 'RK23' method, which is an
     explicit Runge-Kutta method of order 3 with error control and adaptive
     step sizing. Suitable for non-stiff to moderately stiff ODE systems.
+    该求解器使用scipy的solve_ivp函数和'RK23'方法，这是一个具有误差控制和自适应
+    步长的3阶显式龙格-库塔方法。适用于非刚性到中等刚性ODE系统。
 
     Parameters
     ----------
@@ -137,21 +142,21 @@ class RK23Solver:
         RuntimeError
             If solver fails and raises an exception
         """
-        # Validate initial conditions
+        # Validate initial conditions (验证初始条件)
         if len(y0) != 17:
             raise ValueError(
                 f"Initial condition y0 must have 17 components, "
                 f"got {len(y0)}"
             )
 
-        # Set up time evaluation points
+        # Set up time evaluation points (设置时间评估点)
         if t_eval is None:
             t_eval = np.linspace(t_span[0], t_span[1], 100)
 
-        # Clip initial conditions to avoid numerical issues
+        # Clip initial conditions to avoid numerical issues (裁剪初始条件以避免数值问题)
         y0_clipped = np.clip(y0, 1e-12, 1e30)
 
-        # Solve ODE system with error handling
+        # Solve ODE system with error handling (求解ODE系统，带错误处理)
         try:
             sol = solve_ivp(
                 fun=self._equations_wrapper,
@@ -169,7 +174,7 @@ class RK23Solver:
 
         except Exception as e:
             self.success = False
-            # Return empty results on failure
+            # Return empty results on failure (失败时返回空结果)
             return {
                 'time': np.array([]),
                 'success': False,
@@ -181,7 +186,8 @@ class RK23Solver:
             }
 
         # Map solution to dictionary with variable names
-        # State variables (17 components):
+        # 将解映射到带变量名的字典
+        # State variables (状态变量 - 17 components):
         # 0: Cgb, 1: Ccb, 2: Ncb, 3: Rcb, 4: Cgf, 5: Ccf,
         # 6: Ncf, 7: Rcf, 8: cvb, 9: cib, 10: cvf, 11: cif,
         # 12: released_gas, 13: kvb, 14: kib, 15: kvf, 16: kif
@@ -214,7 +220,7 @@ class RK23Solver:
             'kif': sol.y[16]
         }
 
-        # Calculate derived quantities
+        # Calculate derived quantities (计算导出量)
         self._add_derived_quantities(results_dict)
 
         return results_dict
@@ -222,21 +228,23 @@ class RK23Solver:
     def _add_derived_quantities(self, results: Dict) -> None:
         """
         Add derived quantities to results dictionary.
+        将导出量添加到结果字典
 
         Parameters
         ----------
         results : Dict
-            Results dictionary to modify in-place
+            Results dictionary to modify in-place (要就地修改的结果字典)
         """
-        # Calculate swelling volume fraction
+        # Calculate swelling volume fraction (计算肿胀体积分数)
         Rcb = results['Rcb']
         Rcf = results['Rcf']
         Ccb = results['Ccb']
         Ccf = results['Ccf']
 
         # Bubble volume fractions (bulk + boundary)
+        # 气泡体积分数 (基体 + 晶界)
         V_bubble_b = (4.0 / 3.0) * np.pi * Rcb**3 * Ccb
         V_bubble_f = (4.0 / 3.0) * np.pi * Rcf**3 * Ccf
 
-        # Total swelling as percentage
+        # Total swelling as percentage (总肿胀百分比)
         results['swelling'] = (V_bubble_b + V_bubble_f) * 100

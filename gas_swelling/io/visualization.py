@@ -1,9 +1,11 @@
 """
 Visualization Module for Gas Swelling Model
+可视化模块 (气体肿胀模型)
 
 This module provides plotting and visualization utilities for gas swelling
 simulation results, including time series plots, comparison plots, and
 debug history plots.
+本模块提供气体肿胀模拟结果的绘图和可视化工具，包括时间序列图、比较图和调试历史图。
 """
 
 import logging
@@ -12,13 +14,13 @@ from pathlib import Path
 import numpy as np
 
 
-# 设置日志
+# 设置日志 (Setup logging)
 logger = logging.getLogger(__name__)
 
-# 尝试导入matplotlib（可选依赖）
+# 尝试导入matplotlib（可选依赖）(Try importing matplotlib - optional dependency)
 try:
     import matplotlib
-    matplotlib.use('Agg')  # 使用非交互式后端
+    matplotlib.use('Agg')  # 使用非交互式后端 (Use non-interactive backend)
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter, ScalarFormatter
     from matplotlib.font_manager import FontProperties
@@ -30,21 +32,23 @@ except ImportError:
 
 def check_matplotlib_available() -> bool:
     """
-    检查matplotlib是否可用
+    检查matplotlib是否可用 (Check if matplotlib is available)
 
     Returns
     --------
     bool
         如果matplotlib可用返回True，否则返回False
+        Returns True if matplotlib is available, False otherwise
     """
     return MATPLOTLIB_AVAILABLE
 
 
 def setup_chinese_font():
     """
-    设置中文字体支持
+    设置中文字体支持 (Setup Chinese Font Support)
 
     尝试设置matplotlib使用支持中文的字体。如果设置失败，将使用默认字体。
+    Attempts to setup matplotlib to use Chinese-supporting fonts. Falls back to default font on failure.
     """
     if not MATPLOTLIB_AVAILABLE:
         return
