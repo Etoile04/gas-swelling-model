@@ -53,52 +53,102 @@ class TestODESystem:
 
         assert np.isfinite(dRcb_dt)
 
-    def test_equations_boundary_variables(self, model, valid_state):
-        """Test boundary variable derivatives"""
+    def test_equations_dCgf_dt_calculation(self, model, valid_state):
+        """Test boundary gas concentration derivative"""
         derivatives = model._equations(0.0, valid_state)
-
-        # Check boundary gas concentration derivative
         dCgf_dt = derivatives[4]
+
         assert np.isfinite(dCgf_dt)
 
-        # Check boundary cavity concentration derivative
+    def test_equations_dCcf_dt_calculation(self, model, valid_state):
+        """Test boundary cavity concentration derivative"""
+        derivatives = model._equations(0.0, valid_state)
         dCcf_dt = derivatives[5]
+
         assert np.isfinite(dCcf_dt)
 
-    def test_equations_defect_concentrations(self, model, valid_state):
-        """Test point defect concentration derivatives"""
+    def test_equations_dNcf_dt_calculation(self, model, valid_state):
+        """Test gas atoms per boundary cavity derivative"""
         derivatives = model._equations(0.0, valid_state)
+        dNcf_dt = derivatives[6]
 
-        # Vacancy and interstitial derivatives
+        assert np.isfinite(dNcf_dt)
+
+    def test_equations_dRcf_dt_calculation(self, model, valid_state):
+        """Test boundary cavity radius derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dRcf_dt = derivatives[7]
+
+        assert np.isfinite(dRcf_dt)
+
+    def test_equations_dcvb_dt_calculation(self, model, valid_state):
+        """Test bulk vacancy concentration derivative"""
+        derivatives = model._equations(0.0, valid_state)
         dcvb_dt = derivatives[8]
-        dcib_dt = derivatives[9]
-        dcvf_dt = derivatives[12]
-        dcif_dt = derivatives[13]
 
         assert np.isfinite(dcvb_dt)
+
+    def test_equations_dcib_dt_calculation(self, model, valid_state):
+        """Test bulk interstitial concentration derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dcib_dt = derivatives[9]
+
         assert np.isfinite(dcib_dt)
+
+    def test_equations_dcvf_dt_calculation(self, model, valid_state):
+        """Test boundary vacancy concentration derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dcvf_dt = derivatives[10]
+
         assert np.isfinite(dcvf_dt)
+
+    def test_equations_dcif_dt_calculation(self, model, valid_state):
+        """Test boundary interstitial concentration derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dcif_dt = derivatives[11]
+
         assert np.isfinite(dcif_dt)
 
-    def test_equations_sink_strengths(self, model, valid_state):
-        """Test sink strength derivatives"""
+    def test_equations_dkvb_dt_calculation(self, model, valid_state):
+        """Test bulk vacancy sink strength derivative"""
         derivatives = model._equations(0.0, valid_state)
+        dkvb_dt = derivatives[13]
 
-        dkvb_dt = derivatives[10]
-        dkib_dt = derivatives[11]
-        dkvf_dt = derivatives[14]
-        dkif_dt = derivatives[15]
-
-        # These should be finite (can be zero or non-zero)
+        # Sink strengths have zero derivatives
         assert np.isfinite(dkvb_dt)
-        assert np.isfinite(dkib_dt)
-        assert np.isfinite(dkvf_dt)
-        assert np.isfinite(dkif_dt)
+        assert dkvb_dt == 0.0
 
-    def test_equations_released_gas(self, model, valid_state):
-        """Test released gas accumulation"""
+    def test_equations_dkib_dt_calculation(self, model, valid_state):
+        """Test bulk interstitial sink strength derivative"""
         derivatives = model._equations(0.0, valid_state)
-        dreleased_gas_dt = derivatives[16]
+        dkib_dt = derivatives[14]
+
+        # Sink strengths have zero derivatives
+        assert np.isfinite(dkib_dt)
+        assert dkib_dt == 0.0
+
+    def test_equations_dkvf_dt_calculation(self, model, valid_state):
+        """Test boundary vacancy sink strength derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dkvf_dt = derivatives[15]
+
+        # Sink strengths have zero derivatives
+        assert np.isfinite(dkvf_dt)
+        assert dkvf_dt == 0.0
+
+    def test_equations_dkif_dt_calculation(self, model, valid_state):
+        """Test boundary interstitial sink strength derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dkif_dt = derivatives[16]
+
+        # Sink strengths have zero derivatives
+        assert np.isfinite(dkif_dt)
+        assert dkif_dt == 0.0
+
+    def test_equations_dreleased_gas_dt_calculation(self, model, valid_state):
+        """Test released gas accumulation derivative"""
+        derivatives = model._equations(0.0, valid_state)
+        dreleased_gas_dt = derivatives[12]
 
         # Released gas should be non-negative
         assert np.isfinite(dreleased_gas_dt)
