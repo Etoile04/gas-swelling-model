@@ -72,34 +72,67 @@ def test_gas_swelling_model_instantiation():
     assert hasattr(model, 'solve')
 
 
-def test_import_gas_pressure_evolution_plot():
-    """Test that plot_gas_pressure_evolution can be imported"""
-    from gas_swelling import plot_gas_pressure_evolution
-    assert plot_gas_pressure_evolution is not None
-    assert callable(plot_gas_pressure_evolution)
+def test_import_refactored_model():
+    """Test that RefactoredGasSwellingModel can be imported"""
+    from gas_swelling import RefactoredGasSwellingModel
+    assert RefactoredGasSwellingModel is not None
 
 
-def test_import_all_evolution_plots():
-    """Test that all evolution plot functions can be imported"""
+def test_import_refactored_model_from_models():
+    """Test that RefactoredGasSwellingModel can be imported from models submodule"""
+    from gas_swelling.models import RefactoredGasSwellingModel
+    assert RefactoredGasSwellingModel is not None
+
+
+def test_import_physics_functions():
+    """Test that physics functions can be imported"""
     from gas_swelling import (
-        plot_swelling_evolution,
-        plot_bubble_radius_evolution,
-        plot_gas_concentration_evolution,
-        plot_bubble_concentration_evolution,
-        plot_gas_atoms_evolution,
-        plot_gas_pressure_evolution,
-        plot_defect_concentration_evolution,
-        plot_released_gas_evolution,
-        plot_multi_panel_evolution,
+        calculate_gas_pressure,
+        calculate_gas_influx,
+        calculate_gas_release_rate,
+        calculate_cv0,
+        calculate_ci0
     )
+    assert calculate_gas_pressure is not None
+    assert calculate_gas_influx is not None
+    assert calculate_gas_release_rate is not None
+    assert calculate_cv0 is not None
+    assert calculate_ci0 is not None
 
-    assert plot_swelling_evolution is not None
-    assert plot_bubble_radius_evolution is not None
-    assert plot_gas_concentration_evolution is not None
-    assert plot_bubble_concentration_evolution is not None
-    assert plot_gas_atoms_evolution is not None
-    assert plot_gas_pressure_evolution is not None
-    assert plot_defect_concentration_evolution is not None
-    assert plot_released_gas_evolution is not None
-    assert plot_multi_panel_evolution is not None
 
+def test_import_ode_system():
+    """Test that ODE system can be imported"""
+    from gas_swelling import swelling_ode_system
+    assert swelling_ode_system is not None
+
+
+def test_import_solvers():
+    """Test that solver classes can be imported"""
+    from gas_swelling import RK23Solver, EulerSolver
+    assert RK23Solver is not None
+    assert EulerSolver is not None
+
+
+def test_import_io_utilities():
+    """Test that I/O utilities can be imported"""
+    from gas_swelling import (
+        DebugConfig,
+        DebugHistory,
+        update_debug_history,
+        print_simulation_summary
+    )
+    assert DebugConfig is not None
+    assert DebugHistory is not None
+    assert update_debug_history is not None
+    assert print_simulation_summary is not None
+
+
+def test_refactored_model_instantiation():
+    """Test that RefactoredGasSwellingModel can be instantiated"""
+    from gas_swelling import RefactoredGasSwellingModel
+
+    model = RefactoredGasSwellingModel()
+    assert model is not None
+    assert hasattr(model, 'solve')
+    assert hasattr(model, 'initial_state')
+    assert len(model.initial_state) == 17

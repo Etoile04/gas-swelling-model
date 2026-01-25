@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from modelrk23 import GasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 import logging
 import os
 
@@ -214,17 +214,7 @@ def run_test4(sim_time=7200000, dt=None, max_dt=None, max_steps=1000000, output_
         return None, None
 
 def plot_results(result, swelling, save_path='test4_results.png'):
-    """
-    绘制计算结果并保存到指定路径
-
-    Parameters:
-        result: 模拟结果字典，包含时间序列数据
-        swelling: 肿胀率数组
-        save_path: 结果图表保存路径，默认为'test4_results.png'
-
-    Returns:
-        None
-    """
+    """绘制计算结果并保存到指定路径"""
     time_minutes = result['time'] / 60  # 转换为分钟
     Burnup = 0.9/4176980*time_minutes*60
     # 创建一个4x2的子图布局
@@ -304,15 +294,7 @@ def plot_results(result, swelling, save_path='test4_results.png'):
     logger.info(f"Results chart saved to: {save_path}")
 
 def analyze_test_results():
-    """
-    比较测试3和测试4的结果，分析优化气泡半径演化方程的效果
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
+    """比较测试3和测试4的结果，分析优化气泡半径演化方程的效果"""
     logger.info("开始分析测试3和测试4的结果...")
     
     try:
@@ -421,8 +403,8 @@ if __name__ == "__main__":
 
 import numpy as np
 import matplotlib.pyplot as plt
-from models.euler_model import EulerGasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models.euler_model import EulerGasSwellingModel
+from gas_swelling.params import create_default_parameters
 import logging
 import os
 
@@ -635,17 +617,7 @@ def run_test4(sim_time=120000, dt=None, max_dt=None, max_steps=1000000, output_i
         return None, None
 
 def plot_results(result, swelling, save_path='test4_results_euler.png'):
-    """
-    绘制计算结果并保存到指定路径
-
-    Parameters:
-        result: 模拟结果字典，包含时间序列数据
-        swelling: 肿胀率数组
-        save_path: 结果图表保存路径，默认为'test4_results_euler.png'
-
-    Returns:
-        None
-    """
+    """绘制计算结果并保存到指定路径"""
     time_minutes = result['time'] / 60  # 转换为分钟
     
     # 创建一个4x2的子图布局
@@ -725,15 +697,7 @@ def plot_results(result, swelling, save_path='test4_results_euler.png'):
     logger.info(f"Results chart saved to: {save_path}")
 
 def analyze_test_results():
-    """
-    比较测试3和测试4的结果，分析优化气泡半径演化方程的效果
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
+    """比较测试3和测试4的结果，分析优化气泡半径演化方程的效果"""
     logger.info("开始分析测试3和测试4的结果...")
     
     try:
@@ -859,8 +823,8 @@ from typing import Dict, List, Tuple, Optional
 import logging
 
 # 导入我们优化后的模型
-from models.euler_model_v5 import EnhancedEulerGasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models.euler_model_v5 import EnhancedEulerGasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
@@ -877,74 +841,21 @@ logging.basicConfig(
 )
 
 class UraniumSwellingStudy:
-    """
-    A comprehensive study class for uranium alloy swelling behavior under irradiation.
-
-    This class provides tools to systematically study fission gas bubble evolution
-    and void swelling behavior in irradiated metallic fuels (U-Zr and U-Pu-Zr alloys).
-    It supports parametric studies of temperature, burnup, and dislocation density
-    effects, with special focus on high-burnup conditions.
-
-    Parameters
-    ----------
-    output_dir : str, optional
-        Directory path for storing study results, plots, and data files.
-        Default is "swelling_study_results".
-
-    Attributes
-    ----------
-    output_dir : str
-        Directory where all results are saved.
-    results : dict
-        Dictionary storing all simulation results organized by study type.
-
-    Examples
-    --------
-    >>> study = UraniumSwellingStudy(output_dir="my_study")
-    >>> study.temperature_parametric_study(temperatures=[600, 700, 800])
-    >>> study.plot_temperature_study_results()
-    >>> study.save_results_to_excel()
-
-    Notes
-    -----
-    The class uses the EnhancedEulerGasSwellingModel for simulations and
-    provides comprehensive visualization and data export capabilities.
-    """
-
+    """铀合金肿胀行为研究类"""
+    
     def __init__(self, output_dir: str = "swelling_study_results"):
         """
-        Initialize the UraniumSwellingStudy instance.
-
-        Creates output directory structure for storing simulation results,
-        plots, and data files.
-
-        Parameters
-        ----------
-        output_dir : str, optional
-            Root directory for all output files. Subdirectories will be
-            created for plots, data, and different study types.
-            Default is "swelling_study_results".
+        初始化研究类
+        
+        Args:
+            output_dir: 结果输出目录
         """
         self.output_dir = output_dir
         self.create_output_directories()
         self.results = {}
         
     def create_output_directories(self):
-        """
-        Create the directory structure for organizing study results.
-
-        Creates subdirectories for different types of studies, plots, and data:
-        - temperature_study/: Temperature parametric study results
-        - burnup_study/: Burnup parametric study results
-        - parametric_study/: General parametric study results
-        - data/: Numerical data files (Excel, CSV, JSON)
-        - plots/: Visualization figures
-
-        Notes
-        -----
-        Uses os.makedirs with exist_ok=True to avoid errors if directories
-        already exist.
-        """
+        """创建输出目录结构"""
         dirs = [
             self.output_dir,
             f"{self.output_dir}/temperature_study",
@@ -957,55 +868,20 @@ class UraniumSwellingStudy:
         for dir_path in dirs:
             os.makedirs(dir_path, exist_ok=True)
             
-    def temperature_parametric_study(self,
+    def temperature_parametric_study(self, 
                                    temperatures: Optional[List[float]] = None,
                                    simulation_time: float = 3600 * 24 * 30,  # 30天
                                    max_steps: int = 100000) -> Dict:
         """
-        Perform a parametric study of swelling behavior across different temperatures.
-
-        Runs simulations at multiple temperature points to characterize the
-        temperature dependence of swelling rate, bubble density, bubble radius,
-        and gas release fraction.
-
-        Parameters
-        ----------
-        temperatures : List[float], optional
-            List of temperatures in Kelvin for the parametric study.
-            Default covers typical reactor operating range: [573, 623, 673, 723, 773, 823, 873, 923, 973] K.
-        simulation_time : float, optional
-            Total simulation time in seconds. Default is 30 days (3600*24*30 seconds).
-        max_steps : int, optional
-            Maximum number of time steps for the solver. Default is 100000.
-
-        Returns
-        -------
-        Dict
-            Dictionary containing:
-            - 'temperatures': List of temperature points (K)
-            - 'swelling_rates': Swelling rates at each temperature (%/day)
-            - 'final_swelling': Final swelling percentages at each temperature (%)
-            - 'bubble_densities': Total bubble densities at each temperature (m⁻³)
-            - 'average_bubble_radius': Average bubble radii at each temperature (m)
-            - 'gas_release_fractions': Gas release fractions at each temperature
-            - 'simulation_data': Full simulation results for each temperature
-
-        Notes
-        -----
-        - High temperature conditions (>873 K) apply parameter adjustments:
-          * Increased surface energy reduction
-          * Higher resolution rates
-        - Results are stored in self.results['temperature_study']
-        - Failed simulations return NaN values for all metrics
-
-        Examples
-        --------
-        >>> study = UraniumSwellingStudy()
-        >>> results = study.temperature_parametric_study(
-        ...     temperatures=[600, 700, 800],
-        ...     simulation_time=3600*24*7  # 7 days
-        ... )
-        >>> print(f"Final swelling at 700K: {results['final_swelling'][1]:.3f}%")
+        温度参数研究
+        
+        Args:
+            temperatures: 温度列表 (K)
+            simulation_time: 模拟时间 (s)
+            max_steps: 最大步数
+            
+        Returns:
+            研究结果字典
         """
         if temperatures is None:
             # 覆盖典型的反应堆运行温度范围
@@ -1092,51 +968,15 @@ class UraniumSwellingStudy:
                               temperature: float = 773,  # 500°C
                               max_steps: int = 200000) -> Dict:
         """
-        Perform a parametric study of swelling behavior across different burnup levels.
-
-        Investigates swelling evolution from low to very high burnup conditions,
-        with special attention to high-burnup behavior (>50 GWd/tU). Simulation
-        time is calculated from burnup based on assumed power density.
-
-        Parameters
-        ----------
-        burnup_levels : List[float], optional
-            List of burnup levels in GWd/tU (gigawatt-days per metric ton of uranium).
-            Default spans from low to ultra-high burnup: [1, 5, 10, 20, 30, 50, 70, 100, 150, 200].
-        temperature : float, optional
-            Constant temperature for all burnup simulations in Kelvin.
-            Default is 773 K (500°C).
-        max_steps : int, optional
-            Maximum number of time steps for the solver. Default is 200000.
-
-        Returns
-        -------
-        Dict
-            Dictionary containing:
-            - 'burnup_levels': List of burnup points (GWd/tU)
-            - 'swelling_evolution': Time-series swelling data for each burnup
-            - 'bubble_evolution': Bubble density and radius evolution for each burnup
-            - 'gas_release_evolution': Cumulative gas release for each burnup
-            - 'simulation_times': Time arrays for each burnup simulation
-            - 'simulation_data': Full simulation results for each burnup
-
-        Notes
-        -----
-        - Power density assumption: 40 MW/tU
-        - High burnup conditions (>50 GWd/tU) apply parameter adjustments:
-          * Dislocation density increases with burnup
-          * Gas production rate may increase
-          * Resolution rate may decrease
-        - Simulation time calculated: t = burnup * 1e9 * 24 * 3600 / power_density
-        - Results stored in self.results['burnup_study']
-
-        Examples
-        --------
-        >>> study = UraniumSwellingStudy()
-        >>> results = study.burnup_parametric_study(
-        ...     burnup_levels=[10, 50, 100],
-        ...     temperature=773
-        ... )
+        燃耗参数研究 - 重点关注高燃耗条件
+        
+        Args:
+            burnup_levels: 燃耗水平列表 (GWd/tU)
+            temperature: 温度 (K)
+            max_steps: 最大步数
+            
+        Returns:
+            研究结果字典
         """
         if burnup_levels is None:
             # 从低燃耗到高燃耗，包括超高燃耗
@@ -1224,54 +1064,15 @@ class UraniumSwellingStudy:
                                  temperatures: Optional[List[float]] = None,
                                  max_steps: int = 300000) -> Dict:
         """
-        Perform detailed study of swelling behavior under high-burnup conditions.
-
-        Provides comprehensive analysis of swelling behavior at a specific high
-        burnup level across multiple temperatures, including detailed metrics
-        on gas distribution, bubble characteristics, and swelling kinetics.
-
-        Parameters
-        ----------
-        burnup : float, optional
-            Burnup level in GWd/tU for the high-burnup study.
-            Default is 150 GWd/tU (ultra-high burnup).
-        temperatures : List[float], optional
-            List of temperatures in Kelvin for the study.
-            Default: [673, 723, 773, 823, 873] K (400-600°C).
-        max_steps : int, optional
-            Maximum number of time steps for the solver. Default is 300000.
-
-        Returns
-        -------
-        Dict
-            Dictionary containing:
-            - 'burnup': Burnup level (GWd/tU)
-            - 'temperatures': List of temperature points (K)
-            - 'simulation_time': Total simulation time (seconds)
-            - 'detailed_results': Nested dictionary with results for each temperature:
-                * 'simulation_result': Full simulation output
-                * 'analysis': Detailed analysis metrics
-                * 'parameters': Parameters used for simulation
-
-        Notes
-        -----
-        - Power density assumption: 40 MW/tU for time calculation
-        - High-burnup parameter adjustments applied:
-          * Dislocation density scaled by (1 + burnup/100)
-          * Gas production rate scaled by (1 + burnup/200)
-          * Resolution rate scaled by max(0.1, 1 - burnup/500)
-        - High temperature + high burnup conditions (>823 K):
-          * Surface energy reduced by 20%
-          * Nucleation factors (Fnb, Fnf) doubled
-        - Results stored in self.results['high_burnup_study']
-
-        Examples
-        --------
-        >>> study = UraniumSwellingStudy()
-        >>> results = study.high_burnup_detailed_study(
-        ...     burnup=150,
-        ...     temperatures=[700, 800, 900]
-        ... )
+        高燃耗条件下的详细研究
+        
+        Args:
+            burnup: 燃耗水平 (GWd/tU)
+            temperatures: 温度列表 (K)
+            max_steps: 最大步数
+            
+        Returns:
+            研究结果字典
         """
         if temperatures is None:
             temperatures = [673, 723, 773, 823, 873]  # 400-600°C
@@ -1340,40 +1141,14 @@ class UraniumSwellingStudy:
     
     def analyze_detailed_results(self, result: Dict, params: Dict) -> Dict:
         """
-        Perform detailed analysis of simulation results.
-
-        Extracts and calculates comprehensive metrics from simulation output,
-        including swelling characteristics, bubble properties, gas distribution,
-        and temporal evolution features.
-
-        Parameters
-        ----------
-        result : Dict
-            Simulation results dictionary containing time-series data for all
-            state variables (Cgb, Cgf, Ccb, Ccf, Ncb, Ncf, Rcb, Rcf, etc.)
-        params : Dict
-            Simulation parameters dictionary used for the run.
-
-        Returns
-        -------
-        Dict
-            Analysis results containing:
-            - 'final_swelling': Final swelling percentage (%)
-            - 'max_swelling_rate': Maximum swelling rate (%/s)
-            - 'final_bubble_density_bulk': Bulk bubble density at end (m⁻³)
-            - 'final_bubble_density_interface': Interface bubble density at end (m⁻³)
-            - 'final_bubble_radius_bulk': Bulk bubble radius at end (m)
-            - 'final_bubble_radius_interface': Interface bubble radius at end (m)
-            - 'gas_in_solution_fraction': Fraction of gas in solution
-            - 'gas_in_bubbles_fraction': Fraction of gas in bubbles
-            - 'gas_release_fraction': Fraction of gas released
-            - 'time_to_1_percent_swelling': Time to reach 1% swelling (seconds, or None)
-
-        Notes
-        -----
-        - Gas fractions are calculated relative to total gas (solution + bubbles + released)
-        - Time to 1% swelling is found using numpy's where function on the swelling array
-        - Swelling rate is calculated using numpy gradient for maximum rate
+        详细分析模拟结果
+        
+        Args:
+            result: 模拟结果
+            params: 模拟参数
+            
+        Returns:
+            分析结果字典
         """
         analysis = {}
         
@@ -1414,30 +1189,7 @@ class UraniumSwellingStudy:
         return analysis
     
     def plot_temperature_study_results(self):
-        """
-        Generate comprehensive visualization of temperature parametric study results.
-
-        Creates a 2x3 subplot figure showing:
-        1. Final swelling vs temperature
-        2. Swelling rate vs temperature
-        3. Bubble density vs temperature (log scale)
-        4. Average bubble radius vs temperature
-        5. Gas release fraction vs temperature
-        6. Arrhenius plot (ln(rate) vs 1/T)
-
-        Saves the figure as 'temperature_study_summary.png' in the plots directory.
-
-        Raises
-        ------
-        Warning
-            If no temperature study results are available in self.results.
-
-        Notes
-        -----
-        - Figure size: 18x12 inches, DPI: 300
-        - Arrhenius plot only includes valid (non-NaN, positive) swelling rates
-        - Uses Chinese title and labels if fonts are available
-        """
+        """绘制温度研究结果"""
         if 'temperature_study' not in self.results:
             logging.warning("没有温度研究结果可绘制")
             return
@@ -1502,29 +1254,7 @@ class UraniumSwellingStudy:
         plt.show()
     
     def plot_burnup_study_results(self):
-        """
-        Generate comprehensive visualization of burnup parametric study results.
-
-        Creates a 2x2 subplot figure showing:
-        1. Swelling evolution over time for different burnup levels
-        2. Final swelling vs burnup level
-        3. Bulk bubble radius evolution over time for different burnup levels
-        4. Cumulative gas release evolution over time
-
-        Saves the figure as 'burnup_study_summary.png' in the plots directory.
-
-        Raises
-        ------
-        Warning
-            If no burnup study results are available in self.results.
-
-        Notes
-        -----
-        - Figure size: 16x12 inches, DPI: 300
-        - Time axes are converted to days for better readability
-        - Each burnup level is plotted as a separate curve with legend
-        - Failed burnup simulations show as gaps in the plots
-        """
+        """绘制燃耗研究结果"""
         if 'burnup_study' not in self.results:
             logging.warning("没有燃耗研究结果可绘制")
             return
@@ -1593,31 +1323,7 @@ class UraniumSwellingStudy:
         plt.show()
     
     def plot_high_burnup_study_results(self):
-        """
-        Generate detailed visualization of high-burnup study results.
-
-        Creates a 2x3 subplot figure showing:
-        1. Final swelling vs temperature at high burnup
-        2. Swelling evolution comparison across temperatures
-        3. Total bubble density vs temperature (log scale)
-        4. Gas distribution pie chart at mid-range temperature
-        5. Gas release fraction vs temperature
-        6. Bulk bubble radius evolution comparison
-
-        Saves the figure as 'high_burnup_study_summary.png' in the plots directory.
-
-        Raises
-        ------
-        Warning
-            If no high-burnup study results are available in self.results.
-
-        Notes
-        -----
-        - Figure size: 18x12 inches, DPI: 300
-        - Pie chart shows gas distribution: dissolved, in bubbles, released
-        - Time axes converted to days for readability
-        - Only successful simulations are included in plots
-        """
+        """绘制高燃耗研究结果"""
         if 'high_burnup_study' not in self.results:
             logging.warning("没有高燃耗研究结果可绘制")
             return
@@ -1713,25 +1419,7 @@ class UraniumSwellingStudy:
         plt.show()
     
     def save_results_to_excel(self):
-        """
-        Export all study results to an Excel workbook with multiple sheets.
-
-        Creates 'uranium_swelling_study_results.xlsx' in the data directory with
-        separate sheets for each study type:
-        - Temperature_Study: Temperature parametric results
-        - Burnup_Study: Burnup parametric results
-        - High_Burnup_Study: High-burnup detailed study results
-
-        Each sheet contains tabulated data with appropriate units and formatting.
-
-        Notes
-        -----
-        - Uses pandas ExcelWriter for multi-sheet export
-        - Temperature study includes: T, final swelling, rate, density, radius, gas release
-        - Burnup study includes: burnup level, final swelling
-        - High-burnup study includes: T, swelling, rate, densities, gas fractions, timing
-        - Logs file path after successful export
-        """
+        """将结果保存到Excel文件"""
         with pd.ExcelWriter(f'{self.output_dir}/data/uranium_swelling_study_results.xlsx') as writer:
             
             # 温度研究结果
@@ -1790,26 +1478,7 @@ class UraniumSwellingStudy:
         logging.info(f"结果已保存到 {self.output_dir}/data/uranium_swelling_study_results.xlsx")
     
     def save_results_to_json(self):
-        """
-        Export all study results to a JSON file for data interchange.
-
-        Creates 'uranium_swelling_study_results.json' in the data directory with
-        all study results in a hierarchical JSON format. NumPy arrays and
-        complex nested structures are converted to JSON-serializable formats.
-
-        Notes
-        -----
-        - NumPy arrays converted to lists using .tolist()
-        - Nested dictionaries with arrays recursively serialized
-        - Preserves full time-series data from simulations
-        - Uses 2-space indentation for readability
-        - Logs file path after successful export
-
-        Warning
-        -------
-        JSON files can be large for extensive studies due to inclusion
-        of full time-series data.
-        """
+        """将结果保存到JSON文件"""
         # 创建可序列化的结果副本
         serializable_results = {}
         
@@ -1845,29 +1514,7 @@ class UraniumSwellingStudy:
         logging.info(f"结果已保存到 {self.output_dir}/data/uranium_swelling_study_results.json")
     
     def generate_summary_report(self):
-        """
-        Generate a comprehensive Markdown summary report of all studies.
-
-        Creates 'uranium_swelling_study_report.md' in the output directory
-        with formatted sections documenting:
-        - Study overview and objectives
-        - Temperature study summary (range, key findings)
-        - Burnup study summary (range, key findings)
-        - High-burnup study summary (conditions, success rate)
-        - Main findings and conclusions
-        - File organization guide
-
-        The report includes statistics, ranges, and quantitative summaries
-        from all completed studies.
-
-        Notes
-        -----
-        - Report generated in Markdown format for easy viewing
-        - Timestamp included at generation time
-        - Only includes sections for studies that were completed
-        - Uses Chinese language for report content
-        - Logs file path after successful generation
-        """
+        """生成总结报告"""
         report_path = f'{self.output_dir}/uranium_swelling_study_report.md'
         
         with open(report_path, 'w', encoding='utf-8') as f:
@@ -1935,15 +1582,7 @@ class UraniumSwellingStudy:
         logging.info(f"总结报告已生成: {report_path}")
 
 def main():
-    """
-    主函数，执行铀合金肿胀行为综合研究
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
+    """主函数"""
     print("=" * 60)
     print("铀合金肿胀行为综合研究")
     print("=" * 60)
@@ -1988,8 +1627,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from modelrk23 import GasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -2001,15 +1640,7 @@ logging.basicConfig(
 logger = logging.getLogger('temperature_sweep')
 
 def run_temperature_sweep():
-    """
-    在不同温度下运行肿胀模型并收集结果
-
-    Parameters:
-        None
-
-    Returns:
-        list: 包含(温度, 肿胀率)元组的列表
-    """
+    """在不同温度下运行肿胀模型并收集结果"""
     temperatures = np.arange(300, 1001, 50)  # 400K到1000K，每50K一个点
     swelling_results = []
     
@@ -2081,16 +1712,7 @@ def run_temperature_sweep():
     return swelling_results
 
 def plot_swelling_vs_temperature(results, save_path='swelling_vs_temperature.png'):
-    """
-    绘制肿胀率随温度变化的图表
-
-    Parameters:
-        results: 包含(温度, 肿胀率)元组的列表
-        save_path: 图表保存路径，默认为'swelling_vs_temperature.png'
-
-    Returns:
-        None
-    """
+    """绘制肿胀率随温度变化的图表"""
     temperatures = [r[0] for r in results]
     swellings = [r[1] for r in results if r[1] is not None]
     valid_temps = [r[0] for r in results if r[1] is not None]
@@ -2107,16 +1729,7 @@ def plot_swelling_vs_temperature(results, save_path='swelling_vs_temperature.png
     logger.info(f"肿胀率-温度图表已保存至: {save_path}")
 
 def save_results_to_csv(results, filename='swelling_results.csv'):
-    """
-    将结果保存到CSV文件
-
-    Parameters:
-        results: 包含(温度, 肿胀率)元组的列表
-        filename: CSV文件名，默认为'swelling_results.csv'
-
-    Returns:
-        None
-    """
+    """将结果保存到CSV文件"""
     with open(filename, 'w') as f:
         f.write("Temperature(K),Swelling(%)\n")
         for temp, swelling in results:
@@ -2157,8 +1770,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from modelrk23 import GasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -2170,15 +1783,7 @@ logging.basicConfig(
 logger = logging.getLogger('temperature_sweep')
 
 def run_temperature_sweep():
-    """
-    在不同温度下运行肿胀模型并收集结果，考虑不同位错密度
-
-    Parameters:
-        None
-
-    Returns:
-        dict: 包含不同位错密度倍数对应的结果字典，每个值是包含(温度, 肿胀率)元组的列表
-    """
+    """在不同温度下运行肿胀模型并收集结果"""
     temperatures = np.arange(300, 1001, 50)  # 400K到1000K，每50K一个点
     base_dislocation_density = 7.0e13
     dislocation_multipliers = [10, 2, 1, 0.5, 0.1]  # 位错密度倍数
@@ -2257,16 +1862,7 @@ def run_temperature_sweep():
     return results
 
 def plot_swelling_vs_temperature(results, save_path='swelling_vs_temperature.png'):
-    """
-    绘制不同位错密度下肿胀率随温度变化的图表
-
-    Parameters:
-        results: 包含不同位错密度倍数对应的结果字典
-        save_path: 图表保存路径，默认为'swelling_vs_temperature.png'
-
-    Returns:
-        None
-    """
+    """绘制肿胀率随温度变化的图表"""
     plt.figure(figsize=(12, 8))
     
     # 不同位错密度的颜色和标记
@@ -2297,16 +1893,7 @@ def plot_swelling_vs_temperature(results, save_path='swelling_vs_temperature.png
     logger.info(f"肿胀率-温度图表已保存至: {save_path}")
 
 def save_results_to_csv(results, filename='swelling_results.csv'):
-    """
-    将不同位错密度的结果保存到CSV文件
-
-    Parameters:
-        results: 包含不同位错密度倍数对应的结果字典
-        filename: CSV文件名，默认为'swelling_results.csv'
-
-    Returns:
-        None
-    """
+    """将结果保存到CSV文件"""
     with open(filename, 'w') as f:
         f.write("Temperature(K),Dislocation_Multiplier,Swelling(%)\n")
         for multiplier, data in results.items():
@@ -2350,8 +1937,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import os
-from modelrk23 import GasSwellingModel
-from parameters import create_default_parameters
+from gas_swelling.models import GasSwellingModel
+from gas_swelling.params import create_default_parameters
 
 # 配置日志
 logging.basicConfig(
@@ -2363,15 +1950,7 @@ logging.basicConfig(
 logger = logging.getLogger('fnf_sweep')
 
 def run_fnf_sweep(temperature=600):
-    """
-    在不同Fnf参数下运行肿胀模型并收集结果
-
-    Parameters:
-        temperature: 模拟温度（K），默认为600K
-
-    Returns:
-        list: 包含不同Fnf值的模拟结果列表，每个结果包含fnf、burnup和swelling数据
-    """
+    """在不同Fnf参数下运行肿胀模型并收集结果"""
     fnf_values = [1e-5, 1e-4, 1e-3, 1e-1]  # 原始值、10倍、100倍、10000倍
     results = []
     
@@ -2467,16 +2046,7 @@ def run_fnf_sweep(temperature=600):
     return results
 
 def plot_swelling_vs_burnup(results, save_path='swelling_vs_burnup.png'):
-    """
-    绘制不同Fnf下肿胀率随燃耗变化的图表
-
-    Parameters:
-        results: 包含不同Fnf值的模拟结果列表
-        save_path: 图表保存路径，默认为'swelling_vs_burnup.png'
-
-    Returns:
-        None
-    """
+    """绘制不同Fnf下肿胀率随燃耗变化的图表"""
     plt.figure(figsize=(10, 6))
     
     for result in results:
@@ -2495,16 +2065,7 @@ def plot_swelling_vs_burnup(results, save_path='swelling_vs_burnup.png'):
     logger.info(f"肿胀率-燃耗图表已保存至: {save_path}")
 
 def save_results_to_csv(results, filename='fnf_sweep_results.csv'):
-    """
-    将Fnf扫描结果保存到CSV文件
-
-    Parameters:
-        results: 包含不同Fnf值的模拟结果列表
-        filename: CSV文件名，默认为'fnf_sweep_results.csv'
-
-    Returns:
-        None
-    """
+    """将结果保存到CSV文件"""
     with open(filename, 'w') as f:
         f.write("Fnf,Burnup(%),Swelling(%)\n")
         for result in results:

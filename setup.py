@@ -32,7 +32,7 @@ setup(
         "Repository": "https://github.com/yourusername/gas-swelling-model",
         "Issues": "https://github.com/yourusername/gas-swelling-model/issues",
     },
-    packages=['gas_swelling', 'gas_swelling.models', 'gas_swelling.params', 'gas_swelling.visualization'],
+    packages=['gas_swelling', 'gas_swelling.models', 'gas_swelling.params', 'gas_swelling.physics', 'gas_swelling.ode', 'gas_swelling.solvers', 'gas_swelling.io'],
     python_requires='>=3.8',
     install_requires=[
         'numpy>=1.20.0',
