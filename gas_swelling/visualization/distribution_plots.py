@@ -193,12 +193,20 @@ def plot_bubble_size_distribution(
         std_b = Rcb * spread_fraction
         std_f = Rcf * spread_fraction
 
-        kde_b = stats.gaussian_kde([Rcb], bw_method=bandwidth)
-        kde_f = stats.gaussian_kde([Rcf], bw_method=bandwidth)
+        # Generate synthetic sample data for KDE (create multiple points around mean)
+        n_samples = 100
+        samples_b = np.random.normal(Rcb, std_b, n_samples)
+        samples_f = np.random.normal(Rcf, std_f, n_samples)
+        # Ensure all samples are positive
+        samples_b = np.maximum(samples_b, 0)
+        samples_f = np.maximum(samples_f, 0)
+
+        kde_b = stats.gaussian_kde(samples_b, bw_method=bandwidth)
+        kde_f = stats.gaussian_kde(samples_f, bw_method=bandwidth)
 
         # Scale by concentration
-        scale_b = Ccb / (kde_b([Rcb])[0] if kde_b([Rcb])[0] > 0 else 1.0)
-        scale_f = Ccf / (kde_f([Rcf])[0] if kde_f([Rcf])[0] > 0 else 1.0)
+        scale_b = Ccb / (kde_b([Rcb])[0] if kde_b(np.array([Rcb]))[0] > 0 else 1.0)
+        scale_f = Ccf / (kde_f([Rcf])[0] if kde_f(np.array([Rcf]))[0] > 0 else 1.0)
 
         ax2.plot(r_plot, kde_b(r_plot) * scale_b,
                 label=f'Bulk Bubbles (R={Rcb:.2f} {length_unit})',

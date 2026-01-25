@@ -159,7 +159,7 @@ class TestBubbleSizeDistribution:
 
     def test_plot_different_time_points(self, mock_result, sample_params):
         """Test plotting at different time points"""
-        time_points = ['start', 'end', 'peak', 0, 50]
+        time_points = ['start', 'end', 'peak', 0, 25]
 
         for tp in time_points:
             fig = plot_bubble_size_distribution(
@@ -530,7 +530,7 @@ class TestGasDistributionHistogram:
 
     def test_plot_different_time_points(self, mock_result, sample_params):
         """Test plotting at different time points"""
-        time_points = ['start', 'end', 'peak', 0, 50]
+        time_points = ['start', 'end', 'peak', 0, 25]
 
         for tp in time_points:
             fig = plot_gas_distribution_histogram(
