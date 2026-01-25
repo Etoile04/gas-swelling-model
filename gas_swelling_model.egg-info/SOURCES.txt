@@ -51,3 +51,4 @@ gas_swelling_model.egg-info/top_level.txt
 notebooks/Temperature_Sweep_Example.ipynb
 tests/__init__.py
 tests/test_import.py
+tests/test_refactored_model.py
