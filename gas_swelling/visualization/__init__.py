@@ -32,6 +32,11 @@ from .parameter_sweeps import (
     plot_parameter_sensitivity,
     plot_arrhenius_analysis,
 )
+from .contour_plots import (
+    plot_temperature_contour,
+    plot_2d_parameter_sweep,
+    plot_swelling_heatmap,
+)
 from .comparison_plots import (
     compare_bulk_interface,
     plot_bulk_interface_ratio,
@@ -92,6 +97,11 @@ __all__ = [
     'plot_multi_param_temperature_sweep',
     'plot_parameter_sensitivity',
     'plot_arrhenius_analysis',
+
+    # Contour plots
+    'plot_temperature_contour',
+    'plot_2d_parameter_sweep',
+    'plot_swelling_heatmap',
 
     # Comparison plots
     'compare_bulk_interface',
