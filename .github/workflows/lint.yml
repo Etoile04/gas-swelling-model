@@ -1,0 +1,104 @@
+name: Linting
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  lint-flake8:
+    # Comprehensive flake8 linting
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 flake8-docstrings flake8-bugbear
+
+    - name: Lint with flake8 (critical errors)
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 gas_swelling/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Lint with flake8 (style checks)
+      run: |
+        # Check for style issues and report them
+        flake8 gas_swelling/ tests/ --count --max-complexity=10 --max-line-length=127 --statistics
+
+  lint-imports:
+    # Check import ordering and style
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 flake8-import-order
+
+    - name: Check import order
+      run: |
+        flake8 gas_swelling/ tests/ --select=I --extend-ignore=I100,I101,I102
+
+  lint-docstrings:
+    # Check docstring style and completeness
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 flake8-docstrings
+
+    - name: Check docstrings
+      run: |
+        # Check docstring presence and style (non-blocking)
+        flake8 gas_swelling/ --select=D --extend-ignore=D100,D104,D105,D107 --exit-zero
+
+  type-hint-check:
+    # Optional: Check for type hints using mypy or similar
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: Type check with mypy (if available)
+      run: |
+        pip install mypy || echo "mypy not available, skipping type check"
+        if command -v mypy &> /dev/null; then
+          mypy gas_swelling/ --ignore-missing-imports || true
+        fi
