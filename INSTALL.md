@@ -424,12 +424,19 @@ python -v test_installation.py
 
 ## Next Steps
 
-After successful installation:
+After successful installation, choose your learning path:
 
-1. Read the [Quick Start Tutorial](examples/quickstart_tutorial.md)
-2. Explore [Example Notebooks](notebooks/)
-3. Consult the [Parameter Reference](docs/parameter_reference.md)
-4. Review the [Physics Documentation](docs/physics_overview.md)
+### Quickstart Options
+
+**🚀 Streamlined Quickstart** (Recommended for new users)
+- Read [QUICKSTART.md](QUICKSTART.md) - Get started in 5 minutes
+- Run [examples/quickstart_simple.py](examples/quickstart_simple.py) - Minimal working example
+
+**📚 Comprehensive Tutorial** (For in-depth understanding)
+- Read the [Quick Start Tutorial](examples/quickstart_tutorial.md) - Detailed walkthrough
+- Explore [Example Notebooks](notebooks/) - Interactive Jupyter notebooks
+- Consult the [Parameter Reference](docs/parameter_reference.md) - All parameters explained
+- Review the [Physics Documentation](docs/physics_overview.md) - Theoretical background
 
 ---
 
