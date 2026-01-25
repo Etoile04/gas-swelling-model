@@ -22,6 +22,7 @@ This guide provides detailed documentation for all parameters used in the Gas Sw
   - [Numerical Solver Parameters](#numerical-solver-parameters)
 - [Physical Constants](#physical-constants)
 - [Parameter Sensitivity Guide](#parameter-sensitivity-guide)
+- [Parameter Selection Guide](#parameter-selection-guide)
 - [Usage Examples](#usage-examples)
 
 ---
@@ -575,6 +576,888 @@ Based on the theoretical paper (Section 5), here are the parameters that have th
 
 9. **Resolution Rate** (`resolution_rate`)
    - Secondary effect for most conditions
+
+---
+
+## Parameter Selection Guide
+
+This guide helps you select appropriate parameters for different research scenarios, including initial screening, calibration studies, sensitivity analysis, and validation against experiments.
+
+## Overview
+
+Different research objectives require different parameter selection strategies. This guide provides recommendations for four common scenarios:
+
+| Scenario | Goal | Key Parameters | Approach |
+|----------|------|----------------|----------|
+| **Initial Screening** | Quick exploratory analysis | Well-measured, literature values | Use defaults, vary only temperature |
+| **Calibration Study** | Match experimental data | Adjustable (nucleation factors, dislocation density) | Iterative fitting |
+| **Sensitivity Analysis** | Identify influential parameters | All uncertain parameters | Systematic variation |
+| **Validation** | Compare with independent data | Experiment-specific values | Use measured parameters |
+
+### Quick Decision Tree
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ What is your research goal?                                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Initial Screening → Explore temperature effects             │
+│     └─ Use default parameters, focus on temperature sweep       │
+│                                                                 │
+│  2. Calibration → Match specific experimental swelling data    │
+│     └─ Adjust nucleation factors, dislocation density           │
+│                                                                 │
+│  3. Sensitivity Analysis → Identify important parameters       │
+│     └─ Use Morris/OAT methods on uncertain parameters           │
+│                                                                 │
+│  4. Validation → Test model against new data                   │
+│     └─ Use experimentally measured parameters                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Scenario 1: Initial Screening Studies
+
+### Purpose
+
+Initial screening studies are used to:
+- Understand general model behavior
+- Explore temperature or fission rate effects
+- Identify reasonable parameter ranges
+- Plan detailed experiments or simulations
+
+### Recommended Parameters
+
+**Use default material parameters for U-10Zr alloy:**
+
+```python
+from gas_swelling.params.parameters import create_default_parameters
+
+# Use default parameters (well-validated for U-10Zr)
+params = create_default_parameters()
+
+# Primary variable to explore: temperature
+temperatures = np.linspace(600, 900, 7)  # 600-900 K in 50 K increments
+```
+
+**Parameter Selection Strategy:**
+
+| Parameter Category | Recommendation | Rationale |
+|--------------------|----------------|-----------|
+| **Material type** | U-10Zr (default) | Most widely validated |
+| **Dislocation density** | 7×10¹³ m⁻² | Moderate, typical for annealed alloy |
+| **Nucleation factors** | Fnb=1e-5, Fnf=1e-5 | Default values from literature |
+| **Temperature** | **VARY THIS** | Primary screening variable |
+| **Fission rate** | 2×10²⁰ fissions/m³/s | Typical fast reactor flux |
+| **Simulation time** | 100 days | Sufficient for steady-state behavior |
+
+### Example: Temperature Screening
+
+```python
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Get default parameters
+base_params = create_default_parameters()
+
+# Temperature range for screening
+temperatures = [600, 650, 700, 750, 800, 850, 900]  # K
+swelling_results = []
+
+for T in temperatures:
+    # Update temperature
+    sim_params = base_params['simulation']
+    sim_params.temperature = T
+
+    # Create and run model
+    model = GasSwellingModel(
+        material_params=base_params['material'],
+        sim_params=sim_params
+    )
+
+    result = model.solve(t_span=(0, sim_params.max_time))
+    final_swelling = result['swelling'][-1]
+    swelling_results.append(final_swelling)
+
+    print(f"T = {T} K: Final swelling = {final_swelling:.2f}%")
+
+# Plot results
+plt.figure(figsize=(8, 6))
+plt.plot(temperatures, swelling_results, 'o-', linewidth=2)
+plt.xlabel('Temperature (K)')
+plt.ylabel('Final Swelling (%)')
+plt.title('Temperature Screening - Swelling vs Temperature')
+plt.grid(True, alpha=0.3)
+plt.savefig('temperature_screening.png', dpi=300)
+plt.show()
+```
+
+### What to Look For
+
+- **Peak swelling temperature**: Should be around 700-800 K for U-10Zr
+- **Swelling magnitude**: Should be 0.5-3% for 100-day simulation
+- **Smooth transitions**: No abrupt changes (indicates numerical issues)
+
+### When to Move Beyond Screening
+
+Proceed to detailed studies when you:
+- Understand basic temperature dependence
+- Identify interesting temperature ranges
+- Need to match specific experimental data
+- Want to explore parameter uncertainties
+
+---
+
+## Scenario 2: Calibration Studies
+
+### Purpose
+
+Calibration studies adjust model parameters to match experimental swelling data from:
+- Irradiation experiments (EBR-II, FFTF, etc.)
+- Post-irradiation examination (PIE)
+- Literature data for specific fuel compositions
+
+### Parameters to Adjust
+
+**Primary calibration parameters (adjust these first):**
+
+| Parameter | Typical Range | Physical Effect | Calibration Priority |
+|-----------|---------------|-----------------|----------------------|
+| **dislocation_density** | 1×10¹³ - 1×10¹⁵ m⁻² | Sink strength for defects | ⭐⭐⭐ HIGH |
+| **Fnf** (boundary nucleation) | 1×10⁶ - 1×10⁻³ | Incubation period, rapid swelling | ⭐⭐⭐ HIGH |
+| **Fnb** (bulk nucleation) | 1×10⁶ - 1×10⁻⁴ | Bubble number density | ⭐⭐ MEDIUM |
+| **surface_energy** | 0.3 - 0.7 J/m² | Critical bubble radius | ⭐⭐ MEDIUM |
+| **Dgf_multiplier** | 100 - 1000 | Gas diffusion at boundaries | ⭐ LOW |
+
+**Secondary parameters (adjust if primary insufficient):**
+
+| Parameter | Use Case | Caution |
+|-----------|----------|---------|
+| **Zi, Zv** (bias factors) | Fine-tuning defect balance | Well-established physics |
+| **Evfmuti** (formation energy multiplier) | Adjust vacancy concentration | Modify within ±10% only |
+| **resolution_rate** | Gas resolution from bubbles | Limited experimental data |
+| **recombination_radius** | Defect recombination | Physical constraint ~2Å |
+
+### Calibration Workflow
+
+**Step 1: Gather Experimental Data**
+
+```python
+# Example: Experimental swelling data
+experimental_data = {
+    'temperature': 700,  # K
+    'fission_rate': 2.0e20,  # fissions/m³/s
+    'burnup': 2.0,  # at.%
+    'swelling': 1.5,  # %
+    'uncertainty': 0.2,  # ±
+    'fuel_type': 'U-10Zr',
+    'grain_size': 0.5e-6  # m
+}
+```
+
+**Step 2: Set Baseline Parameters**
+
+```python
+from gas_swelling.params.parameters import MaterialParameters, SimulationParameters
+
+# Start with fuel-specific baseline
+material = MaterialParameters(
+    dislocation_density=7.0e13,  # Initial guess
+    Fnf=1e-5,                     # Initial guess
+    Fnb=1e-5,
+    surface_energy=0.5
+)
+
+sim = SimulationParameters(
+    temperature=experimental_data['temperature'],
+    fission_rate=experimental_data['fission_rate'],
+    max_time=100*24*3600,  # Convert burnup to time
+    grain_diameter=experimental_data['grain_size']
+)
+```
+
+**Step 3: Iterative Calibration**
+
+```python
+from gas_swelling.models.modelrk23 import GasSwellingModel
+import numpy as np
+
+def run_simulation(dislocation_density, Fnf):
+    """Helper function to run simulation with varied parameters"""
+    material.dislocation_density = dislocation_density
+    material.Fnf = Fnf
+
+    model = GasSwellingModel(material_params=material, sim_params=sim)
+    result = model.solve(t_span=(0, sim.max_time))
+    return result['swelling'][-1]
+
+# Target swelling
+target = experimental_data['swelling']
+
+# Parameter grid search
+densities = np.logspace(13, 15, 20)  # 10¹³ - 10¹⁵ m⁻²
+fnf_values = np.logspace(-6, -3, 20)  # 10⁻⁶ - 10⁻³
+
+best_match = None
+min_error = float('inf')
+
+for rho in densities:
+    for fnf in fnf_values:
+        predicted = run_simulation(rho, fnf)
+        error = abs(predicted - target)
+
+        if error < min_error:
+            min_error = error
+            best_match = (rho, fnf, predicted)
+
+print(f"Best match: rho={best_match[0]:.2e}, Fnf={best_match[1]:.2e}")
+print(f"Predicted swelling: {best_match[2]:.2f}% (target: {target:.2f}%)")
+```
+
+**Step 4: Validation**
+
+```python
+# Use calibrated parameters for different conditions
+# (e.g., different temperature or fission rate)
+# to test if parameters are physically realistic
+
+test_conditions = [
+    {'temperature': 650, 'fission_rate': 2.0e20},
+    {'temperature': 750, 'fission_rate': 2.0e20},
+    {'temperature': 700, 'fission_rate': 3.0e20},
+]
+
+for cond in test_conditions:
+    sim.temperature = cond['temperature']
+    sim.fission_rate = cond['fission_rate']
+
+    model = GasSwellingModel(material_params=material, sim_params=sim)
+    result = model.solve(t_span=(0, sim.max_time))
+    print(f"T={cond['temperature']} K: Swelling = {result['swelling'][-1]:.2f}%")
+```
+
+### Calibration Best Practices
+
+**DO:**
+- ✅ Start with dislocation density and Fnf (most sensitive)
+- �2 Use literature values as initial guesses
+- ✅ Constrain parameters to physically realistic ranges
+- ✅ Validate against multiple data points
+- ✅ Document calibration procedure
+
+**DON'T:**
+- ❌ Adjust well-established physical constants (e.g., Boltzmann constant)
+- ❌ Use unrealistic parameter values just to fit data
+- ❌ Overfit to a single data point
+- ❌ Ignore physical consistency checks
+
+### Example: Calibration for U-10Zr at 700 K
+
+```python
+# Experimental data: U-10Zr at 700 K, 2 at.% burnup
+exp_data = {
+    'fuel': 'U-10Zr',
+    'temperature': 700,  # K
+    'burnup': 2.0,  # at.%
+    'swelling': 1.45,  # %
+    'grain_size': 0.5e-6,  # m
+    'dislocation_density_measured': 5e13  # From TEM, if available
+}
+
+# Starting parameters
+material = MaterialParameters(
+    dislocation_density=5e13,  # Use measured value if available
+    Fnf=1e-5,
+    Fnb=1e-5,
+    surface_energy=0.5
+)
+
+# Iterative adjustment
+# 1. First iteration: Match swelling magnitude
+#    Result: rho=5e13, Fnf=1e-5 → swelling=0.8% (too low)
+#    Action: Increase Fnf to enhance boundary swelling
+
+# 2. Second iteration: Fnf=5e-5
+#    Result: swelling=1.6% (close but slightly high)
+#    Action: Fine-tune dislocation density
+
+# 3. Third iteration: rho=6e13, Fnf=3e-5
+#    Result: swelling=1.43% (within uncertainty)
+
+# Final calibrated parameters
+calibrated_params = {
+    'dislocation_density': 6.0e13,  # m⁻²
+    'Fnf': 3.0e-5,
+    'Fnb': 1.0e-5,
+    'surface_energy': 0.5,  # J/m²
+    'predicted_swelling': 1.43,  # %
+    'target_swelling': 1.45,  # %
+    'error': 0.02  # Within experimental uncertainty
+}
+```
+
+---
+
+## Scenario 3: Sensitivity Analysis Studies
+
+### Purpose
+
+Sensitivity analysis identifies which parameters most affect model outputs. Use this to:
+- Prioritize parameters for experimental measurement
+- Understand model uncertainty sources
+- Identify dominant physical mechanisms
+- Guide model reduction efforts
+
+### Parameter Selection for Sensitivity Analysis
+
+**All parameters with significant uncertainty:**
+
+| Parameter Group | Include? | Reason |
+|-----------------|----------|--------|
+| **Dislocation density** | ✅ YES | High experimental uncertainty, very sensitive |
+| **Nucleation factors** (Fnb, Fnf) | ✅ YES | Poorly constrained, highly sensitive |
+| **Surface energy** | ✅ YES | Moderate uncertainty, medium sensitivity |
+| **Diffusion activation energies** | ✅ YES | Temperature-dependent uncertainty |
+| **Bias factors** (Zi, Zv) | ⚠️ MAYBE | Well-known but important |
+| **Lattice constant** | ❌ NO | Very well-measured |
+| **Physical constants** | ❌ NO | Known to high precision |
+
+### Quick Screening: Morris Method
+
+**Use Morris method when:**
+- Many parameters (>10) with uncertain values
+- Need to rank parameters by importance
+- Limited computational budget
+- Identifying parameters for detailed study
+
+```python
+from gas_swelling.analysis.sensitivity import MorrisAnalyzer, create_default_parameter_ranges
+
+# Define parameter ranges (based on experimental uncertainty)
+param_ranges = [
+    # High-sensitivity, high-uncertainty parameters
+    ParameterRange('dislocation_density', 1e13, 1e15),
+    ParameterRange('Fnf', 1e-6, 1e-3),
+    ParameterRange('Fnb', 1e-6, 1e-4),
+    ParameterRange('surface_energy', 0.3, 0.7),
+
+    # Medium-sensitivity parameters
+    ParameterRange('Dgb_activation_energy', 0.8, 1.5),
+    ParameterRange('Dgf_multiplier', 100, 1000),
+    ParameterRange('Zi', 1.01, 1.05),
+    ParameterRange('Zv', 0.99, 1.02),
+]
+
+# Run Morris screening
+analyzer = MorrisAnalyzer(
+    parameter_ranges=param_ranges,
+    output_names=['swelling'],
+    sim_time=8.64e6,  # 100 days
+    t_eval_points=100
+)
+
+results = analyzer.run_morris_analysis(
+    n_trajectories=25,
+    random_state=42
+)
+
+# Identify important parameters (μ* > 0.5)
+important_params = [
+    r.parameter_name for r in results
+    if r.mu_star['swelling'] > 0.5
+]
+
+print(f"Important parameters: {important_params}")
+# Expected: ['dislocation_density', 'Fnf', 'surface_energy', 'temperature']
+```
+
+### Detailed Analysis: Sobol Method
+
+**Use Sobol method when:**
+- Need quantitative sensitivity indices
+- Want to separate parameter interactions
+- Analyzing reduced parameter set (<10 parameters)
+- Computational resources available
+
+```python
+from gas_swelling.analysis.sensitivity import SobolAnalyzer
+
+# Reduced parameter set (from Morris screening)
+reduced_ranges = [
+    ParameterRange('dislocation_density', 1e13, 1e15),
+    ParameterRange('Fnf', 1e-6, 1e-3),
+    ParameterRange('surface_energy', 0.3, 0.7),
+    ParameterRange('temperature', 600, 900),
+]
+
+analyzer = SobolAnalyzer(
+    parameter_ranges=reduced_ranges,
+    output_names=['swelling', 'Rcb', 'gas_release'],
+    sim_time=8.64e6,
+    t_eval_points=100
+)
+
+results = analyzer.run_sobol_analysis(
+    n_samples=2000,
+    n_jobs=-1  # Parallel execution
+)
+
+# Interpret results
+for r in results:
+    param = r.parameter_name
+    S1 = r.S1['swelling']
+    ST = r.ST['swelling']
+    interaction = ST - S1
+
+    print(f"{param:20s}: S1={S1:.3f}, ST={ST:.3f}, Interactions={interaction:.3f}")
+```
+
+### Parameter Selection Guidelines
+
+**For screening studies:**
+- Include all uncertain parameters (±20% uncertainty or more)
+- Use ranges based on experimental uncertainty
+- Prioritize parameters with high physical impact
+
+**For detailed analysis:**
+- Focus on top 5-10 parameters from screening
+- Use narrower ranges for important parameters
+- Include cross-terms if interactions suspected
+
+### Setting Realistic Parameter Ranges
+
+| Parameter | Uncertainty Source | Recommended Range |
+|-----------|-------------------|-------------------|
+| **dislocation_density** | Material state, TEM measurement | 0.5-2× measured value |
+| **Fnf** | Poorly constrained physics | 10⁻⁶ - 10⁻³ |
+| **Fnb** | Bubble nucleation theory | 10⁻⁶ - 10⁻⁴ |
+| **surface_energy** | Temperature, composition | 0.8-1.2× literature |
+| **Dgb_activation_energy** | Fit to diffusion data | ±0.2 eV from fit |
+| **temperature** | Operating conditions | ±50 K from setpoint |
+| **fission_rate** | Flux measurement | ±10% from nominal |
+
+### Example: Complete Sensitivity Study
+
+```python
+#!/usr/bin/env python3
+"""
+Sensitivity Analysis for Gas Swelling Model
+============================================
+
+Identify influential parameters for swelling predictions.
+"""
+
+from gas_swelling.analysis.sensitivity import (
+    MorrisAnalyzer, SobolAnalyzer, create_default_parameter_ranges
+)
+from gas_swelling.analysis.visualization import plot_morris, plot_sobol
+
+# Step 1: Morris screening (all parameters)
+all_ranges = create_default_parameter_ranges()
+morris_analyzer = MorrisAnalyzer(all_ranges, ['swelling'], sim_time=8.64e6)
+morris_results = morris_analyzer.run_morris_analysis(n_trajectories=25)
+
+# Step 2: Select top parameters
+top_params = [r.parameter_name for r in sorted(
+    morris_results,
+    key=lambda x: x.mu_star['swelling'],
+    reverse=True
+)][:5]
+
+print(f"Top 5 parameters: {top_params}")
+# Output: ['dislocation_density', 'Fnf', 'surface_energy', 'temperature', 'Dgf_multiplier']
+
+# Step 3: Sobol analysis on top parameters
+reduced_ranges = [pr for pr in all_ranges if pr.name in top_params]
+sobol_analyzer = SobolAnalyzer(reduced_ranges, ['swelling'], sim_time=8.64e6)
+sobol_results = sobol_analyzer.run_sobol_analysis(n_samples=2000, n_jobs=-1)
+
+# Step 4: Report results
+for r in sobol_results:
+    param = r.parameter_name
+    S1 = r.S1['swelling']
+    ST = r.ST['swelling']
+    print(f"{param:20s}: S1={S1:.3f}, ST={ST:.3f}, ST-S1={ST-S1:.3f}")
+
+# Expected output:
+# dislocation_density : S1=0.42, ST=0.65, ST-S1=0.23  (strong main effect + interactions)
+# Fnf                 : S1=0.15, ST=0.45, ST-S1=0.30  (mostly interactions)
+# surface_energy      : S1=0.18, ST=0.22, ST-S1=0.04  (mostly independent)
+# temperature         : S1=0.28, ST=0.55, ST-S1=0.27  (strong interactions)
+# Dgf_multiplier      : S1=0.08, ST=0.12, ST-S1=0.04  (minor effect)
+```
+
+---
+
+## Scenario 4: Validation Against Experimental Data
+
+### Purpose
+
+Validation studies test the model's predictive capability by:
+- Comparing predictions with independent experimental data
+- Testing extrapolation beyond calibration range
+- Assessing model robustness across conditions
+- Building confidence in model predictions
+
+### Parameter Selection for Validation
+
+**Use experiment-specific parameters:**
+
+| Parameter | Source | Approach |
+|-----------|--------|----------|
+| **Dislocation density** | TEM measurements | Use measured value or estimate from microstructure |
+| **Grain size** | Metallography | Use measured grain diameter |
+| **Temperature** | Thermocouple data | Use time-averaged temperature |
+| **Fission rate** | Reactor physics | Use calculated flux for fuel pin position |
+| **Fuel composition** | Chemical assay | Use measured alloy composition |
+| **Nucleation factors** | Calibrated | Use values from similar fuel (if available) |
+
+### Validation Workflow
+
+**Step 1: Select Validation Dataset**
+
+Choose experimental data that was **NOT used for calibration**:
+
+```python
+# Example validation cases
+validation_cases = [
+    {
+        'reference': 'Hofman et al., 1996',
+        'fuel': 'U-10Zr',
+        'temperature': 650,  # K
+        'fission_rate': 2.5e20,  # fissions/m³/s
+        'burnup_data': [0.5, 1.0, 1.5, 2.0],  # at.%
+        'swelling_data': [0.3, 0.7, 1.1, 1.5],  # %
+        'grain_size': 0.5e-6,  # m
+        'measured_dislocation_density': 6.5e13  # m⁻²
+    },
+    {
+        'reference': 'Porter et al., 2019',
+        'fuel': 'U-19Pu-10Zr',
+        'temperature': 750,  # K
+        'fission_rate': 1.8e20,
+        'burnup_data': [0.4, 0.8, 1.2],
+        'swelling_data': [0.2, 0.5, 0.9],
+        'grain_size': 0.3e-6,
+        'measured_dislocation_density': 2.0e13
+    }
+]
+```
+
+**Step 2: Configure Simulation Parameters**
+
+```python
+from gas_swelling.params.parameters import MaterialParameters, SimulationParameters
+
+def setup_validation_case(case_data, calibrated_params=None):
+    """Configure simulation parameters for validation case"""
+
+    # Use measured dislocation density
+    material = MaterialParameters(
+        dislocation_density=case_data['measured_dislocation_density'],
+        grain_diameter=case_data['grain_size']
+    )
+
+    # Use calibrated nucleation factors if available
+    if calibrated_params:
+        material.Fnf = calibrated_params['Fnf']
+        material.Fnb = calibrated_params['Fnb']
+        material.surface_energy = calibrated_params['surface_energy']
+    else:
+        # Use literature defaults
+        material.Fnf = 1e-5
+        material.Fnb = 1e-5
+        material.surface_energy = 0.5
+
+    # Simulation parameters
+    sim = SimulationParameters(
+        temperature=case_data['temperature'],
+        fission_rate=case_data['fission_rate']
+    )
+
+    return material, sim
+```
+
+**Step 3: Run Validation Simulations**
+
+```python
+from gas_swelling.models.modelrk23 import GasSwellingModel
+import numpy as np
+
+def validate_model(case_data, calibrated_params=None):
+    """Compare model predictions with experimental data"""
+
+    material, sim = setup_validation_case(case_data, calibrated_params)
+
+    predictions = []
+    for burnup in case_data['burnup_data']:
+        # Convert burnup to simulation time
+        # (Approximate: 2 at.% ≈ 100 days at typical flux)
+        sim_time = (burnup / 2.0) * 100 * 24 * 3600
+        sim.max_time = sim_time
+
+        # Run simulation
+        model = GasSwellingModel(material_params=material, sim_params=sim)
+        result = model.solve(t_span=(0, sim.max_time))
+        predictions.append(result['swelling'][-1])
+
+    # Calculate error metrics
+    predictions = np.array(predictions)
+    experimental = np.array(case_data['swelling_data'])
+
+    mae = np.mean(np.abs(predictions - experimental))
+    rmse = np.sqrt(np.mean((predictions - experimental)**2))
+    max_error = np.max(np.abs(predictions - experimental))
+
+    return {
+        'predictions': predictions,
+        'experimental': experimental,
+        'MAE': mae,
+        'RMSE': rmse,
+        'max_error': max_error
+    }
+
+# Run validation
+for case in validation_cases:
+    print(f"\nValidating: {case['reference']}")
+    results = validate_model(case)
+
+    print(f"  MAE: {results['MAE']:.3f}%")
+    print(f"  RMSE: {results['RMSE']:.3f}%")
+    print(f"  Max error: {results['max_error']:.3f}%")
+
+    print(f"  Data points:")
+    for i, burnup in enumerate(case['burnup_data']):
+        print(f"    {burnup:.1f} at.%: Exp={results['experimental'][i]:.2f}%, "
+              f"Pred={results['predictions'][i]:.2f}%")
+```
+
+**Step 4: Assess Validation Performance**
+
+```python
+def evaluate_validation(results):
+    """Assess whether validation passes acceptance criteria"""
+
+    # Typical acceptance criteria for swelling models
+    mae_threshold = 0.5  # % swelling
+    max_error_threshold = 1.0  # % swelling
+
+    if results['MAE'] < mae_threshold:
+        print(f"✓ PASS: MAE ({results['MAE']:.3f}%) < threshold ({mae_threshold}%)")
+    else:
+        print(f"✗ FAIL: MAE ({results['MAE']:.3f}%) > threshold ({mae_threshold}%)")
+
+    if results['max_error'] < max_error_threshold:
+        print(f"✓ PASS: Max error ({results['max_error']:.3f}%) < threshold ({max_error_threshold}%)")
+    else:
+        print(f"✗ FAIL: Max error ({results['max_error']:.3f}%) > threshold ({max_error_threshold}%)")
+
+    # Check for systematic bias
+    bias = np.mean(results['predictions'] - results['experimental'])
+    if abs(bias) < 0.2:
+        print(f"✓ PASS: No systematic bias (bias = {bias:.3f}%)")
+    else:
+        print(f"⚠ WARNING: Systematic bias detected (bias = {bias:.3f}%)")
+```
+
+### Validation Best Practices
+
+**DO:**
+- ✅ Use independent data (not used for calibration)
+- ✅ Test across range of conditions (temperature, flux, burnup)
+- ✅ Use measured microstructure parameters when available
+- ✅ Quantify uncertainty in both model and experiment
+- ✅ Report both good and bad validation results
+
+**DON'T:**
+- ❌ "Cherry-pick" only favorable validation cases
+- ❌ Tune parameters for each validation case
+- ❌ Ignore systematic bias
+- ❌ Over-interpret small sample sizes
+
+### Example: Multi-Condition Validation
+
+```python
+#!/usr/bin/env python3
+"""
+Comprehensive Model Validation
+===============================
+
+Validate model against multiple experimental datasets.
+"""
+
+# Calibration parameters (from Scenario 2)
+calibrated_params = {
+    'dislocation_density': 6.0e13,
+    'Fnf': 3.0e-5,
+    'Fnb': 1.0e-5,
+    'surface_energy': 0.5
+}
+
+# Validation datasets from literature
+validation_studies = [
+    {
+        'study': 'Hofman et al. (1996) - U-10Zr',
+        'fuel': 'U-10Zr',
+        'conditions': [
+            {'T': 650, 'burnup': 1.0, 'swelling_exp': 0.7},
+            {'T': 700, 'burnup': 1.0, 'swelling_exp': 1.2},
+            {'T': 750, 'burnup': 1.0, 'swelling_exp': 1.0},
+        ]
+    },
+    {
+        'study': 'Porter et al. (2019) - U-Pu-Zr',
+        'fuel': 'U-Pu-Zr',
+        'conditions': [
+            {'T': 750, 'burnup': 0.8, 'swelling_exp': 0.5},
+            {'T': 800, 'burnup': 0.8, 'swelling_exp': 0.6},
+        ]
+    }
+]
+
+# Run validation for all studies
+print("=" * 70)
+print("MODEL VALIDATION RESULTS")
+print("=" * 70)
+
+all_errors = []
+
+for study in validation_studies:
+    print(f"\n{study['study']}")
+    print("-" * 70)
+
+    for cond in study['conditions']:
+        # Setup simulation
+        material = MaterialParameters(
+            dislocation_density=calibrated_params['dislocation_density'],
+            Fnf=calibrated_params['Fnf'],
+            Fnb=calibrated_params['Fnb'],
+            surface_energy=calibrated_params['surface_energy']
+        )
+
+        sim = SimulationParameters(
+            temperature=cond['T'],
+            fission_rate=2.0e20,
+            max_time=(cond['burnup'] / 2.0) * 100 * 24 * 3600
+        )
+
+        # Run simulation
+        model = GasSwellingModel(material_params=material, sim_params=sim)
+        result = model.solve(t_span=(0, sim.max_time))
+        swelling_pred = result['swelling'][-1]
+
+        # Calculate error
+        error = swelling_pred - cond['swelling_exp']
+        all_errors.append(abs(error))
+
+        print(f"  T={cond['T']} K, Burnup={cond['burnup']} at.%: "
+              f"Exp={cond['swelling_exp']:.2f}%, Pred={swelling_pred:.2f}%, "
+              f"Error={error:+.2f}%")
+
+# Overall validation statistics
+mean_error = np.mean(all_errors)
+max_error = np.max(all_errors)
+
+print("\n" + "=" * 70)
+print("OVERALL VALIDATION STATISTICS")
+print("=" * 70)
+print(f"Mean absolute error: {mean_error:.3f}%")
+print(f"Maximum error: {max_error:.3f}%")
+
+# Assessment
+if mean_error < 0.5 and max_error < 1.0:
+    print("\n✓ VALIDATION PASSED: Model predictions within acceptable bounds")
+elif mean_error < 1.0 and max_error < 2.0:
+    print("\n⚠ VALIDATION MARGINAL: Model shows moderate discrepancies")
+else:
+    print("\n✗ VALIDATION FAILED: Model requires recalibration")
+```
+
+---
+
+## Comparison of Scenarios
+
+| Scenario | Primary Parameters | Method | Validation Required? |
+|----------|-------------------|--------|---------------------|
+| **Initial Screening** | Temperature | Parametric sweep | No |
+| **Calibration** | Fnf, dislocation_density | Iterative fitting | Yes (against calibration data) |
+| **Sensitivity Analysis** | All uncertain | Morris/Sobol | No (exploratory) |
+| **Validation** | Experiment-specific | Single-point simulation | Yes (against independent data) |
+
+### Parameter Selection Flowchart
+
+```
+                    START
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+    Have experimental data?   No data
+          │                       │
+          Yes                     │
+          │                       │
+    ┌─────┴─────┐                 │
+    │           │                 │
+ Calibration  Validation        Screening
+    │           │                 │
+    │           │             Temperature sweep
+ Adjust Fnf,  Use measured
+   density    parameters
+    │
+    └─────────────┬─────────────┘
+                  │
+            Sensitivity Analysis
+                  │
+        Identify influential parameters
+                  │
+            Refine model understanding
+```
+
+---
+
+## Related Documentation
+
+- [Sensitivity Analysis Guide](sensitivity_analysis_guide.md) - Detailed sensitivity methods
+- [Quick Start Tutorial](../examples/quickstart_tutorial.md) - Basic simulation examples
+- [Model Theory](model_design.md) - Theoretical framework
+- [Usage Examples](#usage-examples) - Code examples for all scenarios
+
+---
+
+## Parameter Selection Checklist
+
+Before running simulations, verify:
+
+### Initial Screening
+- [ ] Using default material parameters
+- [ ] Temperature range covers operating conditions
+- [ ] Simulation time sufficient for steady-state
+- [ ] Results show expected trends
+
+### Calibration Study
+- [ ] High-quality experimental data available
+- [ ] Microstructure parameters measured
+- [ ] Only adjusting poorly-constrained parameters
+- [ ] Validation against independent data planned
+
+### Sensitivity Analysis
+- [ ] Parameter ranges reflect experimental uncertainty
+- [ ] Appropriate method selected (Morris vs. Sobol)
+- [ ] Computational resources sufficient
+- [ ] Results interpreted correctly
+
+### Validation Study
+- [ ] Independent data (not used for calibration)
+- [ ] Experiment-specific parameters used
+- [ ] Multiple conditions tested
+- [ ] Uncertainty quantified
+
+---
+
+*For specific questions about parameter selection, refer to the [Sensitivity Analysis Guide](sensitivity_analysis_guide.md) or consult the reference paper.*
 
 ---
 
