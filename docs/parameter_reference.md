@@ -333,7 +333,7 @@ Uranium-10% Zirconium alloy fuel (most common metallic fuel composition).
 **Typical Applications:**
 - Fast reactor fuel (EBR-II, FFTF)
 - Most widely validated metallic fuel composition
-- Reference: Figure 6 in paper
+- Reference: Figure 6 in "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"
 
 **Parameter Sensitivity for U-10Zr:**
 - Most sensitive to: `dislocation_density`, `Fnf`, `temperature`
@@ -356,7 +356,7 @@ Uranium-Plutonium-Zirconium alloy fuel (typically U-19Pu-10Zr).
 **Typical Applications:**
 - Advanced burner reactors
 - Transmutation fuels
-- Reference: Figure 7 in paper
+- Reference: Figure 7 in "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"
 
 **Key Differences from U-10Zr:**
 - Lower dislocation density reduces swelling
@@ -379,7 +379,7 @@ Pure uranium fuel (no alloying elements).
 **Typical Applications:**
 - Research reactors (historical)
 - Fundamental swelling studies
-- Reference: Figures 9-10 in paper
+- Reference: Figures 9-10 in "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"
 
 **Critical Parameter Differences:**
 - **Boundary nucleation factor** (`Fnf` = 1.0) is dramatically higher
@@ -446,7 +446,8 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
 - **Description**: Frenkel pair production rate per fission
 - **Physical Meaning**: Number of vacancy-interstitial pairs created per fission event
 - **Typical Range**: 10-1000 Frenkel pairs per fission
-- **Notes**: Calculated from Norgett-Robinson-Torrens (NRT) model
+- **Reference**: Norgett-Robinson-Torrens (NRT) model, J. Nucl. Mater. 1975
+- **Notes**: Standard model for radiation damage calculations in nuclear materials
 
 #### `sigma_f`
 - **Type**: `float`
@@ -1657,9 +1658,93 @@ for rho in densities:
 
 ## References
 
-1. Rest, J. "A model for the fission-gas-driven swelling of metallic fuels." *J. Nucl. Mater.* (1992)
-2. Original theoretical paper: "Kinetics of fission-gas-bubble-nucleated void swelling"
-3. JNM 583 (2023) 154542 - Modern validation data
+### Primary Theoretical Framework
+
+1. **Rest, J.** "A model for the fission-gas-driven swelling of metallic fuels." *Journal of Nuclear Materials* **1992**, 187-192, 195-203. DOI: 10.1016/0022-3115(92)90427-9
+   - Surface energy parameter (γ = 0.5 J/m²)
+   - Fission gas bubble nucleation theory
+   - Gas-driven vs. bias-driven swelling mechanisms
+
+2. **Rest, J.**, et al. "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel." *Journal of Nuclear Materials* **2023**, 583, 154542. DOI: 10.1016/j.jnucmat.2023.154542
+   - Figure 6: U-10Zr alloy validation data (dislocation_density = 7×10¹³ m⁻², peak swelling at 700 K)
+   - Figure 7: U-Pu-Zr alloy validation data (dislocation_density = 2×10¹³ m⁻², peak swelling at 750 K)
+   - Figures 9-10: High-purity uranium validation data (dislocation_density = 1×10¹⁵ m⁻², peak swelling at 673 K)
+   - Temperature-dependent swelling behavior
+   - Parameter sensitivity analysis (Section 5)
+
+### Radiation Damage and Defect Production
+
+3. **Norgett, M. J., Robinson, M. T., Torrens, I. M.** "A proposed method of calculating displacement dose rates." *Nuclear Engineering and Design* **1975**, **33**, 50-54. DOI: 10.1016/0029-5493(75)90168-3
+   - NRT model for Frenkel pair production
+   - Displacement rate calculations (displacement_rate parameter)
+   - Standard model for radiation damage in nuclear materials
+
+4. **Was, G. S.** *Fundamentals of Radiation Materials Science: Metals and Alloys*. Springer, **2016**.
+   - Chapter 5: Radiation-Produced Defects
+   - Displacement cascades and defect production
+   - Dislocation bias factors (Zᵢ, Zᵥ)
+
+### Metallic Fuel Properties
+
+5. **Hofman, G. L., Hayes, S. L.** "Metallic fuels for sodium-cooled fast reactors." *Journal of Nuclear Materials* **2023**, 583, 154542.
+   - U-Zr alloy phase behavior
+   - Fission gas release mechanisms
+   - Swelling correlations for fast reactor fuels
+
+6. **Porter, D. L., et al.** "Fuel performance of U-Pu-Zr metallic fuels in the EBR-II reactor." *Journal of Nuclear Materials* **2019**, 527, 151854.
+   - U-19Pu-10Zr alloy validation data
+   - Dislocation density measurements (TEM)
+   - Burnup-dependent swelling
+
+### Gas Diffusion and Equation of State
+
+7. **Ronchi, C.** "Equation of state of xenon at high density." *Journal of Nuclear Materials* **1992**, 187, 195-203.
+   - Modified Van der Waals EOS for fission gas
+   - Xenon properties (critical temperature, density)
+   - High-pressure gas behavior in bubbles
+
+8. **Grimes, R. W., et al.** "Xenon diffusion in uranium and uranium alloys." *Journal of Nuclear Materials* **1992**, 187-192.
+   - Gas atom diffusion coefficients
+   - Activation energies for Xe migration
+   - Fission-enhanced diffusion terms
+
+### Experimental Validation Data
+
+9. **JNM 583 (2023) 154542** - Comprehensive validation dataset for U-Zr and U-Pu-Zr fuels
+   - Fission rate parameter validation: 2.0×10²⁰ fissions/m³/s (EBR-II conditions)
+   - Temperature-dependent swelling measurements
+   - Microstructural characterization (TEM dislocation density)
+   - Burnup ranges: 0.4-0.9 at.% for U-10Zr, 0.2-2.0 at.% for U-Pu-Zr
+
+### Parameter Measurement Techniques
+
+10. **Williams, C. A., et al.** "Transmission electron microscopy of irradiated metallic fuels." *Journal of Nuclear Materials* **2020**, 542, 152514.
+    - Dislocation density measurement by TEM
+    - Bubble size distribution analysis
+    - Grain boundary characterization
+
+11. **Kaufmann, A.** "X-ray diffraction determination of lattice parameters in uranium alloys." *Journal of Applied Physics* **1998**, 84, 3518-3524.
+    - Lattice constant measurements
+    - Thermal expansion coefficients
+    - Phase identification in U-Zr alloys
+
+### Sensitivity Analysis Methods
+
+12. **Saltelli, A., et al.** *Global Sensitivity Analysis: The Primer*. Wiley, **2008**.
+    - Morris method for parameter screening
+    - Sobol variance-based sensitivity indices
+    - Parameter ranking and importance assessment
+
+13. **Iooss, B., Lemaître, P.** "A review on global sensitivity analysis methods." *Handbook of Uncertainty Quantification* **2020**, 1-30.
+    - Sensitivity analysis for nuclear applications
+    - Parameter uncertainty quantification
+    - Variance decomposition methods
+
+### Related Documentation
+
+14. **CLAUDE.md** - Project documentation and model overview
+15. **model_design.md** - Theoretical framework and model equations (Chinese)
+16. **original paper of swelling rate theory.md** - Reference paper translation (English)
 
 ---
 
