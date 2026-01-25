@@ -49,6 +49,7 @@ verify_refactored_model.py
 verify_tests.py
 .auto-claude/specs/003-multi-parameter-sweep-optimization/build-progress.txt
 .auto-claude/specs/003-multi-parameter-sweep-optimization/implementation_plan.json
+.auto-claude/specs/019-comprehensive-test-suite/validation_report.md
 .github/workflows/test.yml
 cli/__init__.py
 cli/__main__.py
