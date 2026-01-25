@@ -95,6 +95,8 @@ plot_time_series(result['t'], result['swelling'], xlabel='Time (s)', ylabel='Swe
 
 ## Quick Start
 
+**🚀 New to the model? Start here:** **[QUICKSTART.md](QUICKSTART.md)** - The fastest way to get up and running with installation and your first simulation.
+
 ### Installation
 
 Choose your preferred installation method:
