@@ -4,6 +4,7 @@ INSTALL.md
 LICENSE
 MANIFEST.in
 README.md
+REFACTORING.md
 THEORY_DOCUMENTATION.md
 euler_model.log
 model_design.md
