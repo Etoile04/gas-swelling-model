@@ -9,6 +9,7 @@ including:
 - Verifying progress bar appears
 - Verifying exit codes
 - Verifying output files contain valid data
+- Error handling tests (invalid config, missing files, invalid parameters, etc.)
 
 Based on patterns from test4_run_rk23.py
 """
@@ -774,6 +775,372 @@ def test_option_combinations() -> bool:
     return True
 
 
+def test_invalid_yaml_syntax() -> bool:
+    """
+    Test behavior when config file has invalid YAML syntax.
+
+    Returns:
+        True if invalid YAML is properly rejected, False otherwise
+    """
+    print_info("Testing invalid YAML syntax...")
+
+    # Create a temporary config file with invalid YAML
+    invalid_yaml_config = "test_invalid_yaml.yaml"
+    try:
+        with open(invalid_yaml_config, 'w') as f:
+            f.write("""
+temperature: 773.0
+fission_rate: 5e19
+max_time: 8640000
+invalid_yaml: [unclosed bracket
+""")
+
+        cmd = [
+            "gas-swelling", "run",
+            invalid_yaml_config,
+            "--output-dir", TEST_OUTPUT_DIR
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        # Should fail
+        if result.returncode == 0:
+            print_error("Invalid YAML was accepted (should have failed)")
+            return False
+
+        # Check for YAML error indication
+        error_output = result.stderr.lower() + result.stdout.lower()
+        if "yaml" in error_output or "syntax" in error_output or "parse" in error_output:
+            print_success("Invalid YAML properly rejected")
+            return True
+        else:
+            print_error(f"Unexpected error message: {result.stderr}")
+            return False
+
+    except Exception as e:
+        print_error(f"Error testing invalid YAML: {e}")
+        return False
+    finally:
+        # Clean up
+        if os.path.exists(invalid_yaml_config):
+            os.remove(invalid_yaml_config)
+
+
+def test_invalid_parameter_values() -> bool:
+    """
+    Test behavior when config file has invalid parameter values.
+
+    Returns:
+        True if invalid parameters are properly rejected, False otherwise
+    """
+    print_info("Testing invalid parameter values...")
+
+    test_cases = [
+        {
+            "name": "negative_temperature",
+            "content": "temperature: -100.0\nfission_rate: 5e19\n",
+            "error_indicator": "below minimum"
+        },
+        {
+            "name": "temperature_too_high",
+            "content": "temperature: 10000.0\nfission_rate: 5e19\n",
+            "error_indicator": "exceeds maximum"
+        },
+        {
+            "name": "negative_fission_rate",
+            "content": "temperature: 773.0\nfission_rate: -1e10\n",
+            "error_indicator": "below minimum"
+        },
+        {
+            "name": "invalid_eos_model",
+            "content": "temperature: 773.0\nfission_rate: 5e19\neos_model: invalid_model\n",
+            "error_indicator": "not allowed"
+        },
+        {
+            "name": "wrong_type_temperature",
+            "content": "temperature: \"not_a_number\"\nfission_rate: 5e19\n",
+            "error_indicator": "incorrect type"
+        },
+    ]
+
+    for test_case in test_cases:
+        print_info(f"  Testing: {test_case['name']}")
+
+        invalid_config = f"test_invalid_{test_case['name']}.yaml"
+        try:
+            # Create config with invalid parameter
+            with open(invalid_config, 'w') as f:
+                f.write(test_case['content'])
+
+            cmd = [
+                "gas-swelling", "run",
+                invalid_config,
+                "--output-dir", TEST_OUTPUT_DIR
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Should fail
+            if result.returncode == 0:
+                print_error(f"Invalid parameter '{test_case['name']}' was accepted")
+                return False
+
+            # Check for appropriate error message
+            error_output = result.stderr.lower() + result.stdout.lower()
+            if test_case['error_indicator'] in error_output:
+                print_success(f"Parameter '{test_case['name']}' properly rejected")
+            else:
+                print_error(f"Expected error indicator '{test_case['error_indicator']}' not found")
+                print(f"STDERR: {result.stderr}")
+                return False
+
+        except Exception as e:
+            print_error(f"Error testing {test_case['name']}: {e}")
+            return False
+        finally:
+            # Clean up
+            if os.path.exists(invalid_config):
+                os.remove(invalid_config)
+
+    return True
+
+
+def test_missing_required_parameters() -> bool:
+    """
+    Test behavior when config file is missing required parameters.
+
+    Returns:
+        True if missing parameters are properly detected, False otherwise
+    """
+    print_info("Testing missing required parameters...")
+
+    test_cases = [
+        {
+            "name": "missing_temperature",
+            "content": "fission_rate: 5e19\n",
+            "missing_param": "temperature"
+        },
+        {
+            "name": "missing_fission_rate",
+            "content": "temperature: 773.0\n",
+            "missing_param": "fission_rate"
+        },
+        {
+            "name": "empty_config",
+            "content": "{}",
+            "missing_param": "temperature"
+        },
+    ]
+
+    for test_case in test_cases:
+        print_info(f"  Testing: {test_case['name']}")
+
+        invalid_config = f"test_missing_{test_case['name']}.yaml"
+        try:
+            # Create config missing required parameters
+            with open(invalid_config, 'w') as f:
+                f.write(test_case['content'])
+
+            cmd = [
+                "gas-swelling", "run",
+                invalid_config,
+                "--output-dir", TEST_OUTPUT_DIR
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Should fail
+            if result.returncode == 0:
+                print_error(f"Missing parameter '{test_case['name']}' was accepted")
+                return False
+
+            # Check for missing parameter error
+            error_output = result.stderr.lower() + result.stdout.lower()
+            if "missing" in error_output and test_case['missing_param'] in error_output:
+                print_success(f"Missing parameter '{test_case['missing_param']}' properly detected")
+            else:
+                print_error(f"Expected missing parameter error not found")
+                print(f"STDERR: {result.stderr}")
+                return False
+
+        except Exception as e:
+            print_error(f"Error testing {test_case['name']}: {e}")
+            return False
+        finally:
+            # Clean up
+            if os.path.exists(invalid_config):
+                os.remove(invalid_config)
+
+    return True
+
+
+def test_invalid_command() -> bool:
+    """
+    Test behavior when invalid command is provided.
+
+    Returns:
+        True if invalid command is properly rejected, False otherwise
+    """
+    print_info("Testing invalid command...")
+
+    cmd = [
+        "gas-swelling", "invalid_command",
+        TEST_CONFIG
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        # Should fail
+        if result.returncode == 0:
+            print_error("Invalid command was accepted (should have failed)")
+            return False
+
+        # Check for error message
+        error_output = result.stderr.lower() + result.stdout.lower()
+        if "invalid" in error_output or "not found" in error_output or "no such command" in error_output:
+            print_success("Invalid command properly rejected")
+            return True
+        else:
+            print_error(f"Unexpected error message: {result.stderr}")
+            return False
+
+    except Exception as e:
+        print_error(f"Error testing invalid command: {e}")
+        return False
+
+
+def test_missing_arguments() -> bool:
+    """
+    Test behavior when required arguments are missing.
+
+    Returns:
+        True if missing arguments are properly detected, False otherwise
+    """
+    print_info("Testing missing arguments...")
+
+    # Test 1: Missing config file argument for 'run' command
+    print_info("  Testing: missing config argument")
+    cmd = ["gas-swelling", "run"]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        # Should fail
+        if result.returncode == 0:
+            print_error("Missing config argument was accepted")
+            return False
+
+        # Check for missing argument error
+        error_output = result.stderr.lower() + result.stdout.lower()
+        if "missing" in error_output or "required" in error_output or "argument" in error_output:
+            print_success("Missing argument properly detected")
+        else:
+            print_error(f"Expected missing argument error not found")
+            print(f"STDERR: {result.stderr}")
+            return False
+
+    except Exception as e:
+        print_error(f"Error testing missing arguments: {e}")
+        return False
+
+    return True
+
+
+def test_parameter_relationships() -> bool:
+    """
+    Test validation of logical parameter relationships.
+
+    Returns:
+        True if invalid parameter relationships are detected, False otherwise
+    """
+    print_info("Testing parameter relationship validation...")
+
+    test_cases = [
+        {
+            "name": "time_step_gt_max_time_step",
+            "content": "temperature: 773.0\nfission_rate: 5e19\ntime_step: 100.0\nmax_time_step: 10.0\n",
+            "error_indicator": "time_step"
+        },
+        {
+            "name": "time_step_gt_max_time",
+            "content": "temperature: 773.0\nfission_rate: 5e19\ntime_step: 1e7\nmax_time: 1e6\n",
+            "error_indicator": "time_step"
+        },
+    ]
+
+    for test_case in test_cases:
+        print_info(f"  Testing: {test_case['name']}")
+
+        invalid_config = f"test_relation_{test_case['name']}.yaml"
+        try:
+            # Create config with invalid parameter relationship
+            with open(invalid_config, 'w') as f:
+                f.write(test_case['content'])
+
+            cmd = [
+                "gas-swelling", "run",
+                invalid_config,
+                "--output-dir", TEST_OUTPUT_DIR
+            ]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Should fail
+            if result.returncode == 0:
+                print_error(f"Invalid relationship '{test_case['name']}' was accepted")
+                return False
+
+            # Check for appropriate error message
+            error_output = result.stderr.lower() + result.stdout.lower()
+            if test_case['error_indicator'] in error_output:
+                print_success(f"Invalid relationship '{test_case['name']}' properly detected")
+            else:
+                print_error(f"Expected error indicator '{test_case['error_indicator']}' not found")
+                print(f"STDERR: {result.stderr}")
+                return False
+
+        except Exception as e:
+            print_error(f"Error testing {test_case['name']}: {e}")
+            return False
+        finally:
+            # Clean up
+            if os.path.exists(invalid_config):
+                os.remove(invalid_config)
+
+    return True
+
+
 def main():
     """
     Main test execution function.
@@ -902,7 +1269,79 @@ def main():
         results["failed"] += 1
     results["tests"].append(("Option Combinations", test_passed))
 
-    # Test 10-13: Run simulations with different output formats (legacy tests)
+    # Test 10: Invalid YAML syntax
+    print("\n" + "=" * 70)
+    print("Test 10: Invalid YAML Syntax")
+    print("=" * 70)
+
+    test_passed = test_invalid_yaml_syntax()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Invalid YAML Syntax", test_passed))
+
+    # Test 11: Invalid parameter values
+    print("\n" + "=" * 70)
+    print("Test 11: Invalid Parameter Values")
+    print("=" * 70)
+
+    test_passed = test_invalid_parameter_values()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Invalid Parameter Values", test_passed))
+
+    # Test 12: Missing required parameters
+    print("\n" + "=" * 70)
+    print("Test 12: Missing Required Parameters")
+    print("=" * 70)
+
+    test_passed = test_missing_required_parameters()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Missing Required Parameters", test_passed))
+
+    # Test 13: Invalid command
+    print("\n" + "=" * 70)
+    print("Test 13: Invalid Command")
+    print("=" * 70)
+
+    test_passed = test_invalid_command()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Invalid Command", test_passed))
+
+    # Test 14: Missing arguments
+    print("\n" + "=" * 70)
+    print("Test 14: Missing Arguments")
+    print("=" * 70)
+
+    test_passed = test_missing_arguments()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Missing Arguments", test_passed))
+
+    # Test 15: Parameter relationships
+    print("\n" + "=" * 70)
+    print("Test 15: Parameter Relationships")
+    print("=" * 70)
+
+    test_passed = test_parameter_relationships()
+    if test_passed:
+        results["passed"] += 1
+    else:
+        results["failed"] += 1
+    results["tests"].append(("Parameter Relationships", test_passed))
+
+    # Test 16-19: Run simulations with different output formats (legacy tests)
     for output_format in TEST_FORMATS:
         print("\n" + "=" * 70)
         print(f"Test: {output_format.upper()} Output Format (Full Simulation)")
