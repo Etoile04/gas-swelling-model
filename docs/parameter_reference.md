@@ -5,6 +5,7 @@ This guide provides detailed documentation for all parameters used in the Gas Sw
 ## Table of Contents
 
 - [Overview](#overview)
+- [Quick Reference: Common Fuel Types](#quick-reference-common-fuel-types)
 - [Material Parameters](#material-parameters)
   - [Lattice & Atomic Properties](#lattice--atomic-properties)
   - [Diffusion Parameters](#diffusion-parameters)
@@ -54,6 +55,81 @@ Parameters are defined in `gas_swelling/params/parameters.py` and can be customi
 > - Nucleation factors are based on calibrated values for your fuel type
 >
 > See individual parameter sections below for detailed validation notes and out-of-range warnings.
+
+---
+
+## Quick Reference: Common Fuel Types
+
+This section provides a quick comparison of the three most commonly studied fuel types in the Gas Swelling Model. Use this table to rapidly identify appropriate parameter values for your simulation.
+
+### Comparison Table: Key Parameters by Fuel Type
+
+| Parameter | U-10Zr Alloy | U-19Pu-10Zr Alloy | High-Purity Uranium |
+|-----------|--------------|-------------------|---------------------|
+| **Dislocation Density** (m⁻²) | 7.0×10¹³ | 2.0×10¹³ | 1.0×10¹⁵ |
+| **Peak Swelling Temperature** (K) | 700 | 750 | 673 |
+| **Typical Swelling Range** (%) | 0.2-3.0 | 0.1-2.0 | 1.0-50.0 |
+| **Bulk Nucleation Factor** (Fnb) | 1×10⁻⁵ | 1×10⁻⁵ | 1×10⁻⁵ |
+| **Boundary Nucleation Factor** (Fnf) | 1×10⁻⁵ | 1×10⁻⁵ | 1.0 |
+| **Typical Burnup Range** (at.%) | 0.4-0.9 | 0.4-0.9 | 0.5-1.5 |
+| **Primary Application** | Fast reactors (EBR-II, FFTF) | Advanced burner reactors | Research/historical studies |
+
+### Quick Selection Guide
+
+**Choose U-10Zr Alloy if:**
+- ✅ Simulating standard fast reactor fuel (most common case)
+- ✅ Validating against EBR-II or FFTF data
+- ✅ Need well-established, extensively validated parameters
+- ✅ Studying temperature effects (600-900 K range)
+
+**Choose U-19Pu-10Zr Alloy if:**
+- ✅ Simulating advanced burner reactor fuel
+- ✅ Studying transmutation fuels
+- ✅ Need lower swelling baseline
+- ✅ Validating against modern metallic fuel experiments
+
+**Choose High-Purity Uranium if:**
+- ✅ Validating against historical experimental data
+- ✅ Studying extreme swelling behavior
+- ⚠️ **NOT recommended** for modern reactor applications (swelling >50% possible)
+- ⚠️ Research/educational purposes only
+
+### Parameter Setting Quick Start
+
+```python
+from gas_swelling.params.parameters import MaterialParameters
+
+# U-10Zr (most common)
+material_u10zr = MaterialParameters(
+    dislocation_density=7.0e13,  # m⁻²
+    Fnb=1e-5,
+    Fnf=1e-5
+)
+
+# U-19Pu-10Zr
+material_upuzr = MaterialParameters(
+    dislocation_density=2.0e13,  # m⁻²
+    Fnb=1e-5,
+    Fnf=1e-5
+)
+
+# High-Purity Uranium (use with caution!)
+material_pure_u = MaterialParameters(
+    dislocation_density=1.0e15,  # m⁻² (very high)
+    Fnb=1e-5,
+    Fnf=1.0  # 5 orders of magnitude higher!
+)
+```
+
+### Temperature Ranges for Peak Swelling
+
+| Fuel Type | Low Swelling | Rising Swelling | **PEAK SWELLING** | Declining Swelling |
+|-----------|--------------|-----------------|-------------------|-------------------|
+| **U-10Zr** | < 650 K | 650-700 K | **700-750 K** | > 750 K |
+| **U-19Pu-10Zr** | < 700 K | 700-750 K | **750-800 K** | > 800 K |
+| **High-Purity U** | < 620 K | 620-673 K | **673-720 K** | > 720 K |
+
+**Note:** Peak swelling occurs when gas production and defect balance create optimal conditions for bubble growth. Temperatures outside the peak range result in lower swelling due to either diffusion-limited growth (low T) or thermal emission/gas release (high T).
 
 ---
 
