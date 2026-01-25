@@ -17,6 +17,7 @@ __version__ = "0.1.0"
 from .core import GasSwellingPlotter, create_standard_plotter
 from .evolution_plots import (
     plot_swelling_evolution,
+    plot_swelling_with_uncertainty,
     plot_bubble_radius_evolution,
     plot_gas_concentration_evolution,
     plot_bubble_concentration_evolution,
@@ -83,6 +84,7 @@ __all__ = [
 
     # Evolution plots
     'plot_swelling_evolution',
+    'plot_swelling_with_uncertainty',
     'plot_bubble_radius_evolution',
     'plot_gas_concentration_evolution',
     'plot_bubble_concentration_evolution',
