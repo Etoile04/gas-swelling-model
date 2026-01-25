@@ -36,6 +36,25 @@ The Gas Swelling Model uses two main parameter classes:
 
 Parameters are defined in `gas_swelling/params/parameters.py` and can be customized using Python dataclasses.
 
+### Parameter Validation Guidelines
+
+> ### ⚠️ Critical Parameters Requiring Validation
+>
+> The following parameters have **HIGH SENSITIVITY** and should always be validated against experimental data or literature values:
+>
+> 1. **`temperature`** - Controls exponential Arrhenius terms in diffusion
+> 2. **`fission_rate`** - Directly proportional to gas production and defect generation
+> 3. **`dislocation_density`** - Controls defect sink strength (±40% swelling sensitivity)
+> 4. **`Fnf`** (boundary nucleation factor) - Controls incubation period before rapid swelling
+>
+> **Before running simulations, verify:**
+> - Temperature matches reactor operating conditions (600-900 K typical)
+> - Fission rate matches calculated flux for your reactor design
+> - Dislocation density reflects material state (annealed vs. cold-worked)
+> - Nucleation factors are based on calibrated values for your fuel type
+>
+> See individual parameter sections below for detailed validation notes and out-of-range warnings.
+
 ---
 
 ## Material Parameters
@@ -130,6 +149,29 @@ The `MaterialParameters` dataclass contains physical properties of the fuel mate
   - Cold-worked material: ~10¹⁴ m⁻²
 - **Impact**: HIGH SENSITIVITY - ±40% swelling change for ±50% density change
 - **Sink Strength**: kᵥ = √(Zᵥ × ρ), kᵢ = √(Zᵢ × ρ)
+
+> ### ⚠️ Out-of-Range Warning
+>
+> **Valid Range**: 1×10¹² - 1×10¹⁵ m⁻²
+>
+> **Consequences of Out-of-Range Values:**
+>
+> - **Too Low (< 1×10¹² m⁻²)**:
+>   - Unrealistic for metals (even well-annealed materials)
+>   - May cause excessive swelling due to reduced defect sink strength
+>   - Can lead to numerical instability in defect balance equations
+>
+> - **Too High (> 1×10¹⁵ m⁻²)**:
+>   - Exceeds physically realistic limits for crystalline materials
+>   - May suppress swelling unrealistically (defects absorbed too rapidly)
+>   - Can cause bubble dissolution due to excessive vacancy absorption
+>
+> **Validation Notes:**
+> - Verify material state (annealed vs. cold-worked) before setting value
+> - For U-10Zr alloys: typical range 5×10¹³ - 1×10¹⁴ m⁻²
+> - For U-Pu-Zr alloys: typical range 1×10¹³ - 5×10¹³ m⁻²
+> - For high-purity U: can reach 1×10¹⁵ m⁻² (cold-worked)
+> - When in doubt, use TEM measurements or metallography data
 
 ### Surface & Nucleation Parameters
 
@@ -373,6 +415,31 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
   - High flux: ~10²¹ fissions/m³/s
 - **Impact**: Directly proportional to gas production rate and defect generation
 
+> ### ⚠️ Out-of-Range Warning
+>
+> **Valid Range**: 1×10¹⁸ - 1×10²² fissions/m³/s
+>
+> **Consequences of Out-of-Range Values:**
+>
+> - **Too Low (< 1×10¹⁸ fissions/m³/s)**:
+>   - Below typical research reactor flux levels
+>   - Swelling may be too small to measure accurately
+>   - Very long simulation times required to reach meaningful burnup
+>   - May not represent realistic reactor conditions
+>
+> - **Too High (> 1×10²² fissions/m³/s)**:
+>   - Exceeds fast reactor design limits
+>   - Can cause unrealistically rapid gas accumulation
+>   - May lead to numerical instability (stiff ODE system)
+>   - Bubble growth may become unphysical (too rapid)
+>
+> **Validation Notes:**
+> - EBR-II fast reactor: ~2×10²⁰ fissions/m³/s (default)
+> - FFTF fast reactor: ~3×10²⁰ fissions/m³/s
+> - Research reactors: ~1×10¹⁹ fissions/m³/s
+> - Calculate from flux: fission_rate = flux × σ_f (cross-section)
+> - Verify against reactor physics calculations for your specific application
+
 #### `displacement_rate`
 - **Type**: `float`
 - **Default**: `14825/5.12e28` ≈ `2.9e-25` fp/fission
@@ -430,6 +497,45 @@ The `SimulationParameters` dataclass contains runtime configuration parameters.
   - High-temperature regime: 900-1200 K
 - **Impact**: CRITICAL - Controls exponential Arrhenius terms in diffusion
 - **Sensitivity**: Bell-shaped swelling curve with maximum at 700-800 K
+
+> ### ⚠️ Out-of-Range Warning
+>
+> **Valid Range**: 300 - 1500 K
+>
+> **Consequences of Out-of-Range Values:**
+>
+> - **Too Low (< 400 K)**:
+>   - Below typical reactor operating temperatures
+>   - Diffusion becomes extremely slow (Arrhenius suppression)
+>   - Defect evolution may freeze (no bubble growth)
+>   - Gas release mechanisms become inactive
+>   - Results not representative of reactor conditions
+>
+> - **Too High (> 1200 K)**:
+>   - Approaches melting point of U-Zr alloys (~1250 K)
+>   - Thermal vacancy emission dominates (bubble dissolution)
+>   - Swelling suppressed unrealistically
+>   - Phase transformations may occur (not modeled)
+>   - Gas release becomes nearly complete (voids empty)
+>
+> **Special Temperature Regimes:**
+>
+> | Temperature Range | Behavior | Notes |
+> |-------------------|----------|-------|
+> | **400-600 K** | Low swelling | Diffusion-limited, small bubbles |
+> | **650-750 K** | Rising swelling | Approaching peak regime |
+> | **750-850 K** | **PEAK SWELLING** | Maximum swelling for U-10Zr |
+> | **850-1000 K** | Declining swelling | Thermal emission increases |
+> | **> 1000 K** | Low swelling | Gas release dominates |
+>
+> **Validation Notes:**
+> - Verify against thermocouple data from irradiation experiments
+> - Consider radial temperature gradient in fuel pins (center hotter)
+> - Peak swelling temperature varies by alloy:
+>   - U-10Zr: ~700 K
+>   - U-Pu-Zr: ~750 K
+>   - High-purity U: ~673 K
+> - For most studies, use 600-900 K range to capture peak swelling behavior
 
 #### `time_step`
 - **Type**: `float`
