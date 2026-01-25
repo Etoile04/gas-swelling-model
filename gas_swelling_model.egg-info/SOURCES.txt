@@ -7,9 +7,7 @@ README.md
 THEORY_DOCUMENTATION.md
 euler_model.log
 model_design.md
-modelrk23.py
 original paper of swelling rate theory.md
-parameters.py
 pyproject.toml
 setup.py
 test4_run_rk23.py
