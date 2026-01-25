@@ -16,8 +16,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, Union
 import warnings
+from scipy import stats
 
 
 def get_publication_style(style: str = 'default') -> Dict[str, Any]:
@@ -569,6 +570,151 @@ def get_length_unit_label(unit: str) -> str:
     }
 
     return labels.get(unit, 'Length')
+
+
+def calculate_confidence_interval(data: Union[np.ndarray, List[np.ndarray]],
+                                 confidence: float = 0.95,
+                                 axis: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate confidence interval for data.
+
+    Args:
+        data: Input data array or list of arrays (multiple runs)
+        confidence: Confidence level (default 0.95 for 95% confidence interval)
+        axis: Axis along which to calculate statistics (default None for flattened array)
+
+    Returns:
+        Tuple of (mean, lower_bound, upper_bound) arrays
+
+    Raises:
+        ValueError: If data is empty or confidence is not in (0, 1)
+
+    Examples:
+        >>> data = np.random.randn(100, 10)  # 10 variables, 100 samples each
+        >>> mean, lower, upper = calculate_confidence_interval(data, confidence=0.95)
+        >>> # Or with list of runs
+        >>> runs = [np.random.randn(50) for _ in range(5)]
+        >>> mean, lower, upper = calculate_confidence_interval(runs, axis=0)
+
+    Notes:
+        Uses scipy.stats.sem for standard error calculation and t-distribution
+        for confidence intervals. Suitable for small sample sizes.
+        For large samples (n > 30), normal distribution would be similar.
+    """
+    # Convert list of arrays to single array if needed
+    if isinstance(data, list):
+        if len(data) == 0:
+            raise ValueError("Data list is empty")
+        data = np.array(data)
+
+    # Validate confidence level
+    if not 0 < confidence < 1:
+        raise ValueError(f"Confidence must be between 0 and 1, got {confidence}")
+
+    # Calculate mean
+    mean = np.mean(data, axis=axis)
+
+    # Calculate standard error
+    sem = stats.sem(data, axis=axis)
+
+    # Calculate degrees of freedom
+    if axis is None:
+        n = data.size
+    else:
+        n = data.shape[axis]
+
+    # Calculate t-value for confidence interval
+    t_value = stats.t.ppf((1 + confidence) / 2, n - 1)
+
+    # Calculate confidence interval
+    margin_of_error = t_value * sem
+    lower_bound = mean - margin_of_error
+    upper_bound = mean + margin_of_error
+
+    return mean, lower_bound, upper_bound
+
+
+def extract_error_bands(results: List[Dict[str, np.ndarray]],
+                        variable: str,
+                        confidence: float = 0.95) -> Dict[str, np.ndarray]:
+    """
+    Extract error bands from multiple simulation runs for uncertainty visualization.
+
+    Args:
+        results: List of result dictionaries from model.solve() runs
+        variable: Variable name to extract (e.g., 'swelling', 'Rcb', 'Rcf')
+        confidence: Confidence level for error bands (default 0.95)
+
+    Returns:
+        Dictionary containing:
+            - 'mean': Mean values across runs
+            - 'lower': Lower confidence bound
+            - 'upper': Upper confidence bound
+            - 'std': Standard deviation across runs
+            - 'time': Time points (assumed consistent across runs)
+
+    Raises:
+        ValueError: If results list is empty or variable not found in results
+
+    Examples:
+        >>> # Run multiple simulations with parameter variations
+        >>> results = []
+        >>> for temp in [700, 750, 800]:
+        ...     model.set_temperature(temp)
+        ...     result = model.solve(...)
+        ...     results.append(result)
+        >>> # Extract error bands for swelling
+        >>> error_bands = extract_error_bands(results, 'swelling')
+        >>> ax.fill_between(error_bands['time'],
+        ...                 error_bands['lower'],
+        ...                 error_bands['upper'],
+        ...                 alpha=0.3, label='95% CI')
+
+    Notes:
+        - Assumes all results have the same time points
+        - Uses calculate_confidence_interval internally
+        - Suitable for parameter uncertainty studies
+        - Can be used with plot_error_band function for visualization
+    """
+    # Validate inputs
+    if not results:
+        raise ValueError("Results list is empty")
+
+    # Extract variable data from all runs
+    data_arrays = []
+    time_points = None
+
+    for i, result in enumerate(results):
+        if variable not in result:
+            raise ValueError(f"Variable '{variable}' not found in result {i}")
+
+        if 'time' not in result:
+            raise ValueError(f"'time' not found in result {i}")
+
+        # Check time points consistency
+        if time_points is None:
+            time_points = result['time']
+        elif not np.allclose(time_points, result['time']):
+            warnings.warn("Time points differ across runs. Using first run's time points.")
+
+        data_arrays.append(result[variable])
+
+    # Stack data arrays
+    stacked_data = np.vstack(data_arrays)
+
+    # Calculate confidence interval
+    mean, lower, upper = calculate_confidence_interval(stacked_data, confidence=confidence, axis=0)
+
+    # Calculate standard deviation
+    std = np.std(stacked_data, axis=0)
+
+    return {
+        'mean': mean,
+        'lower': lower,
+        'upper': upper,
+        'std': std,
+        'time': time_points
+    }
 
 
 # Common variable names and labels for plotting
