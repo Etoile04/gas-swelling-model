@@ -293,8 +293,10 @@ def calculate_cavity_radius_derivatives(
     Rcf_safe = np.clip(Rcf, 1e-12, 1e-4)
 
     # 计算气体压力 (Calculate gas pressure)
-    Pg_b = calculate_gas_pressure(Rcb_safe, Ncb, temperature, kB, atomic_volume, eos_model)
-    Pg_f = calculate_gas_pressure(Rcf_safe, Ncf, temperature, kB, atomic_volume, eos_model)
+    Pg_b = calculate_gas_pressure(Rcb_safe, Ncb, temperature, eos_model,
+                                  kB=kB, atomic_volume=atomic_volume)
+    Pg_f = calculate_gas_pressure(Rcf_safe, Ncf, temperature, eos_model,
+                                  kB=kB, atomic_volume=atomic_volume)
 
     # 最小压力保护 (Minimum pressure protection)
     Pg_b = max(Pg_b, 1.0)

@@ -169,7 +169,7 @@ class RefactoredGasSwellingModel:
 
         # 构建状态向量 (construct state vector)
         # State vector: [Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf,
-        #                 cvb, cib, kvb, kib, cvf, cif, kvf, kif, released_gas]
+        #                 cvb, cib, cvf, cif, released_gas, kvb, kib, kvf, kif]
         return np.array([
             Cg_init,     # 0: Cgb - 基体气体浓度 (bulk gas concentration)
             Cc_init,     # 1: Ccb - 基体气腔浓度 (bulk cavity concentration)
@@ -181,16 +181,16 @@ class RefactoredGasSwellingModel:
             R_init,      # 7: Rcf - 晶界气腔半径 (boundary cavity radius)
             cv0,         # 8: cvb - 基体空位浓度 (bulk vacancy concentration)
             ci0,         # 9: cib - 基体间隙原子浓度 (bulk interstitial concentration)
-            kv_param,    # 10: kvb - 基体空位汇聚强度 (bulk vacancy sink strength)
-            ki_param,    # 11: kib - 基体间隙原子汇聚强度 (bulk interstitial sink strength)
-            cv0,         # 12: cvf - 晶界空位浓度 (boundary vacancy concentration)
-            ci0,         # 13: cif - 晶界间隙原子浓度 (boundary interstitial concentration)
-            kv_param,    # 14: kvf - 晶界空位汇聚强度 (boundary vacancy sink strength)
-            ki_param,    # 15: kif - 晶界间隙原子汇聚强度 (boundary interstitial sink strength)
-            0.0          # 16: released_gas - 累积释放气体 (cumulative gas release)
+            cv0,         # 10: cvf - 晶界空位浓度 (boundary vacancy concentration)
+            ci0,         # 11: cif - 晶界间隙原子浓度 (boundary interstitial concentration)
+            0.0,         # 12: released_gas - 累积释放气体 (cumulative gas release)
+            kv_param,    # 13: kvb - 基体空位汇聚强度 (bulk vacancy sink strength)
+            ki_param,    # 14: kib - 基体间隙原子汇聚强度 (bulk interstitial sink strength)
+            kv_param,    # 15: kvf - 晶界空位汇聚强度 (boundary vacancy sink strength)
+            ki_param     # 16: kif - 晶界间隙原子汇聚强度 (boundary interstitial sink strength)
         ])
 
-    def _equations_wrapper(self, t: float, state: np.ndarray) -> np.ndarray:
+    def _equations_wrapper(self, t: float, state: np.ndarray, params: Dict = None) -> np.ndarray:
         """
         ODE方程包装器 (ODE equations wrapper)
 
@@ -202,6 +202,9 @@ class RefactoredGasSwellingModel:
                 当前时间 (current time)
             state : np.ndarray
                 当前状态向量 (current state vector)
+            params : Dict, optional
+                参数字典（用于兼容RK23Solver接口）
+                (parameter dictionary for RK23Solver compatibility)
 
         返回 (Returns):
             np.ndarray: 状态导数向量 (state derivative vector)
@@ -214,8 +217,12 @@ class RefactoredGasSwellingModel:
         # 更新当前时间 (update current time)
         self.current_time = t
 
+        # 使用模型参数（忽略传入的params参数）
+        # (use model parameters, ignore passed params argument)
+        model_params = self.params
+
         # 调用模块化ODE系统 (call modular ODE system)
-        derivatives = swelling_ode_system(t, state, self.params)
+        derivatives = swelling_ode_system(t, state, model_params)
 
         # 如果启用调试，记录调试信息 (record debug info if enabled)
         if self.debug_config.enabled:
@@ -239,10 +246,9 @@ class RefactoredGasSwellingModel:
         Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf, cvb, cib, kvb, kib, cvf, cif, kvf, kif, released_gas = state
 
         # 计算气体压力 (calculate gas pressures)
-        Pg_b = calculate_gas_pressure(Rcb, Ncb, self.params['temperature'],
-                                      self.params.get('eos_model', 'virial'), self.params)
-        Pg_f = calculate_gas_pressure(Rcf, Ncf, self.params['temperature'],
-                                      self.params.get('eos_model', 'virial'), self.params)
+        eos_model = self.params.get('eos_model', 'virial')
+        Pg_b = calculate_gas_pressure(Rcb, Ncb, self.params['temperature'], eos_model)
+        Pg_f = calculate_gas_pressure(Rcf, Ncf, self.params['temperature'], eos_model)
 
         # 计算肿胀率 (calculate swelling)
         V_bubble_b = (4.0/3.0) * np.pi * Rcb**3 * Ccb
@@ -351,21 +357,19 @@ class RefactoredGasSwellingModel:
 
         # 创建求解器 (create solver)
         if method == 'RK23':
-            solver = RK23Solver()
+            solver = RK23Solver(self._equations_wrapper, self.params)
         else:
             # 对于其他方法，使用RK23但可以通过参数调整
-            solver = RK23Solver()
+            solver = RK23Solver(self._equations_wrapper, self.params)
 
         # 使用模块化求解器求解 (solve using modular solver)
         try:
             results = solver.solve(
-                rate_equations=self._equations_wrapper,
-                params=self.params,
                 t_span=t_span,
                 y0=self.initial_state,
                 t_eval=t_eval,
-                first_step=dt,
-                max_step=max_dt
+                dt=dt,
+                max_dt=max_dt
             )
             self.solver_success = True
         except Exception as e:
@@ -410,8 +414,7 @@ class RefactoredGasSwellingModel:
             >>> print(f"Bubble pressure: {pressure:.2e} Pa")
         """
         eos_model = self.params.get('eos_model', 'virial')
-        return calculate_gas_pressure(R, N, self.params['temperature'],
-                                     eos_model, self.params)
+        return calculate_gas_pressure(R, N, self.params['temperature'], eos_model)
 
     def get_gas_influx(self, Cgb: float, Cgf: float) -> float:
         """
@@ -435,7 +438,9 @@ class RefactoredGasSwellingModel:
             >>> influx = model.get_gas_influx(1e20, 1e19)
             >>> print(f"Gas influx: {influx:.2e} atoms/(m³·s)")
         """
-        return calculate_gas_influx(Cgb, Cgf, self.params)
+        grain_diameter = self.params['grain_diameter']
+        Dgb = self.params['Dgb']
+        return calculate_gas_influx(Cgb, Cgf, grain_diameter, Dgb)
 
     def get_gas_release_rate(self, Cgf: float, Ccf: float,
                             Rcf: float, Ncf: float) -> float:
@@ -465,7 +470,8 @@ class RefactoredGasSwellingModel:
             >>> release_rate = model.get_gas_release_rate(1e20, 1e15, 1e-7, 50)
             >>> print(f"Gas release rate: {release_rate:.2e} /s")
         """
-        return calculate_gas_release_rate(Cgf, Ccf, Rcf, Ncf, self.params)
+        grain_diameter = self.params['grain_diameter']
+        return calculate_gas_release_rate(Cgf, Ccf, Rcf, Ncf, grain_diameter)
 
     def get_thermal_equilibrium_concentrations(self) -> Tuple[float, float]:
         """
