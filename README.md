@@ -25,6 +25,73 @@ This implementation follows the theoretical framework from **"Kinetics of fissio
 - **Flexible Configuration**: YAML-based parameter system with sensible defaults
 - **Production-Ready**: Robust numerical solver with error handling and progress tracking
 - **Well-Documented**: Extensive tutorials, parameter reference, and physics documentation
+- **Modular Architecture**: Clean separation of physics, solvers, I/O, and models for easy maintenance
+
+## Architecture
+
+The codebase is organized into a **modular package structure** that separates concerns and enables targeted testing and reuse:
+
+### Module Overview
+
+```
+gas_swelling/
+├── physics/          # Physics calculations
+│   ├── pressure.py        # Gas pressure (ideal, van der Waals, Virial, Ronchi)
+│   ├── gas_transport.py   # Gas transport, release, nucleation, resolution
+│   └── thermal.py         # Thermal equilibrium defect concentrations
+├── ode/              # Rate equation system
+│   └── rate_equations.py  # 17-variable ODE system (gas + defects)
+├── solvers/          # Numerical solvers
+│   ├── rk23_solver.py     # RK23 adaptive solver (scipy wrapper)
+│   └── euler_solver.py    # Explicit Euler method
+├── io/               # Output and visualization
+│   ├── debug_output.py    # Debug logging and history tracking
+│   └── visualization.py   # Plotting utilities
+├── models/           # Model orchestration
+│   ├── modelrk23.py       # Backward-compatible wrapper
+│   └── refactored_model.py # New modular model class
+└── params/           # Parameter management
+    └── parameters.py      # MaterialParameters, SimulationParameters
+```
+
+### Design Principles
+
+1. **Single Responsibility**: Each module has one clear purpose
+2. **Separation of Concerns**: Physics separated from numerics and I/O
+3. **Testability**: Individual components can be unit tested
+4. **Reusability**: Modules can be used independently
+5. **Documentation**: Each module has its own README with examples
+
+### Using Individual Modules
+
+For most users, the high-level `GasSwellingModel` interface is sufficient. However, advanced users can import individual modules:
+
+```python
+# Use physics calculations directly
+from gas_swelling.physics import calculate_gas_pressure, calculate_gas_influx
+
+pressure = calculate_gas_pressure(Nc=1e6, T=800, R=1e-7, eos_model='ronchi')
+influx = calculate_gas_influx(Cgb=1e20, Cgf=1e19, Dgb=1e-20, Lb=1e-6)
+
+# Use custom solver with ODE system
+from gas_swelling.ode import swelling_ode_system
+from gas_swelling.solvers import RK23Solver
+
+solver = RK23Solver()
+result = solver.solve(
+    rate_equations=swelling_ode_system,
+    params=params_dict,
+    t_span=(0, 8.64e6),
+    y0=initial_conditions
+)
+
+# Use visualization utilities
+from gas_swelling.io import plot_time_series, plot_swelling_comparison
+
+plot_time_series(result['t'], result['swelling'], xlabel='Time (s)', ylabel='Swelling')
+```
+
+**📘 See [REFACTORING.md](REFACTORING.md)** for complete migration guide and architecture details.
 
 ## Quick Start
 
@@ -75,6 +142,12 @@ For a detailed step-by-step tutorial, see **[examples/quickstart_tutorial.py](ex
 - **[📋 Parameter Reference](docs/parameter_reference.md)** - Complete guide to all model parameters with physical meanings
 - **[📐 CLAUDE.md](CLAUDE.md)** - Developer documentation and architecture overview
 - **[🔬 Theoretical Framework](model_design.md)** - Physics background and model equations (Chinese)
+- **[🔄 REFACTORING.md](REFACTORING.md)** - Migration guide for the modular architecture
+- **[📦 Module Documentation](gas_swelling/)** - Each module has its own README:
+  - [physics/README.md](gas_swelling/physics/README.md) - Gas pressure, transport, thermal calculations
+  - [ode/README.md](gas_swelling/ode/README.md) - Rate equation system
+  - [solvers/README.md](gas_swelling/solvers/README.md) - Numerical solver implementations
+  - [io/README.md](gas_swelling/io/README.md) - Debug output and visualization
 
 ### Example Scripts
 
@@ -241,6 +314,9 @@ Typical validation metrics:
 - **Solver**: `scipy.integrate.solve_ivp` with RK23 method
 - **Stiffness handling**: Automatic adaptive step sizing for widely varying timescales
 - **Memory**: < 500 MB for standard simulations
+- **Modular overhead**: Negligible - refactoring maintained computational performance while improving development velocity
+
+The refactoring from monolithic to modular architecture **maintained identical computational performance** while significantly improving code maintainability, testability, and extensibility.
 
 ## Requirements
 
@@ -305,7 +381,27 @@ And the original theoretical paper:
 
 ## Contributing
 
-Contributions are welcome! Please see [CLAUDE.md](CLAUDE.md) for development guidelines.
+Contributions are welcome! The **modular architecture** makes it easy to contribute:
+
+- **Physics improvements**: Modify `gas_swelling/physics/` modules
+- **New solvers**: Add to `gas_swelling/solvers/`
+- **Enhanced I/O**: Extend `gas_swelling/io/` utilities
+- **Bug fixes**: Clear module boundaries make issues easy to isolate
+
+Please see [CLAUDE.md](CLAUDE.md) for development guidelines and [REFACTORING.md](REFACTORING.md) for architecture details.
+
+### Testing
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run fast tests only (exclude slow integration tests)
+pytest tests/ -v -m 'not slow'
+
+# Run with coverage
+pytest tests/ --cov=gas_swelling --cov-report=term-missing
+```
 
 ## Acknowledgments
 
