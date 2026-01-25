@@ -11,6 +11,10 @@ This guide provides detailed documentation for all parameters used in the Gas Sw
   - [Dislocation Parameters](#dislocation-parameters)
   - [Surface & Nucleation Parameters](#surface--nucleation-parameters)
   - [Xenon Properties](#xenon-properties)
+- [Fuel Composition Specific Parameters](#fuel-composition-specific-parameters)
+  - [U-10Zr Alloy](#u-10zr-alloy)
+  - [U-Pu-Zr Alloy](#u-pu-zr-alloy)
+  - [High-Purity Uranium](#high-purity-uranium)
 - [Simulation Parameters](#simulation-parameters)
   - [Fission & Irradiation Parameters](#fission--irradiation-parameters)
   - [Temperature & Time](#temperature--time)
@@ -246,6 +250,108 @@ Xenon (Xe) is the primary fission gas responsible for swelling.
 - **Default**: `[2.12748, 0.52905, 0.13053, 0.02697, 0.00313]`
 - **Description**: Temperature function coefficients for Ronchi EOS
 - **Used In**: f(T) correction factor for equation of state
+
+---
+
+## Fuel Composition Specific Parameters
+
+Different fuel compositions require different parameter values to accurately model swelling behavior. The tables below summarize validated parameter sets for three fuel types studied in the reference paper.
+
+### Parameter Selection Guidance
+
+**Key Differences Between Fuel Types:**
+
+1. **Dislocation Density** - Most significant parameter difference
+   - High-purity U: 1×10¹⁵ m⁻² (cold-worked)
+   - U-10Zr: 7×10¹³ m⁻² (moderate)
+   - U-Pu-Zr: 2×10¹³ m⁻² (lower)
+
+2. **Boundary Nucleation Factor** (`Fnf`)
+   - High-purity U: 1.0 (very high - causes rapid swelling)
+   - Alloys: 1×10⁻⁵ (much lower)
+
+3. **Peak Swelling Temperature**
+   - Varies by composition: 673-750 K
+   - Affects swelling magnitude significantly
+
+### U-10Zr Alloy
+
+Uranium-10% Zirconium alloy fuel (most common metallic fuel composition).
+
+| Parameter | Value | Units | Notes |
+|-----------|-------|-------|-------|
+| **Dislocation Density** | 7.0×10¹³ | m⁻² | Moderate dislocation density |
+| **Peak Temperature** | 700 | K | Temperature of maximum swelling |
+| **Swelling Range** | 0.2-3.0 | % | At 0.4-0.9 at.% burnup |
+| **Bulk Nucleation Factor** (`Fnb`) | 1×10⁻⁵ | - | Bubble nucleation in grain interior |
+| **Boundary Nucleation Factor** (`Fnf`) | 1×10⁻⁵ | - | Nucleation at phase boundaries |
+| **Vacancy Formation Energy** | 1.034-1.2 | eV | Temperature-dependent |
+
+**Typical Applications:**
+- Fast reactor fuel (EBR-II, FFTF)
+- Most widely validated metallic fuel composition
+- Reference: Figure 6 in paper
+
+**Parameter Sensitivity for U-10Zr:**
+- Most sensitive to: `dislocation_density`, `Fnf`, `temperature`
+- Dislocation density ±50% → ±40% swelling change
+- Temperature 600-800 K: bell-shaped swelling curve with peak at 700 K
+
+### U-Pu-Zr Alloy
+
+Uranium-Plutonium-Zirconium alloy fuel (typically U-19Pu-10Zr).
+
+| Parameter | Value | Units | Notes |
+|-----------|-------|-------|-------|
+| **Dislocation Density** | 2.0×10¹³ | m⁻² | Lower than U-10Zr (reduced swelling) |
+| **Peak Temperature** | 750 | K | Slightly higher than U-10Zr |
+| **Swelling Range** | 0.1-2.0 | % | At 0.4-0.9 at.% burnup |
+| **Bulk Nucleation Factor** (`Fnb`) | 1×10⁻⁵ | - | Same as U-10Zr |
+| **Boundary Nucleation Factor** (`Fnf`) | 1×10⁻⁵ | - | Same as U-10Zr |
+| **Vacancy Formation Energy** | 1.034-1.2 | eV | Same as U-10Zr |
+
+**Typical Applications:**
+- Advanced burner reactors
+- Transmutation fuels
+- Reference: Figure 7 in paper
+
+**Key Differences from U-10Zr:**
+- Lower dislocation density reduces swelling
+- Higher peak swelling temperature (750 K vs 700 K)
+- Swelling typically 30-50% lower than U-10Zr at same conditions
+
+### High-Purity Uranium
+
+Pure uranium fuel (no alloying elements).
+
+| Parameter | Value | Units | Notes |
+|-----------|-------|-------|-------|
+| **Dislocation Density** | 1.0×10¹⁵ | m⁻² | Very high (cold-worked material) |
+| **Peak Temperature** | 673 | K | Lower than alloys |
+| **Swelling Range** | 1.0-50.0 | % | At 0.5-1.5 at.% burnup (can exceed 50%) |
+| **Bulk Nucleation Factor** (`Fnb`) | 1×10⁻⁵ | - | Same as alloys |
+| **Boundary Nucleation Factor** (`Fnf`) | 1.0 | - | **5 orders of magnitude higher than alloys!** |
+| **Vacancy Formation Energy** | 1.7 | eV | Higher than alloys (1.034-1.2 eV) |
+
+**Typical Applications:**
+- Research reactors (historical)
+- Fundamental swelling studies
+- Reference: Figures 9-10 in paper
+
+**Critical Parameter Differences:**
+- **Boundary nucleation factor** (`Fnf` = 1.0) is dramatically higher
+  - Causes rapid bubble formation on grain boundaries
+  - Leads to much higher swelling rates
+  - Can cause grain boundary tearing at high burnup
+
+- **Very high dislocation density** (1×10¹⁵ m⁻²)
+  - 10-50× higher than alloys
+  - Contributes to high swelling
+
+- **Higher vacancy formation energy** (1.7 eV)
+  - Affects defect balance calculations
+
+**⚠️ Warning:** High-purity uranium exhibits extreme swelling (up to 50% volume change) and is not representative of modern alloy fuels. Use these parameters only for validation against historical data.
 
 ---
 
