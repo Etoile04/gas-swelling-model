@@ -126,6 +126,26 @@ class RefactoredGasSwellingModel:
         self.solver_success = True
         self.current_time = 0.0
 
+    def _equations(self, t: float, state: np.ndarray) -> np.ndarray:
+        """
+        ODE方程方法别名 (ODE equations method alias)
+
+        This is an alias for _equations_wrapper to maintain backward compatibility
+        with existing tests.
+
+        这是_equations_wrapper的别名，用于保持与现有测试的向后兼容性。
+
+        参数 (Parameters):
+            t : float
+                当前时间 (current time)
+            state : np.ndarray
+                状态向量 (state vector)
+
+        返回 (Returns):
+            np.ndarray: 状态导数向量 (state derivative vector)
+        """
+        return self._equations_wrapper(t, state)
+
     def _initialize_state(self) -> np.ndarray:
         """
         初始化状态变量 (Initialize state variables)
