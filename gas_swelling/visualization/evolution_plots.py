@@ -7,7 +7,9 @@ over time, including swelling, bubble radius, gas pressure, and more.
 
 Functions:
     plot_swelling_evolution: Plot swelling rate vs time/burnup
+    plot_swelling_with_uncertainty: Plot swelling rate with uncertainty error bands
     plot_bubble_radius_evolution: Plot bubble radius (Rcb, Rcf) vs time
+    plot_bubble_radius_with_uncertainty: Plot bubble radius with uncertainty error bands
     plot_gas_concentration_evolution: Plot gas concentration (Cgb, Cgf) vs time
     plot_bubble_concentration_evolution: Plot bubble concentration vs time
     plot_gas_atoms_evolution: Plot gas atoms per bubble (Ncb, Ncf) vs time
@@ -156,6 +158,155 @@ def plot_swelling_evolution(
     return fig
 
 
+def plot_swelling_with_uncertainty(
+    result: Dict[str, np.ndarray],
+    uncertainty: Optional[Dict[str, np.ndarray]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    time_unit: str = 'minutes',
+    use_burnup: bool = False,
+    uncertainty_level: float = 0.95,
+    save_path: Optional[str] = None,
+    dpi: int = 300,
+    figsize: Tuple[float, float] = (10, 6),
+    style: str = 'default',
+    **kwargs
+) -> plt.Figure:
+    """
+    Plot swelling rate evolution with uncertainty error bands.
+
+    Creates a publication-quality plot showing the swelling rate percentage
+    as a function of time or burnup, with shaded error bands representing
+    uncertainty bounds (e.g., from Monte Carlo simulations or parameter sensitivity).
+
+    Args:
+        result: Dictionary containing simulation results with keys:
+               - 'time': Time array (seconds)
+               - 'Rcb': Bulk bubble radius (m)
+               - 'Rcf': Interface bubble radius (m)
+               - 'Ccb': Bulk bubble concentration (cavities/m³)
+               - 'Ccf': Interface bubble concentration (cavities/m³)
+        uncertainty: Optional dictionary with uncertainty bounds:
+                    - 'swelling_lower': Lower bound of swelling (%)
+                    - 'swelling_upper': Upper bound of swelling (%)
+                    If not provided, will attempt to extract from result
+        params: Optional dictionary of simulation parameters (for burnup calculation)
+        time_unit: Unit for time axis ('seconds', 'minutes', 'hours', 'days')
+        use_burnup: If True, use burnup (%FIMA) instead of time for x-axis
+        uncertainty_level: Confidence level for uncertainty (e.g., 0.95 for 95%)
+        save_path: Optional path to save the figure
+        dpi: Resolution in dots per inch for saved figure
+        figsize: Figure size (width, height) in inches
+        style: Matplotlib style preset ('default', 'presentation', 'poster', 'grayscale')
+        **kwargs: Additional matplotlib kwargs (color, linewidth, alpha, etc.)
+
+    Returns:
+        Matplotlib figure object
+
+    Raises:
+        ValueError: If required keys are missing from result
+
+    Examples:
+        >>> # With explicit uncertainty bounds
+        >>> uncertainty = {
+        ...     'swelling_lower': lower_bound_array,
+        ...     'swelling_upper': upper_bound_array
+        ... }
+        >>> fig = plot_swelling_with_uncertainty(
+        ...     result, uncertainty,
+        ...     time_unit='hours',
+        ...     save_path='swelling_uncertainty.png'
+        ... )
+        >>> plt.close(fig)
+        >>>
+        >>> # With uncertainty in result dict
+        >>> result['swelling_lower'] = lower_bound_array
+        >>> result['swelling_upper'] = upper_bound_array
+        >>> fig = plot_swelling_with_uncertainty(result)
+
+    Notes:
+        Swelling rate is calculated as:
+        V_bubble = (4/3) * π * R³ * Cc
+        Swelling (%) = (V_bubble_bulk + V_bubble_interface) * 100
+
+        The uncertainty bands are visualized using matplotlib's fill_between
+        method with semi-transparent shading.
+    """
+    # Apply publication style
+    apply_publication_style(style)
+
+    # Validate required keys
+    required_keys = ['time', 'Rcb', 'Rcf', 'Ccb', 'Ccf']
+    validate_result_data(result, required_keys)
+
+    # Calculate time/burnup data
+    time_seconds = result['time']
+    if use_burnup and params is not None:
+        fission_rate = params.get('fission_rate', 5e19)
+        x_data = calculate_burnup(time_seconds, fission_rate)
+        xlabel = VARIABLE_LABELS['burnup']
+    else:
+        x_data = convert_time_units(time_seconds, time_unit)
+        xlabel = get_time_unit_label(time_unit)
+
+    # Calculate swelling rate
+    Rcb = result['Rcb']
+    Rcf = result['Rcf']
+    Ccb = result['Ccb']
+    Ccf = result['Ccf']
+
+    V_bubble_b = (4.0 / 3.0) * np.pi * Rcb**3 * Ccb
+    V_bubble_f = (4.0 / 3.0) * np.pi * Rcf**3 * Ccf
+    total_V_bubble = V_bubble_b + V_bubble_f
+    swelling = total_V_bubble * 100  # Convert to percentage
+
+    # Get uncertainty bounds
+    if uncertainty is not None:
+        swelling_lower = uncertainty.get('swelling_lower', swelling)
+        swelling_upper = uncertainty.get('swelling_upper', swelling)
+    else:
+        # Try to get from result dict
+        swelling_lower = result.get('swelling_lower', swelling)
+        swelling_upper = result.get('swelling_upper', swelling)
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Get plotting parameters
+    color = kwargs.get('color', 'red')
+    linewidth = kwargs.get('linewidth', 2.0)
+    alpha = kwargs.get('alpha', 0.3)
+
+    # Plot uncertainty band
+    if not np.array_equal(swelling_lower, swelling) or not np.array_equal(swelling_upper, swelling):
+        ax.fill_between(x_data, swelling_lower, swelling_upper,
+                       color=color, alpha=alpha, label=f'{uncertainty_level*100:.0f}% Confidence')
+
+    # Plot main swelling line
+    ax.plot(x_data, swelling, color=color, linewidth=linewidth,
+           label='Mean Swelling' if uncertainty is not None or 'swelling_lower' in result else 'Swelling')
+
+    # Styling
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Swelling Rate (%)')
+    ax.set_title('Swelling Rate Evolution with Uncertainty')
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    # Set axis limits if provided
+    if 'xlim' in kwargs:
+        ax.set_xlim(kwargs['xlim'])
+    if 'ylim' in kwargs:
+        ax.set_ylim(kwargs['ylim'])
+
+    plt.tight_layout()
+
+    # Save figure
+    if save_path:
+        save_figure(fig, save_path, dpi=dpi, close=False)
+
+    return fig
+
+
 def plot_bubble_radius_evolution(
     result: Dict[str, np.ndarray],
     params: Optional[Dict[str, Any]] = None,
@@ -239,6 +390,185 @@ def plot_bubble_radius_evolution(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(f'Bubble Radius ({length_unit})')
     ax.set_title('Bubble Radius Evolution')
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    # Set axis limits if provided
+    if 'xlim' in kwargs:
+        ax.set_xlim(kwargs['xlim'])
+    if 'ylim' in kwargs:
+        ax.set_ylim(kwargs['ylim'])
+
+    plt.tight_layout()
+
+    # Save figure
+    if save_path:
+        save_figure(fig, save_path, dpi=dpi, close=False)
+
+    return fig
+
+
+def plot_bubble_radius_with_uncertainty(
+    result: Dict[str, np.ndarray],
+    uncertainty: Optional[Dict[str, np.ndarray]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    time_unit: str = 'minutes',
+    length_unit: str = 'nm',
+    use_burnup: bool = False,
+    uncertainty_level: float = 0.95,
+    save_path: Optional[str] = None,
+    dpi: int = 300,
+    figsize: Tuple[float, float] = (10, 6),
+    style: str = 'default',
+    **kwargs
+) -> plt.Figure:
+    """
+    Plot bubble radius evolution with uncertainty error bands.
+
+    Creates a publication-quality plot showing the bubble radius evolution
+    for both bulk (Rcb) and interface (Rcf) bubbles, with shaded error bands
+    representing uncertainty bounds (e.g., from Monte Carlo simulations or
+    parameter sensitivity analysis).
+
+    Args:
+        result: Dictionary containing simulation results with keys:
+               - 'time': Time array (seconds)
+               - 'Rcb': Bulk bubble radius (m)
+               - 'Rcf': Interface bubble radius (m)
+        uncertainty: Optional dictionary with uncertainty bounds:
+                    - 'Rcb_lower': Lower bound of bulk radius (m)
+                    - 'Rcb_upper': Upper bound of bulk radius (m)
+                    - 'Rcf_lower': Lower bound of interface radius (m)
+                    - 'Rcf_upper': Upper bound of interface radius (m)
+                    If not provided, will attempt to extract from result
+        params: Optional dictionary of simulation parameters (for burnup calculation)
+        time_unit: Unit for time axis ('seconds', 'minutes', 'hours', 'days')
+        length_unit: Unit for radius ('m', 'mm', 'um', 'nm')
+        use_burnup: If True, use burnup (%FIMA) instead of time for x-axis
+        uncertainty_level: Confidence level for uncertainty (e.g., 0.95 for 95%)
+        save_path: Optional path to save the figure
+        dpi: Resolution in dots per inch for saved figure
+        figsize: Figure size (width, height) in inches
+        style: Matplotlib style preset ('default', 'presentation', 'poster', 'grayscale')
+        **kwargs: Additional matplotlib kwargs (linewidth, alpha, etc.)
+
+    Returns:
+        Matplotlib figure object
+
+    Raises:
+        ValueError: If required keys are missing from result
+
+    Examples:
+        >>> # With explicit uncertainty bounds
+        >>> uncertainty = {
+        ...     'Rcb_lower': rcb_lower_bound,
+        ...     'Rcb_upper': rcb_upper_bound,
+        ...     'Rcf_lower': rcf_lower_bound,
+        ...     'Rcf_upper': rcf_upper_bound
+        ... }
+        >>> fig = plot_bubble_radius_with_uncertainty(
+        ...     result, uncertainty,
+        ...     time_unit='hours',
+        ...     length_unit='nm',
+        ...     save_path='radius_uncertainty.png'
+        ... )
+        >>> plt.close(fig)
+        >>>
+        >>> # With uncertainty in result dict
+        >>> result['Rcb_lower'] = rcb_lower_bound
+        >>> result['Rcb_upper'] = rcb_upper_bound
+        >>> fig = plot_bubble_radius_with_uncertainty(result)
+
+    Notes:
+        The uncertainty bands are visualized using matplotlib's fill_between
+        method with semi-transparent shading for both bulk and interface bubbles.
+    """
+    # Apply publication style
+    apply_publication_style(style)
+
+    # Validate required keys
+    required_keys = ['time', 'Rcb', 'Rcf']
+    validate_result_data(result, required_keys)
+
+    # Calculate time/burnup data
+    time_seconds = result['time']
+    if use_burnup and params is not None:
+        fission_rate = params.get('fission_rate', 5e19)
+        x_data = calculate_burnup(time_seconds, fission_rate)
+        xlabel = VARIABLE_LABELS['burnup']
+    else:
+        x_data = convert_time_units(time_seconds, time_unit)
+        xlabel = get_time_unit_label(time_unit)
+
+    # Convert radius to desired unit
+    Rcb = convert_length_units(result['Rcb'], length_unit)
+    Rcf = convert_length_units(result['Rcf'], length_unit)
+
+    # Get uncertainty bounds and convert to desired unit
+    if uncertainty is not None:
+        Rcb_lower = convert_length_units(
+            uncertainty.get('Rcb_lower', result['Rcb']), length_unit
+        )
+        Rcb_upper = convert_length_units(
+            uncertainty.get('Rcb_upper', result['Rcb']), length_unit
+        )
+        Rcf_lower = convert_length_units(
+            uncertainty.get('Rcf_lower', result['Rcf']), length_unit
+        )
+        Rcf_upper = convert_length_units(
+            uncertainty.get('Rcf_upper', result['Rcf']), length_unit
+        )
+    else:
+        # Try to get from result dict
+        Rcb_lower = convert_length_units(
+            result.get('Rcb_lower', result['Rcb']), length_unit
+        )
+        Rcb_upper = convert_length_units(
+            result.get('Rcb_upper', result['Rcb']), length_unit
+        )
+        Rcf_lower = convert_length_units(
+            result.get('Rcf_lower', result['Rcf']), length_unit
+        )
+        Rcf_upper = convert_length_units(
+            result.get('Rcf_upper', result['Rcf']), length_unit
+        )
+
+    # Get color palette
+    colors = get_color_palette('bulk_interface')
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Get plotting parameters
+    linewidth = kwargs.get('linewidth', 2.0)
+    alpha = kwargs.get('alpha', 0.3)
+
+    # Plot uncertainty band for bulk bubbles
+    has_rcb_uncertainty = (not np.array_equal(Rcb_lower, Rcb) or
+                          not np.array_equal(Rcb_upper, Rcb))
+    if has_rcb_uncertainty:
+        ax.fill_between(x_data, Rcb_lower, Rcb_upper,
+                       color=colors[0], alpha=alpha,
+                       label=f'{uncertainty_level*100:.0f}% Confidence (Bulk)')
+
+    # Plot uncertainty band for interface bubbles
+    has_rcf_uncertainty = (not np.array_equal(Rcf_lower, Rcf) or
+                          not np.array_equal(Rcf_upper, Rcf))
+    if has_rcf_uncertainty:
+        ax.fill_between(x_data, Rcf_lower, Rcf_upper,
+                       color=colors[1], alpha=alpha,
+                       label=f'{uncertainty_level*100:.0f}% Confidence (Interface)')
+
+    # Plot main radius lines
+    ax.plot(x_data, Rcb, label='Bulk Bubble' if has_rcb_uncertainty else 'Bulk Bubble',
+            color=colors[0], linewidth=linewidth)
+    ax.plot(x_data, Rcf, label='Interface Bubble' if has_rcf_uncertainty else 'Interface Bubble',
+            color=colors[1], linewidth=linewidth)
+
+    # Styling
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(f'Bubble Radius ({length_unit})')
+    ax.set_title('Bubble Radius Evolution with Uncertainty')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
 

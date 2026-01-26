@@ -17,7 +17,9 @@ __version__ = "0.1.0"
 from .core import GasSwellingPlotter, create_standard_plotter
 from .evolution_plots import (
     plot_swelling_evolution,
+    plot_swelling_with_uncertainty,
     plot_bubble_radius_evolution,
+    plot_bubble_radius_with_uncertainty,
     plot_gas_concentration_evolution,
     plot_bubble_concentration_evolution,
     plot_gas_atoms_evolution,
@@ -32,6 +34,11 @@ from .parameter_sweeps import (
     plot_parameter_sensitivity,
     plot_arrhenius_analysis,
 )
+from .contour_plots import (
+    plot_temperature_contour,
+    plot_2d_parameter_sweep,
+    plot_swelling_heatmap,
+)
 from .comparison_plots import (
     compare_bulk_interface,
     plot_bulk_interface_ratio,
@@ -39,6 +46,11 @@ from .comparison_plots import (
     plot_gas_distribution_evolution,
     plot_correlation_matrix,
     plot_phase_comparison,
+)
+from .distribution_plots import (
+    plot_bubble_size_distribution,
+    plot_bubble_radius_distribution,
+    plot_gas_distribution_histogram,
 )
 from .utils import (
     # Style configuration
@@ -73,7 +85,9 @@ __all__ = [
 
     # Evolution plots
     'plot_swelling_evolution',
+    'plot_swelling_with_uncertainty',
     'plot_bubble_radius_evolution',
+    'plot_bubble_radius_with_uncertainty',
     'plot_gas_concentration_evolution',
     'plot_bubble_concentration_evolution',
     'plot_gas_atoms_evolution',
@@ -88,6 +102,11 @@ __all__ = [
     'plot_parameter_sensitivity',
     'plot_arrhenius_analysis',
 
+    # Contour plots
+    'plot_temperature_contour',
+    'plot_2d_parameter_sweep',
+    'plot_swelling_heatmap',
+
     # Comparison plots
     'compare_bulk_interface',
     'plot_bulk_interface_ratio',
@@ -95,6 +114,11 @@ __all__ = [
     'plot_gas_distribution_evolution',
     'plot_correlation_matrix',
     'plot_phase_comparison',
+
+    # Distribution plots
+    'plot_bubble_size_distribution',
+    'plot_bubble_radius_distribution',
+    'plot_gas_distribution_histogram',
 
     # Style configuration
     'get_publication_style',
