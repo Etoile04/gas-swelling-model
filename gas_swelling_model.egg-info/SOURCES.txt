@@ -7,6 +7,7 @@ INSTALL.md
 LICENSE
 MANIFEST.in
 PROGRESS_TRACKING.md
+QUICKSTART.md
 README.md
 REFACTORING.md
 SUBTASK_1-3_COMPLETION.md
@@ -14,6 +15,7 @@ THEORY_DOCUMENTATION.md
 VERIFICATION_SUMMARY.md
 backward_compatibility_report.md
 build_docs.py
+cli_error_tests_summary.md
 euler_model.log
 example_parameter_sweep.py
 model_design.md
@@ -24,6 +26,7 @@ requirements.txt
 run_test.py
 sampling_strategies.py
 setup.py
+subtask-5-3-completion-summary.md
 subtask-5-3-summary.md
 subtask-6-3-completion-summary.md
 test4_run_lsoda.log
@@ -50,6 +53,10 @@ verify_tests.py
 .auto-claude/specs/003-multi-parameter-sweep-optimization/build-progress.txt
 .auto-claude/specs/003-multi-parameter-sweep-optimization/implementation_plan.json
 .auto-claude/specs/019-comprehensive-test-suite/validation_report.md
+.github/workflows/README.md
+.github/workflows/docs.yml
+.github/workflows/lint.yml
+.github/workflows/pages-deploy.yml
 .github/workflows/test.yml
 cli/__init__.py
 cli/__main__.py
@@ -102,6 +109,7 @@ examples/__init__.py
 examples/adaptive_stepping_demo.py
 examples/config_example.yaml
 examples/plotting_examples.py
+examples/quickstart_simple.py
 examples/quickstart_tutorial.py
 examples/run_simulation.py
 examples/sensitivity_analysis_tutorial.py
@@ -122,6 +130,7 @@ gas_swelling/io/visualization.py
 gas_swelling/models/__init__.py
 gas_swelling/models/adaptive_solver.py
 gas_swelling/models/modelrk23.py
+gas_swelling/models/radial_mesh.py
 gas_swelling/models/refactored_model.py
 gas_swelling/ode/README.md
 gas_swelling/ode/__init__.py
