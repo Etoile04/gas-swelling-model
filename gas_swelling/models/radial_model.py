@@ -34,6 +34,7 @@ radius. Each radial node solves an independent ODE system with spatial coupling.
 
 import numpy as np
 from typing import Optional, Dict, Tuple, List
+from scipy.integrate import solve_ivp
 from .radial_mesh import RadialMesh
 from ..params.parameters import create_default_parameters
 from ..physics import (
@@ -45,7 +46,6 @@ from ..physics import (
 )
 from ..physics.radial_transport import calculate_radial_transport_terms
 from ..ode import swelling_ode_system
-from ..solvers import RK23Solver
 from ..io import (
     DebugConfig,
     DebugHistory,
@@ -570,6 +570,8 @@ class RadialGasSwellingModel:
             method : str
                 求解方法 (solver method)
                 - 'RK23': Runge-Kutta 2(3) 自适应方法 (default)
+                - 'RK45': Runge-Kutta 4(5) 自适应方法
+                - 'BDF': 适用于刚性系统 (suitable for stiff systems)
                 默认值: 'RK23'
             dt : float
                 初始时间步长，单位：秒 (initial time step in seconds)
@@ -632,38 +634,49 @@ class RadialGasSwellingModel:
         if t_eval is None:
             t_eval = np.linspace(t_span[0], t_span[1], 100)
 
-        # 创建求解器 (create solver)
-        if method == 'RK23':
-            solver = RK23Solver(self._equations_wrapper, self.params)
-        else:
-            # 对于其他方法，使用RK23但可以通过参数调整
-            solver = RK23Solver(self._equations_wrapper, self.params)
+        # 映射方法名称到scipy方法 (map method name to scipy method)
+        scipy_method = {
+            'RK23': 'RK23',
+            'RK45': 'RK45',
+            'BDF': 'BDF',
+            'Radau': 'Radau',
+            'LSODA': 'LSODA'
+        }.get(method, 'RK23')
 
-        # 使用模块化求解器求解 (solve using modular solver)
+        # 使用scipy的solve_ivp求解 (solve using scipy's solve_ivp)
         try:
-            raw_results = solver.solve(
+            sol = solve_ivp(
+                fun=self._equations_wrapper,
                 t_span=t_span,
                 y0=self.initial_state,
                 t_eval=t_eval,
-                dt=dt,
-                max_dt=max_dt
+                method=scipy_method,
+                first_step=dt,
+                max_step=max_dt,
+                max_nfev=max_steps,
+                vectorized=False,
+                rtol=1e-6,
+                atol=1e-9
             )
             self.solver_success = True
         except Exception as e:
             self.solver_success = False
             raise RuntimeError(f"Solver failed: {str(e)}")
 
+        if not sol.success:
+            raise RuntimeError(f"Solver failed: {sol.message}")
+
         # 重构结果：将全局状态向量分解为各节点的结果
         # (restructure results: decompose global state vector into per-node results)
-        n_time_points = len(t_eval)
+        n_time_points = len(sol.t)
         results = {
-            'time': raw_results['time']
+            'time': sol.t
         }
 
         # 重塑状态变量 (reshape state variables)
-        # raw_results['y']的形状是 (n_time_points, 17*n_nodes)
+        # sol.y的形状是 (17*n_nodes, n_time_points)
         # 我们需要将其转换为 (n_time_points, n_nodes) 的每个变量
-        state_time_series = raw_results['y']  # shape: (n_time, 17*n_nodes)
+        state_time_series = sol.y.T  # shape: (n_time, 17*n_nodes)
 
         # 为每个状态变量创建时间序列 (create time series for each state variable)
         state_names = [
