@@ -39,7 +39,7 @@ from gas_swelling.visualization.radial_plots import (
 )
 
 
-class TestResults:
+class ResultTracker:
     """Track test results"""
     def __init__(self):
         self.passed = 0
@@ -674,7 +674,7 @@ def main():
     print("  GAS SWELLING RADIAL VISUALIZATION - TEST SUITE")
     print("=" * 70)
 
-    results = TestResults()
+    results = ResultTracker()
 
     # Create test data
     try:
