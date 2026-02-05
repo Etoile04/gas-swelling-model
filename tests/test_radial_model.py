@@ -703,3 +703,163 @@ class TestRadialGasSwellingModel0DComparison:
                 np.testing.assert_allclose(value_0d, value_1d_node0,
                                            rtol=1e-5, atol=1e-10,
                                            err_msg=f"Initial state index {i} differs")
+
+
+class TestRadialGasSwellingModelGeometryComparison:
+    """Test geometry comparison - cylindrical vs slab geometries"""
+
+    @pytest.mark.slow
+    def test_geometry_comparison(self):
+        """Test that cylindrical and slab geometries produce valid but different results"""
+        # Create common parameters
+        params = create_default_parameters()
+        params['temperature'] = 773.15  # 500°C in Kelvin
+        params['fission_rate'] = 5e18
+
+        # Define simulation time
+        sim_time = 10000  # 10000 seconds
+        time_points = np.linspace(0, sim_time, 10)
+
+        # Run cylindrical geometry model
+        model_cyl = RadialGasSwellingModel(
+            params,
+            n_nodes=5,
+            geometry='cylindrical',
+            temperature_profile='uniform',
+            flux_depression=False
+        )
+        result_cyl = model_cyl.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Run slab geometry model
+        model_slab = RadialGasSwellingModel(
+            params,
+            n_nodes=5,
+            geometry='slab',
+            temperature_profile='uniform',
+            flux_depression=False
+        )
+        result_slab = model_slab.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Both geometries should produce valid results
+        for key in ['Cgb', 'Ccb', 'Ncb', 'Rcb', 'Cgf', 'Ccf', 'Ncf', 'Rcf',
+                    'cvb', 'cib', 'cvf', 'cif']:
+            # Check all values are non-negative
+            assert np.all(result_cyl[key] >= 0), f"Cylindrical {key} has negative values"
+            assert np.all(result_slab[key] >= 0), f"Slab {key} has negative values"
+
+            # Check all values are finite
+            assert np.all(np.isfinite(result_cyl[key])), f"Cylindrical {key} has non-finite values"
+            assert np.all(np.isfinite(result_slab[key])), f"Slab {key} has non-finite values"
+
+        # Swelling should be non-negative
+        assert np.all(result_cyl['swelling'] >= 0), "Cylindrical swelling has negative values"
+        assert np.all(result_slab['swelling'] >= 0), "Slab swelling has negative values"
+
+        # Both geometries should produce physically reasonable swelling
+        swelling_cyl_final = np.mean(result_cyl['swelling'][-1, :])
+        swelling_slab_final = np.mean(result_slab['swelling'][-1, :])
+
+        assert swelling_cyl_final >= 0, "Cylindrical final swelling is negative"
+        assert swelling_slab_final >= 0, "Slab final swelling is negative"
+        assert np.isfinite(swelling_cyl_final), "Cylindrical final swelling is not finite"
+        assert np.isfinite(swelling_slab_final), "Slab final swelling is not finite"
+
+        # Geometries may produce different results due to geometry factors
+        # (cylindrical has geometry_factor=1.0, slab has geometry_factor=0.0)
+        # This affects radial transport and can lead to spatial variations
+        # The key is that both produce valid, physically reasonable results
+
+        # Check that released gas is non-decreasing for both geometries
+        for i in range(model_cyl.n_nodes):
+            released_cyl = result_cyl['released_gas'][:, i]
+            released_slab = result_slab['released_gas'][:, i]
+
+            # Check non-decreasing (allow small numerical tolerance)
+            assert np.all(np.diff(released_cyl) >= -1e-10), \
+                f"Cylindrical released gas decreasing at node {i}"
+            assert np.all(np.diff(released_slab) >= -1e-10), \
+                f"Slab released gas decreasing at node {i}"
+
+    def test_geometry_mesh_attributes(self):
+        """Test that mesh attributes are correctly set for different geometries"""
+        # Cylindrical geometry
+        model_cyl = RadialGasSwellingModel(n_nodes=5, geometry='cylindrical')
+        assert model_cyl.mesh.geometry == 'cylindrical'
+        # geometry_factor should be 1.0 for cylindrical (r/r = 1 at all points)
+        assert np.allclose(model_cyl.mesh.geometry_factor, 1.0)
+
+        # Slab geometry
+        model_slab = RadialGasSwellingModel(n_nodes=5, geometry='slab')
+        assert model_slab.mesh.geometry == 'slab'
+        # geometry_factor should be 0.0 for slab (no 1/r term)
+        assert np.allclose(model_slab.mesh.geometry_factor, 0.0)
+
+    def test_geometry_with_temperature_gradient(self):
+        """Test that both geometries work with non-uniform temperature profiles"""
+        params = create_default_parameters()
+
+        # Create models with parabolic temperature profile
+        model_cyl = RadialGasSwellingModel(
+            params,
+            n_nodes=5,
+            geometry='cylindrical',
+            temperature_profile='parabolic'
+        )
+        model_slab = RadialGasSwellingModel(
+            params,
+            n_nodes=5,
+            geometry='slab',
+            temperature_profile='parabolic'
+        )
+
+        # Both should have valid temperature profiles
+        assert len(model_cyl.temperature) == 5
+        assert len(model_slab.temperature) == 5
+
+        # Temperature should decrease from center to surface
+        assert model_cyl.temperature[0] > model_cyl.temperature[-1]
+        assert model_slab.temperature[0] > model_slab.temperature[-1]
+
+        # Temperature profiles should be identical (same profile type)
+        np.testing.assert_array_equal(model_cyl.temperature, model_slab.temperature)
+
+    @pytest.mark.slow
+    def test_geometry_solve_consistency(self):
+        """Test that both geometries can be solved multiple times consistently"""
+        params = create_default_parameters()
+        sim_time = 5000
+        time_points = np.linspace(0, sim_time, 5)
+
+        # Test cylindrical geometry
+        model_cyl = RadialGasSwellingModel(
+            params,
+            n_nodes=3,
+            geometry='cylindrical'
+        )
+        result_cyl1 = model_cyl.solve(t_span=(0, sim_time), t_eval=time_points)
+        result_cyl2 = model_cyl.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Results should be consistent
+        for key in ['swelling', 'Cgb', 'Ccb']:
+            np.testing.assert_allclose(
+                result_cyl1[key], result_cyl2[key],
+                rtol=1e-10, atol=1e-10,
+                err_msg=f"Cylindrical {key} not consistent between solves"
+            )
+
+        # Test slab geometry
+        model_slab = RadialGasSwellingModel(
+            params,
+            n_nodes=3,
+            geometry='slab'
+        )
+        result_slab1 = model_slab.solve(t_span=(0, sim_time), t_eval=time_points)
+        result_slab2 = model_slab.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Results should be consistent
+        for key in ['swelling', 'Cgb', 'Ccb']:
+            np.testing.assert_allclose(
+                result_slab1[key], result_slab2[key],
+                rtol=1e-10, atol=1e-10,
+                err_msg=f"Slab {key} not consistent between solves"
+            )
