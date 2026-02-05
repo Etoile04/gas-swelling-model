@@ -97,7 +97,8 @@ class RadialProfilePlotter(GasSwellingPlotter):
 
     def load_radial_result(self,
                           result: Dict[str, np.ndarray],
-                          mesh: Any) -> None:
+                          mesh: Any,
+                          params: Optional[Dict[str, Any]] = None) -> None:
         """
         Load radial simulation results for plotting.
 
@@ -109,12 +110,14 @@ class RadialProfilePlotter(GasSwellingPlotter):
                      'Rcb', 'Rcf', 'cvb', 'cvf', 'cib', 'cif',
                      'released_gas', 'swelling', 'Pg_b', 'Pg_f', 'temperature'
             mesh: RadialMesh object containing node positions
+            params: Optional dictionary of simulation parameters for burnup calculation
 
         Raises:
             ValueError: If required keys are missing from result
 
         Examples:
             >>> plotter.load_radial_result(result, model.mesh)
+            >>> plotter.load_radial_result(result, model.mesh, params)
         """
         # Validate basic structure
         if 'time' not in result:
@@ -138,6 +141,7 @@ class RadialProfilePlotter(GasSwellingPlotter):
 
         self.radial_result = result
         self.mesh = mesh
+        self.params = params  # Set params for burnup calculation
         self.n_nodes = mesh.n_nodes if hasattr(mesh, 'n_nodes') else result[radial_keys[0]].shape[1]
 
     def get_radius_data(self) -> np.ndarray:
