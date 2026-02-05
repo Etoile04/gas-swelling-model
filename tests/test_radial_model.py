@@ -705,6 +705,250 @@ class TestRadialGasSwellingModel0DComparison:
                                            err_msg=f"Initial state index {i} differs")
 
 
+class TestRadialGasSwellingModelBoundaryConditions:
+    """Test boundary condition handling in radial model"""
+
+    def test_centerline_symmetry_zero_flux(self):
+        """Test that centerline boundary condition enforces zero flux at r=0"""
+        model = RadialGasSwellingModel(n_nodes=5)
+
+        # Create a concentration profile that would normally have flux
+        # High concentration at center, low at surface
+        concentration = np.linspace(1e25, 0.5e25, model.n_nodes)
+
+        # Calculate radial flux using the model's internal transport
+        from gas_swelling.physics.radial_transport import calculate_radial_flux
+
+        flux = calculate_radial_flux(
+            concentration,
+            diffusion_coeff=1e-15,
+            mesh_nodes=model.mesh.nodes,
+            geometry_factor=1.0 if model.mesh.geometry == 'cylindrical' else 0.0
+        )
+
+        # Apply centerline boundary condition
+        from gas_swelling.physics.radial_transport import apply_centerline_bc
+        flux_with_bc = apply_centerline_bc(flux)
+
+        # First flux (from centerline to first interior node) should be zero
+        assert flux_with_bc[0] == 0.0
+
+    def test_surface_flux_boundary_condition(self):
+        """Test that surface boundary condition can be applied"""
+        model = RadialGasSwellingModel(n_nodes=5)
+
+        # Create a concentration profile
+        concentration = np.linspace(1e25, 0.5e25, model.n_nodes)
+
+        # Calculate radial flux
+        from gas_swelling.physics.radial_transport import calculate_radial_flux
+        flux = calculate_radial_flux(
+            concentration,
+            diffusion_coeff=1e-15,
+            mesh_nodes=model.mesh.nodes,
+            geometry_factor=1.0 if model.mesh.geometry == 'cylindrical' else 0.0
+        )
+
+        # Apply surface boundary condition with specified flux
+        from gas_swelling.physics.radial_transport import apply_surface_bc
+        surface_flux_value = 5e10  # atoms/m²/s (positive = out of fuel)
+        flux_with_bc = apply_surface_bc(flux, surface_flux_value, model.mesh.nodes)
+
+        # Last flux should match specified surface flux
+        assert flux_with_bc[-1] == surface_flux_value
+
+    def test_boundary_conditions_with_cylindrical_geometry(self):
+        """Test boundary conditions work correctly with cylindrical geometry"""
+        model = RadialGasSwellingModel(
+            n_nodes=5,
+            geometry='cylindrical'
+        )
+
+        # Verify geometry is cylindrical
+        assert model.mesh.geometry == 'cylindrical'
+
+        # Create concentration profile
+        concentration = np.linspace(1e25, 0.5e25, model.n_nodes)
+
+        # Calculate and apply boundary conditions
+        from gas_swelling.physics.radial_transport import (
+            calculate_radial_transport_terms
+        )
+
+        terms = calculate_radial_transport_terms(
+            concentration,
+            model.mesh.nodes,
+            diffusion_coeff=1e-15,
+            geometry_factor=1.0,  # Cylindrical
+            surface_flux=None  # No surface flux
+        )
+
+        # Centerline BC should be applied
+        assert terms['flux_with_bc'][0] == 0.0
+
+        # All values should be finite
+        assert np.all(np.isfinite(terms['flux']))
+        assert np.all(np.isfinite(terms['div_flux']))
+
+    def test_boundary_conditions_with_slab_geometry(self):
+        """Test boundary conditions work correctly with slab geometry"""
+        model = RadialGasSwellingModel(
+            n_nodes=5,
+            geometry='slab'
+        )
+
+        # Verify geometry is slab
+        assert model.mesh.geometry == 'slab'
+
+        # Create concentration profile
+        concentration = np.linspace(1e25, 0.5e25, model.n_nodes)
+
+        # Calculate and apply boundary conditions
+        from gas_swelling.physics.radial_transport import (
+            calculate_radial_transport_terms
+        )
+
+        terms = calculate_radial_transport_terms(
+            concentration,
+            model.mesh.nodes,
+            diffusion_coeff=1e-15,
+            geometry_factor=0.0,  # Slab
+            surface_flux=None  # No surface flux
+        )
+
+        # Centerline BC should be applied
+        assert terms['flux_with_bc'][0] == 0.0
+
+        # All values should be finite
+        assert np.all(np.isfinite(terms['flux']))
+        assert np.all(np.isfinite(terms['div_flux']))
+
+    def test_boundary_conditions_different_node_counts(self):
+        """Test boundary conditions work with different mesh configurations"""
+        for n_nodes in [3, 5, 10, 20]:
+            model = RadialGasSwellingModel(n_nodes=n_nodes)
+
+            # Create concentration profile
+            concentration = np.linspace(1e25, 0.5e25, n_nodes)
+
+            # Calculate transport terms
+            from gas_swelling.physics.radial_transport import (
+                calculate_radial_transport_terms
+            )
+
+            terms = calculate_radial_transport_terms(
+                concentration,
+                model.mesh.nodes,
+                diffusion_coeff=1e-15,
+                geometry_factor=1.0,
+                surface_flux=None
+            )
+
+            # Centerline BC should be applied for all configurations
+            assert terms['flux_with_bc'][0] == 0.0
+
+            # Flux array should have n_nodes - 1 elements
+            assert len(terms['flux']) == n_nodes - 1
+            assert len(terms['flux_with_bc']) == n_nodes - 1
+
+            # Divergence should have n_nodes elements
+            assert len(terms['div_flux']) == n_nodes
+
+            # All values should be finite
+            assert np.all(np.isfinite(terms['flux']))
+            assert np.all(np.isfinite(terms['div_flux']))
+
+    def test_boundary_conditions_with_surface_flux(self):
+        """Test boundary conditions with specified surface flux"""
+        model = RadialGasSwellingModel(n_nodes=5)
+
+        # Create concentration profile
+        concentration = np.linspace(1e25, 0.5e25, model.n_nodes)
+
+        # Test with different surface flux values
+        for surface_flux in [0.0, 1e10, -1e10, 5e10]:
+            from gas_swelling.physics.radial_transport import (
+                calculate_radial_transport_terms
+            )
+
+            terms = calculate_radial_transport_terms(
+                concentration,
+                model.mesh.nodes,
+                diffusion_coeff=1e-15,
+                geometry_factor=1.0,
+                surface_flux=surface_flux
+            )
+
+            # Centerline BC should still be applied
+            assert terms['flux_with_bc'][0] == 0.0
+
+            # Surface BC should be applied
+            assert terms['flux_with_bc'][-1] == surface_flux
+
+            # All values should be finite
+            assert np.all(np.isfinite(terms['flux']))
+            assert np.all(np.isfinite(terms['div_flux']))
+
+    @pytest.mark.slow
+    def test_boundary_conditions_in_full_solve(self):
+        """Test that boundary conditions are properly applied during full ODE solve"""
+        model = RadialGasSwellingModel(
+            n_nodes=5,
+            temperature_profile='parabolic'
+        )
+
+        # Run a short simulation
+        t_span = (0, 1000)  # Short simulation time
+        time_points = np.linspace(t_span[0], t_span[1], 5)
+
+        results = model.solve(t_span=t_span, t_eval=time_points)
+
+        # Check that results are physically reasonable at all nodes
+        # including boundaries
+        for key in ['Cgb', 'Ccb', 'Ncb', 'Rcb', 'Cgf', 'Ccf', 'Ncf', 'Rcf',
+                    'cvb', 'cib', 'cvf', 'cif']:
+            # All values should be non-negative
+            assert np.all(results[key] >= 0), f"Negative values found in {key}"
+
+            # All values should be finite
+            assert np.all(np.isfinite(results[key])), f"Non-finite values in {key}"
+
+            # Centerline node (index 0) and surface node (index -1)
+            # should both have valid, physically reasonable values
+            centerline_values = results[key][:, 0]
+            surface_values = results[key][:, -1]
+
+            assert np.all(centerline_values >= 0), f"Invalid centerline values in {key}"
+            assert np.all(surface_values >= 0), f"Invalid surface values in {key}"
+            assert np.all(np.isfinite(centerline_values)), f"Non-finite centerline values in {key}"
+            assert np.all(np.isfinite(surface_values)), f"Non-finite surface values in {key}"
+
+    def test_boundary_conditions_mesh_nodes_integrity(self):
+        """Test that mesh nodes are properly set up for boundary conditions"""
+        model = RadialGasSwellingModel(n_nodes=5, radius=0.003)
+
+        # First node should be at r=0 (centerline)
+        assert model.mesh.nodes[0] == 0.0
+
+        # Last node should be at r=R (surface)
+        assert np.isclose(model.mesh.nodes[-1], model.mesh.radius)
+
+        # Nodes should be monotonically increasing
+        assert np.all(np.diff(model.mesh.nodes) > 0)
+
+        # Test with different geometries
+        for geometry in ['cylindrical', 'slab']:
+            model_geom = RadialGasSwellingModel(
+                n_nodes=5,
+                geometry=geometry,
+                radius=0.003
+            )
+
+            # Boundary nodes should be at same positions
+            assert model_geom.mesh.nodes[0] == 0.0
+            assert np.isclose(model_geom.mesh.nodes[-1], model_geom.mesh.radius)
+
+
 class TestRadialGasSwellingModelGeometryComparison:
     """Test geometry comparison - cylindrical vs slab geometries"""
 
