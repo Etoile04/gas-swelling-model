@@ -43,6 +43,7 @@ from ..physics import (
     calculate_cv0,
     calculate_ci0
 )
+from ..physics.radial_transport import calculate_radial_transport_terms
 from ..ode import swelling_ode_system
 from ..solvers import RK23Solver
 from ..io import (
@@ -360,8 +361,8 @@ class RadialGasSwellingModel:
         """
         ODE方程包装器 (ODE equations wrapper)
 
-        将全局状态向量分解为各节点的ODE系统
-        (Decomposes global state vector into ODE systems for each node)
+        将全局状态向量分解为各节点的ODE系统，并添加节点间的径向输运耦合
+        (Decomposes global state vector into ODE systems for each node with spatial coupling)
 
         参数 (Parameters):
             t : float
@@ -382,7 +383,7 @@ class RadialGasSwellingModel:
         # 初始化导数数组 (initialize derivatives array)
         derivatives = np.zeros_like(state_reshaped)
 
-        # 为每个节点计算ODE (calculate ODE for each node)
+        # 首先计算每个节点的独立ODE (first calculate independent ODE for each node)
         for i in range(self.n_nodes):
             # 获取该节点的状态 (get state for this node)
             node_state = state_reshaped[i]
@@ -394,14 +395,81 @@ class RadialGasSwellingModel:
             node_params['fission_rate'] = self.fission_rate[i]
 
             # 调用ODE系统 (call ODE system)
-            # 注意：这里每个节点独立求解，暂不考虑节点间的输运耦合
-            # (Note: each node solved independently here, spatial coupling will be added later)
             node_derivatives = swelling_ode_system(t, node_state, node_params)
 
             derivatives[i] = node_derivatives
 
+        # 添加径向输运耦合 (add radial transport coupling)
+        # 计算气体浓度的径向输运项 (calculate radial transport terms for gas concentrations)
+        transport_terms = self._calculate_radial_coupling(state_reshaped, t)
+
+        # 将输运项添加到导数 (add transport terms to derivatives)
+        for i in range(self.n_nodes):
+            # Cgb (基体气体浓度, bulk gas concentration, index 0)
+            derivatives[i, 0] += transport_terms['dCgb_radial'][i]
+            # Cgf (晶界气体浓度, grain boundary gas concentration, index 4)
+            derivatives[i, 4] += transport_terms['dCgf_radial'][i]
+
         # 重塑回全局状态向量 (reshape back to global state vector)
         return derivatives.flatten()
+
+    def _calculate_radial_coupling(self, state_reshaped: np.ndarray, t: float) -> Dict[str, np.ndarray]:
+        """
+        计算节点间的径向输运耦合 (Calculate radial transport coupling between nodes)
+
+        计算由于径向浓度梯度引起的气体输运项
+        (Calculate gas transport terms due to radial concentration gradients)
+
+        参数 (Parameters):
+            state_reshaped : np.ndarray
+                重塑后的状态向量，形状 (n_nodes, 17)
+                (reshaped state vector, shape (n_nodes, 17))
+            t : float
+                当前时间 (current time)
+
+        返回 (Returns):
+            Dict[str, np.ndarray]: 径向输运项字典 (radial transport terms dictionary)
+                - 'dCgb_radial': 基体气体浓度的径向输运项 (n_nodes,)
+                - 'dCgf_radial': 晶界气体浓度的径向输运项 (n_nodes,)
+        """
+        # 提取气体浓度 (extract gas concentrations)
+        Cgb = state_reshaped[:, 0]  # 基体气体浓度 (bulk gas concentration)
+        Cgf = state_reshaped[:, 4]  # 晶界气体浓度 (grain boundary gas concentration)
+
+        # 获取基线温度用于计算扩散系数 (get baseline temperature for diffusivity calculation)
+        T_base = self.params['temperature']
+        kB_ev = self.params['kB_ev']
+
+        # 计算气体扩散系数 (calculate gas diffusivities)
+        # 基体气体扩散系数 (bulk gas diffusivity)
+        Dgb = (self.params['Dgb_prefactor'] * np.exp(-self.params['Dgb_activation_energy'] / (kB_ev * T_base)) +
+               self.params['Dgb_fission_term'] * self.params['fission_rate'])
+
+        # 晶界气体扩散系数 (grain boundary gas diffusivity)
+        Dgf = self.params['Dgf_multiplier'] * Dgb
+
+        # 获取几何因子 (get geometry factor)
+        geometry_factor = 1.0 if self.mesh.geometry == 'cylindrical' else 0.0
+
+        # 计算径向输运项 (calculate radial transport terms)
+        # 使用径向输运模块计算通量散度 (use radial transport module to calculate flux divergence)
+        Cgb_transport = calculate_radial_transport_terms(
+            Cgb, self.mesh.nodes, Dgb, geometry_factor, surface_flux=None
+        )
+        Cgf_transport = calculate_radial_transport_terms(
+            Cgf, self.mesh.nodes, Dgf, geometry_factor, surface_flux=None
+        )
+
+        # 通量散度是浓度变化率 (flux divergence is the concentration rate of change)
+        # dC/dt = -div_flux (负号因为通量流出导致浓度降低)
+        # (negative sign because flux out reduces concentration)
+        dCgb_radial = -Cgb_transport['div_flux']
+        dCgf_radial = -Cgf_transport['div_flux']
+
+        return {
+            'dCgb_radial': dCgb_radial,
+            'dCgf_radial': dCgf_radial
+        }
 
     def solve(self,
               t_span: Tuple[float, float] = (0, 7200000),
