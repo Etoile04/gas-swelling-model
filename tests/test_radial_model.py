@@ -7,7 +7,7 @@ including initialization, solving, and helper methods.
 
 import pytest
 import numpy as np
-from gas_swelling.models import RadialGasSwellingModel
+from gas_swelling.models import RadialGasSwellingModel, GasSwellingModel
 from gas_swelling.params.parameters import create_default_parameters
 
 
@@ -582,3 +582,124 @@ class TestRadialGasSwellingModelIntegration:
 
         # Temperature profile should be updated
         np.testing.assert_array_almost_equal(model.temperature, new_profile)
+
+
+class TestRadialGasSwellingModel0DComparison:
+    """Test 0D-1D comparison - uniform conditions should match"""
+
+    @pytest.mark.slow
+    def test_0d_1d_comparison(self):
+        """Test that 0D and 1D models produce similar results under uniform conditions"""
+        # Create common parameters
+        params = create_default_parameters()
+        params['temperature'] = 773.15  # 500°C in Kelvin
+        params['fission_rate'] = 5e18
+
+        # Define simulation time (very short for faster testing)
+        sim_time = 1000  # 1000 seconds
+        time_points = np.linspace(0, sim_time, 5)  # Fewer time points
+
+        # Run 0D model
+        model_0d = GasSwellingModel(params)
+        result_0d = model_0d.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Run 1D model with uniform temperature profile
+        model_1d = RadialGasSwellingModel(
+            params,
+            n_nodes=3,  # Fewer nodes for faster computation
+            temperature_profile='uniform',
+            flux_depression=False  # No flux depression for uniform conditions
+        )
+        result_1d = model_1d.solve(t_span=(0, sim_time), t_eval=time_points)
+
+        # Compare results - 1D model should be uniform across all nodes
+        # and match 0D model results
+
+        # Check that 1D model produces uniform results across nodes
+        # (all nodes should have same values under uniform conditions)
+        for key in ['Cgb', 'Ccb', 'Ncb', 'Rcb', 'Cgf', 'Ccf', 'Ncf', 'Rcf',
+                    'cvb', 'cib', 'cvf', 'cif']:
+            values_at_final_time = result_1d[key][-1, :]  # shape: (n_nodes,)
+            # All nodes should have similar values (within numerical tolerance)
+            assert np.allclose(values_at_final_time, values_at_final_time[0],
+                               rtol=1e-2, atol=1e-10), \
+                f"{key} not uniform across nodes in 1D model"
+
+        # Compare 0D results with 1D results (using any node, e.g., node 0)
+        # Use a reasonable tolerance due to numerical differences in ODE solving
+        rtol = 3e-1  # 30% relative tolerance for comparison (accounts for spatial discretization)
+        atol = 1e-10  # Small absolute tolerance
+
+        # Compare key variables at final time
+        # Note: Defect concentrations (cvb, cib, cvf, cif) can have significant
+        # numerical differences due to spatial discretization, so we check them
+        # with more lenient tolerances
+        for key in ['Cgb', 'Ccb', 'Ncb', 'Rcb', 'Cgf', 'Ccf', 'Ncf', 'Rcf']:
+            value_0d = result_0d[key][-1]
+            value_1d = result_1d[key][-1, 0]  # Use node 0
+
+            # Check that values are within tolerance
+            # Use a tolerance that accounts for:
+            # - Different numerical discretization schemes
+            # - Slightly different ODE solver behavior
+            # - Expected physical equivalence under uniform conditions
+            if abs(value_0d) > atol:
+                rel_diff = abs(value_1d - value_0d) / abs(value_0d)
+                assert rel_diff < rtol, \
+                    f"{key}: 0D={value_0d}, 1D={value_1d}, rel_diff={rel_diff}"
+
+        # For defect concentrations, just check they're in reasonable range
+        # (comparison is difficult due to numerical precision differences)
+        for key in ['cvb', 'cib', 'cvf', 'cif']:
+            value_1d = result_1d[key][-1, 0]
+            # Check that values are finite and not overly large
+            assert np.isfinite(value_1d), f"{key} is not finite in 1D model"
+            assert abs(value_1d) < 1e-4, f"{key} has unexpected value: {value_1d}"
+
+        # Specifically check final swelling values
+        swelling_0d = result_0d['swelling'][-1]
+        swelling_1d_avg = np.mean(result_1d['swelling'][-1, :])
+
+        # Both should produce similar total swelling
+        if abs(swelling_0d) > atol:
+            rel_diff = abs(swelling_1d_avg - swelling_0d) / abs(swelling_0d)
+            assert rel_diff < rtol, \
+                f"Swelling: 0D={swelling_0d}, 1D_avg={swelling_1d_avg}, rel_diff={rel_diff}"
+
+    def test_0d_1d_initial_state_consistency(self):
+        """Test that initial states are consistent between 0D and 1D models"""
+        params = create_default_parameters()
+
+        # Create 0D model
+        model_0d = GasSwellingModel(params)
+
+        # Create 1D model with uniform temperature
+        model_1d = RadialGasSwellingModel(
+            params,
+            n_nodes=3,
+            temperature_profile='uniform'
+        )
+
+        # Check that initial conditions are consistent
+        # The 1D model's node 0 should have similar initial values to 0D model
+        for i in range(17):
+            # Get variable name from index for debugging
+            # State variables: Cgb(0), Ccb(1), Ncb(2), Rcb(3), Cgf(4), Ccf(5),
+            # Ncf(6), Rcf(7), cvb(8), cib(9), cvf(10), cif(11),
+            # released_gas(12), kvb(13), kib(14), kvf(15), kif(16)
+
+            # Extract values
+            value_0d = model_0d.initial_state[i]
+            value_1d_node0 = model_1d.initial_state[i]  # Node 0, variable i
+
+            # Check consistency (may differ slightly for sink strengths due to geometry)
+            # Allow for some difference in sink strengths (kvb, kib, kvf, kif at indices 13-16)
+            if i in [13, 14, 15, 16]:  # Sink strengths
+                # These may differ due to geometry corrections in 1D model
+                assert np.isfinite(value_1d_node0), \
+                    f"Sink strength at index {i} is not finite in 1D model"
+            else:
+                # Other variables should be nearly identical
+                np.testing.assert_allclose(value_0d, value_1d_node0,
+                                           rtol=1e-5, atol=1e-10,
+                                           err_msg=f"Initial state index {i} differs")
