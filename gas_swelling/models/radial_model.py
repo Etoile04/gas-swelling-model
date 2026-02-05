@@ -283,23 +283,46 @@ class RadialGasSwellingModel:
         考虑通量抑制效应：中心区域裂变率较低，边缘较高
         (Flux depression: lower fission rate at center, higher at edge)
 
+        对于圆柱形燃料，通量抑制通常由以下因素引起：
+        - 燃料自屏蔽效应 (self-shielding effect)
+        - 钚积累在中心区域导致的中子吸收不均 (Pu buildup)
+
+        使用贝塞尔函数近似：F(r) 随径向位置变化
+        中心(r=0)处通量最低，表面(r=R)处通量最高
+
         返回 (Returns):
             np.ndarray: 裂变率数组，形状 (n_nodes,)
         """
         F_base = self.params['fission_rate']
 
         if not self._flux_depression:
-            # 无通量抑制，均匀分布
+            # 无通量抑制，均匀分布 (no flux depression, uniform distribution)
             return np.full(self.n_nodes, F_base)
 
         else:
-            # 简单的通量抑制模型：F(r) ~ J0(2.405*r/R)
-            # 使用贝塞尔函数近似
+            # 通量抑制模型：使用贝塞尔函数近似
+            # Flux depression model using Bessel function approximation
+            # J0(0) = 1, J0(2.405) ≈ 0
+            # 反转曲线使得中心通量被抑制: F(r) ~ 1 - J0(2.405*r/R)
+            # Invert curve to depress center flux: F(r) ~ 1 - J0(2.405*r/R)
             from scipy.special import j0
             r_normalized = self.mesh.nodes / self.mesh.radius
-            depression_factor = j0(2.405 * r_normalized)
-            # 确保中心不低于基值的70%
-            depression_factor = 0.7 + 0.3 * depression_factor
+
+            # 计算抑制因子 (calculate depression factor)
+            # j0 在中心为1，表面为0
+            # 1 - j0 在中心为0，表面为1
+            j0_factor = j0(2.405 * r_normalized)
+
+            # 创建通量抑制分布：中心低，表面高
+            # Center: 1 - 1 = 0 (most depressed)
+            # Surface: 1 - 0 = 1 (least depressed)
+            # 然后缩放确保中心约为基值的70-80%
+            depression_factor = 0.7 + 0.3 * (1.0 - j0_factor)
+
+            # 归一化使得平均值等于基值 (normalize to maintain average = base value)
+            avg_factor = np.mean(depression_factor)
+            depression_factor = depression_factor / avg_factor
+
             return F_base * depression_factor
 
     def _initialize_state(self) -> np.ndarray:
