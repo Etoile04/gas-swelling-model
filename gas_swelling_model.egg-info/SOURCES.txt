@@ -131,6 +131,7 @@ gas_swelling/models/__init__.py
 gas_swelling/models/adaptive_solver.py
 gas_swelling/models/modelrk23.py
 gas_swelling/models/radial_mesh.py
+gas_swelling/models/radial_model.py
 gas_swelling/models/refactored_model.py
 gas_swelling/ode/README.md
 gas_swelling/ode/__init__.py
@@ -141,6 +142,7 @@ gas_swelling/physics/README.md
 gas_swelling/physics/__init__.py
 gas_swelling/physics/gas_transport.py
 gas_swelling/physics/pressure.py
+gas_swelling/physics/radial_transport.py
 gas_swelling/physics/thermal.py
 gas_swelling/solvers/README.md
 gas_swelling/solvers/__init__.py
@@ -157,6 +159,7 @@ gas_swelling/visualization/utils.py
 gas_swelling_model.egg-info/PKG-INFO
 gas_swelling_model.egg-info/SOURCES.txt
 gas_swelling_model.egg-info/dependency_links.txt
+gas_swelling_model.egg-info/entry_points.txt
 gas_swelling_model.egg-info/not-zip-safe
 gas_swelling_model.egg-info/requires.txt
 gas_swelling_model.egg-info/top_level.txt
@@ -177,6 +180,8 @@ tests/test_integration_solver.py
 tests/test_metrics.py
 tests/test_performance.py
 tests/test_progress_indicator.py
+tests/test_radial_mesh.py
+tests/test_radial_transport.py
 tests/test_refactored_model.py
 tests/test_sensitivity.py
 tests/test_unit_bubble_radius.py

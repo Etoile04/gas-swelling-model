@@ -9,7 +9,7 @@ This package implements rate theory models based on:
 phase of irradiated U-Zr and U-Pu-Zr fuel."
 
 Package Structure:
-- models: Core model implementations (original and refactored)
+- models: Core model implementations (original, refactored, and radial)
 - physics: Physics calculations (pressure, transport, thermal)
 - ode: Rate equation system
 - solvers: Numerical integration methods
@@ -24,6 +24,9 @@ from .models.modelrk23 import GasSwellingModel
 
 # Refactored model (recommended)
 from .models.refactored_model import RefactoredGasSwellingModel
+
+# Radial model (1D spatial discretization)
+from .models.radial_model import RadialGasSwellingModel
 
 # Parameters
 from .params.parameters import (
@@ -64,6 +67,7 @@ __all__ = [
     # Models
     'GasSwellingModel',
     'RefactoredGasSwellingModel',
+    'RadialGasSwellingModel',
 
     # Parameters
     'MaterialParameters',
