@@ -72,7 +72,13 @@ class RadialMesh:
 
         spacing : str, optional
             节点间距类型 (node spacing type)
-            Options: 'uniform' (default, will support 'geometric' in future)
+            Options: 'uniform' (default), 'geometric'
+
+        growth_ratio : float, optional
+            几何间距的增长比率 (growth ratio for geometric spacing)
+            Only used when spacing='geometric'
+            Default: 1.15 (creates 15% growth between adjacent intervals)
+            Larger values create more refined boundary layer at centerline
 
     属性 (Attributes):
         n_nodes : int
@@ -115,13 +121,15 @@ class RadialMesh:
     DEFAULT_RADIUS = 0.003  # 3 mm (typical fuel pin radius, typical fuel pin radius)
     DEFAULT_N_NODES = 10    # Default number of nodes (默认节点数)
     DEFAULT_GEOMETRY = 'cylindrical'  # Default geometry (默认几何)
+    DEFAULT_GROWTH_RATIO = 1.2  # Default growth ratio for geometric spacing (20% growth per interval)
 
     def __init__(
         self,
         n_nodes: Optional[int] = None,
         radius: Optional[float] = None,
         geometry: Optional[Literal['cylindrical', 'slab']] = None,
-        spacing: Optional[Literal['uniform', 'geometric']] = None
+        spacing: Optional[Literal['uniform', 'geometric']] = None,
+        growth_ratio: Optional[float] = None
     ):
         """
         初始化径向网格 (Initialize radial mesh)
@@ -141,7 +149,12 @@ class RadialMesh:
 
             spacing : str, optional
                 节点间距类型 (node spacing type)
-                Options: 'uniform' (default), 'geometric' (future)
+                Options: 'uniform' (default), 'geometric'
+
+            growth_ratio : float, optional
+                几何间距的增长比率 (growth ratio for geometric spacing)
+                Only used when spacing='geometric'
+                Default: 1.15 (creates 15% growth between adjacent intervals)
 
         异常 (Raises):
             ValueError: If parameters are invalid
@@ -156,6 +169,7 @@ class RadialMesh:
         self.radius = radius if radius is not None else self.DEFAULT_RADIUS
         self._geometry_str = geometry if geometry is not None else self.DEFAULT_GEOMETRY
         self._spacing = spacing if spacing is not None else 'uniform'
+        self._growth_ratio = growth_ratio if growth_ratio is not None else self.DEFAULT_GROWTH_RATIO
 
         # Validate parameters (验证参数)
         self._validate_parameters()
@@ -197,27 +211,33 @@ class RadialMesh:
                 f"spacing must be one of {valid_spacing}, got '{self._spacing}'"
             )
 
-        # For now, only uniform spacing is fully implemented
-        # Non-uniform spacing will be implemented in subtask 1-2
+        # Validate growth_ratio for geometric spacing
         if self._spacing == 'geometric':
-            import warnings
-            warnings.warn(
-                "Geometric spacing is not yet fully implemented. "
-                "Falling back to uniform spacing.",
-                UserWarning
-            )
-            self._spacing = 'uniform'
+            if self._growth_ratio <= 1.0:
+                raise ValueError(
+                    f'growth_ratio must be > 1.0 for geometric spacing, got {self._growth_ratio}. '
+                    f'Values > 1.0 create increasing spacing from centerline to surface.'
+                )
+            if self._growth_ratio > 2.0:
+                import warnings
+                warnings.warn(
+                    f"growth_ratio={self._growth_ratio} is very large. "
+                    f"This may create extremely coarse spacing near the surface. "
+                    f"Recommended range is 1.05 to 1.5.",
+                    UserWarning
+                )
 
     def _generate_mesh(self) -> None:
         """
         生成网格节点 (Generate mesh nodes)
 
         Creates the radial node positions based on the spacing strategy.
-        For uniform spacing, nodes are evenly distributed from centerline (r=0)
-        to surface (r=radius).
+        - Uniform spacing: nodes evenly distributed from centerline (r=0) to surface (r=radius)
+        - Geometric spacing: nodes use geometric progression for boundary layer refinement
 
         生成径向节点位置 (Generates radial node positions):
         - 均匀间距 (uniform spacing): 节点均匀分布在从中心线到表面
+        - 几何间距 (geometric spacing): 节点使用几何级数以实现边界层细化
         - 节点位置包含中心线 (nodes include centerline at r=0)
         - 节点位置包含表面 (nodes include surface at r=radius)
         """
@@ -225,9 +245,32 @@ class RadialMesh:
             # Uniform spacing: nodes from 0 to radius
             # 均匀间距：节点从0到radius
             self._nodes = np.linspace(0, self.radius, self.n_nodes)
+        elif self._spacing == 'geometric':
+            # Geometric spacing: dr[i] = dr[0] * q^i
+            # 几何间距：使用几何级数生成节点位置
+            # This creates finer spacing near centerline (boundary layer refinement)
+            # 这会在中心线附近创建更细的间距（边界层细化）
+            q = self._growth_ratio
+            n_intervals = self.n_nodes - 1
+
+            # Calculate first interval using geometric series sum formula
+            # radius = dr_0 * (1 - q^n) / (1 - q)
+            # dr_0 = radius * (1 - q) / (1 - q^n)
+            # 使用几何级数求和公式计算第一个间距
+            dr_0 = self.radius * (1 - q) / (1 - q ** n_intervals)
+
+            # Generate cumulative node positions
+            # r[i] = sum(dr[0:i]) = dr_0 * (1 - q^i) / (1 - q)
+            # 生成累积节点位置
+            i = np.arange(self.n_nodes)
+            self._nodes = dr_0 * (1 - q ** i) / (1 - q)
+
+            # Ensure last node exactly at radius (fix floating point errors)
+            # 确保最后一个节点精确位于半径处（修正浮点误差）
+            self._nodes[-1] = self.radius
         else:
-            # Future: implement geometric spacing
-            # 未来：实现几何间距
+            # Fallback to uniform for unknown spacing types
+            # 未知间距类型，回退到均匀间距
             self._nodes = np.linspace(0, self.radius, self.n_nodes)
 
         # Calculate spacing between nodes (计算节点间距)
