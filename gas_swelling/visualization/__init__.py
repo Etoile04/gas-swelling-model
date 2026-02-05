@@ -10,6 +10,7 @@ This module provides tools for:
 - Bubble size distribution plots
 - Swelling rate analysis
 - Temperature and parameter sweep visualizations
+- Radial profile visualization for spatially-resolved simulations
 """
 
 __version__ = "0.1.0"
@@ -39,6 +40,10 @@ from .comparison_plots import (
     plot_gas_distribution_evolution,
     plot_correlation_matrix,
     plot_phase_comparison,
+)
+from .radial_plots import (
+    RadialProfilePlotter,
+    create_radial_plotter,
 )
 from .utils import (
     # Style configuration
@@ -95,6 +100,10 @@ __all__ = [
     'plot_gas_distribution_evolution',
     'plot_correlation_matrix',
     'plot_phase_comparison',
+
+    # Radial plots
+    'RadialProfilePlotter',
+    'create_radial_plotter',
 
     # Style configuration
     'get_publication_style',
