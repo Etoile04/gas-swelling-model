@@ -98,6 +98,19 @@ class RadialGasSwellingModel:
             几何类型 (geometry type)
             Options: 'cylindrical' (default) or 'slab'
 
+        temperature_profile : str, optional
+            温度分布类型 (temperature profile type)
+            Options: None (uniform), 'parabolic', 'user'
+
+        temperature_data : np.ndarray, optional
+            用户指定的温度数组 (user-specified temperature array)
+            形状 (shape): (n_nodes,)
+            Required when temperature_profile='user'
+
+        flux_depression : bool, optional
+            是否考虑通量抑制效应 (whether to include flux depression)
+            Default: False
+
     属性 (Attributes):
         params : Dict
             模型参数 (model parameters)
@@ -124,6 +137,7 @@ class RadialGasSwellingModel:
         radius: float = 0.003,
         geometry: str = 'cylindrical',
         temperature_profile: Optional[str] = None,
+        temperature_data: Optional[np.ndarray] = None,
         flux_depression: bool = False
     ):
         """
@@ -150,6 +164,13 @@ class RadialGasSwellingModel:
                 温度分布类型 (temperature profile type)
                 Options: None (uniform), 'parabolic', 'user'
                 Default: None (uniform temperature from params)
+                Note: Use 'user' with temperature_data parameter
+
+            temperature_data : np.ndarray, optional
+                用户指定的温度数组，形状为 (n_nodes,)
+                (user-specified temperature array, shape (n_nodes,))
+                Required when temperature_profile='user'
+                Units: Kelvin
 
             flux_depression : bool, optional
                 是否考虑通量抑制效应 (whether to include flux depression)
@@ -159,6 +180,13 @@ class RadialGasSwellingModel:
             >>> params = create_default_parameters()
             >>> params['temperature'] = 773.15
             >>> model = RadialGasSwellingModel(params, n_nodes=10)
+            >>>
+            >>> # User-specified temperature profile
+            >>> import numpy as np
+            >>> T_profile = np.linspace(800, 600, 10)  # Linear gradient
+            >>> model = RadialGasSwellingModel(params, n_nodes=10,
+            ...                                temperature_profile='user',
+            ...                                temperature_data=T_profile)
         """
         # 设置模型参数 (set model parameters)
         self.params = params if params else create_default_parameters()
@@ -177,6 +205,7 @@ class RadialGasSwellingModel:
 
         # 设置温度分布 (set temperature profile)
         self._temperature_profile_type = temperature_profile if temperature_profile else 'uniform'
+        self._temperature_data = temperature_data  # Store user-provided data
         self.temperature = self._initialize_temperature_profile()
 
         # 设置裂变率分布（通量抑制）(set fission rate profile with flux depression)
@@ -206,10 +235,14 @@ class RadialGasSwellingModel:
         根据temperature_profile类型设置温度分布：
         - 'uniform': 所有节点使用相同温度（来自params）
         - 'parabolic': 抛物线分布，中心温度最高
-        - 'user': 用户自定义（需要后续设置）
+        - 'user': 用户自定义（通过temperature_data参数提供）
 
         返回 (Returns):
             np.ndarray: 温度数组，形状 (n_nodes,)
+
+        异常 (Raises):
+            ValueError: 如果temperature_profile='user'但未提供temperature_data
+            ValueError: 如果temperature_data长度与n_nodes不匹配
         """
         T_base = self.params['temperature']
 
@@ -224,6 +257,20 @@ class RadialGasSwellingModel:
             T_surface = T_base * 0.9
             r_normalized = self.mesh.nodes / self.mesh.radius
             return T_center - (T_center - T_surface) * r_normalized**2
+
+        elif self._temperature_profile_type == 'user':
+            # 用户指定的温度分布
+            if self._temperature_data is None:
+                raise ValueError(
+                    "temperature_data must be provided when temperature_profile='user'. "
+                    f"Expected array of shape ({self.n_nodes},)"
+                )
+            if len(self._temperature_data) != self.n_nodes:
+                raise ValueError(
+                    f"temperature_data length ({len(self._temperature_data)}) must match "
+                    f"n_nodes ({self.n_nodes})"
+                )
+            return np.array(self._temperature_data, dtype=np.float64)
 
         else:
             # 默认均匀分布
@@ -629,6 +676,65 @@ class RadialGasSwellingModel:
 
         return results
 
+    def set_temperature_profile(
+        self,
+        temperature_data: np.ndarray,
+        reinitialize: bool = True
+    ) -> None:
+        """
+        设置新的径向温度分布 (Set new radial temperature profile)
+
+        Allows updating the temperature profile after model initialization.
+        Useful for coupled thermal-mechanical simulations or time-dependent
+        temperature boundary conditions.
+
+        参数 (Parameters):
+            temperature_data : np.ndarray
+                新的温度数组，形状为 (n_nodes,)
+                (new temperature array, shape (n_nodes,))
+                Units: Kelvin
+            reinitialize : bool, optional
+                是否重新初始化状态变量（重新计算热平衡浓度）
+                (whether to reinitialize state variables with new thermal equilibrium)
+                Default: True
+
+        异常 (Raises):
+            ValueError: 如果temperature_data长度与n_nodes不匹配
+
+        示例 (Example):
+            >>> model = RadialGasSwellingModel(n_nodes=10)
+            >>> import numpy as np
+            >>> new_profile = np.linspace(900, 700, 10)
+            >>> model.set_temperature_profile(new_profile)
+        """
+        if len(temperature_data) != self.n_nodes:
+            raise ValueError(
+                f"temperature_data length ({len(temperature_data)}) must match "
+                f"n_nodes ({self.n_nodes})"
+            )
+
+        self.temperature = np.array(temperature_data, dtype=np.float64)
+        self._temperature_profile_type = 'user'
+        self._temperature_data = temperature_data
+
+        if reinitialize:
+            # Reinitialize state with new temperatures
+            self.initial_state = self._initialize_state()
+
+    def get_temperature_profile(self) -> np.ndarray:
+        """
+        获取当前径向温度分布 (Get current radial temperature profile)
+
+        返回 (Returns):
+            np.ndarray: 温度数组，形状 (n_nodes,)
+
+        示例 (Example):
+            >>> model = RadialGasSwellingModel(n_nodes=10, temperature_profile='parabolic')
+            >>> T = model.get_temperature_profile()
+            >>> print(f"Center T: {T[0]:.0f} K, Surface T: {T[-1]:.0f} K")
+        """
+        return self.temperature.copy()
+
     def get_gas_pressure(self, R: float, N: float, location: str = 'bulk') -> float:
         """
         计算气泡内的气体压力 (Calculate gas pressure inside bubble)
@@ -734,11 +840,21 @@ class RadialGasSwellingModel:
         fission_rate = self.params.get('fission_rate', 0)
         eos_model = self.params.get('eos_model', 'virial')
 
+        # Add temperature profile info
+        if self._temperature_profile_type == 'uniform':
+            temp_info = f"{temp:.2f} K (uniform)"
+        elif self._temperature_profile_type == 'parabolic':
+            temp_info = f"{self.temperature[0]:.0f}-{self.temperature[-1]:.0f} K (parabolic)"
+        elif self._temperature_profile_type == 'user':
+            temp_info = f"{self.temperature[0]:.0f}-{self.temperature[-1]:.0f} K (user)"
+        else:
+            temp_info = f"{temp:.2f} K"
+
         return (
             f"RadialGasSwellingModel(n_nodes={self.n_nodes}, "
             f"radius={self.mesh.radius:.3e} m, "
             f"geometry={self.mesh.geometry}, "
-            f"temperature={temp:.2f} K, "
+            f"temperature={temp_info}, "
             f"fission_rate={fission_rate:.2e} /m³/s, "
             f"eos_model='{eos_model}')"
         )
