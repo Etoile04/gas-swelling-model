@@ -344,61 +344,121 @@ class RadialProfilePlotter(GasSwellingPlotter):
                               time_index: Optional[int] = None,
                               save_path: Optional[str] = None,
                               dpi: int = 300,
-                              figsize: Tuple[float, float] = (10, 6),
+                              figsize: Tuple[float, float] = (12, 6),
                               **kwargs) -> plt.Figure:
         """
         Plot multiple variables on the same radial axis.
 
+        This method creates overlay plots of multiple radial profiles on the
+        same axes. For variables with significantly different scales, consider
+        using normalization or separate axes.
+
         Args:
-            variables: List of variable names to plot
+            variables: List of variable names to plot (e.g., ['temperature', 'swelling'])
             time_index: Time index (default: use self.time_index)
             save_path: Optional path to save the figure
             dpi: Resolution for saved figure
             figsize: Figure size (width, height) in inches
-            **kwargs: Additional matplotlib kwargs
+            **kwargs: Additional options:
+                - colors: List of color names for each variable
+                - linewidth: Line width for all plots (default 2.0)
+                - normalize: If True, normalize profiles to [0, 1] for comparison
+                - secondary_axis: If True, use twin y-axis for last variable
 
         Returns:
             Matplotlib figure object
 
+        Raises:
+            ValueError: If variables list is empty or contains unknown variables
+
         Examples:
             >>> fig = plotter.plot_radial_comparison(
-            ...     ['temperature', 'swelling'], time_index=-1
+            ...     ['temperature', 'swelling', 'Pg_b'], time_index=-1
+            ... )
+            >>> plotter.save_and_close(fig, 'radial_comparison.png')
+
+            # With normalized profiles for shape comparison
+            >>> fig = plotter.plot_radial_comparison(
+            ...     ['swelling', 'Pg_b'], normalize=True
+            ... )
+
+            # With secondary y-axis for pressure (different scale)
+            >>> fig = plotter.plot_radial_comparison(
+            ...     ['temperature', 'Pg_b'], secondary_axis=True
             ... )
         """
+        if not variables:
+            raise ValueError("variables list cannot be empty")
+
         apply_publication_style(self.style)
 
         radius = self.get_radius_data()
         time_idx = time_index if time_index is not None else self.time_index
 
-        fig, ax = plt.subplots(figsize=figsize)
-
         # Get colors for multiple variables
         colors = kwargs.get('colors', get_color_palette('default'))
 
+        fig, ax = plt.subplots(figsize=figsize)
+
         # Plot each variable
         linewidth = kwargs.get('linewidth', 2.0)
+        normalize = kwargs.get('normalize', False)
+        use_secondary = kwargs.get('secondary_axis', False)
+
         for i, var in enumerate(variables):
             profile = self.get_radial_profile(var, time_idx)
             color = colors[i % len(colors)]
-            ax.plot(radius, profile, label=self._get_variable_label(var),
-                   color=color, linewidth=linewidth)
+            label = self._get_variable_label(var)
+
+            # Normalize if requested (for shape comparison)
+            if normalize:
+                profile_min = np.min(profile)
+                profile_max = np.max(profile)
+                if profile_max > profile_min:
+                    profile = (profile - profile_min) / (profile_max - profile_min)
+                label = f'{label} (normalized)'
+
+            # Determine which axis to use
+            if use_secondary and i == len(variables) - 1:
+                # Last variable on secondary axis
+                if i == 0:
+                    current_ax = ax  # First variable on primary axis
+                else:
+                    # Create secondary axis
+                    current_ax = ax.twinx()
+                    current_ax.spines['right'].set_position(('outward', 0))
+            else:
+                current_ax = ax
+
+            # Plot on appropriate axis
+            current_ax.plot(radius, profile, label=label,
+                           color=color, linewidth=linewidth,
+                           linestyle='--' if use_secondary and i == len(variables) - 1 else '-')
 
         # Styling
         ax.set_xlabel(self.get_radius_label())
-        ax.set_ylabel('Value')
+
+        if normalize:
+            ax.set_ylabel('Normalized Value [0, 1]')
+        elif len(variables) == 1:
+            ax.set_ylabel(self._get_variable_label(variables[0]))
+        else:
+            ax.set_ylabel('Value')
+
         ax.set_title('Radial Profile Comparison')
-        ax.legend()
         ax.grid(True, linestyle='--', alpha=0.3)
 
-        # Use secondary y-axis if variables have different scales
-        if kwargs.get('use_twinx', False):
-            ax2 = ax.twinx()
-            # Re-plot last variable on secondary axis
-            last_var = variables[-1]
-            profile = self.get_radial_profile(last_var, time_idx)
-            ax2.plot(radius, profile, label=self._get_variable_label(last_var),
-                    color=colors[-1], linewidth=linewidth, linestyle='--')
-            ax2.set_ylabel(self._get_variable_label(last_var))
+        # Combined legend
+        lines1, labels1 = ax.get_legend_handles_labels()
+        if use_secondary and len(variables) > 1:
+            # Get secondary axis
+            for other_ax in fig.get_axes():
+                if other_ax != ax:
+                    lines2, labels2 = other_ax.get_legend_handles_labels()
+                    ax.legend(lines1 + lines2, labels1 + labels2, loc='best')
+                    break
+        else:
+            ax.legend(lines1, labels1, loc='best')
 
         plt.tight_layout()
 
