@@ -294,7 +294,7 @@ class RefactoredGasSwellingModel:
     def solve(self,
               t_span: Tuple[float, float] = (0, 7200000),
               t_eval: Optional[np.ndarray] = None,
-              method: str = 'RK23',
+              method: str = 'LSODA',
               dt: float = 1e-9,
               max_dt: float = 100.0,
               max_steps: int = 1000000,
@@ -317,9 +317,12 @@ class RefactoredGasSwellingModel:
                 (if None, solver will automatically select output points)
             method : str
                 求解方法 (solver method)
-                - 'RK23': Runge-Kutta 2(3) 自适应方法 (default)
-                - 'BDF': 适用于刚性系统 (suitable for stiff systems)
-                默认值: 'RK23'
+                - 'LSODA': Adams/BDF with auto stiffness detection (default, RECOMMENDED)
+                - 'RK23': Runge-Kutta 2(3) explicit method (fast for non-stiff)
+                - 'RK45': Runge-Kutta 4(5) explicit method (accurate for non-stiff)
+                - 'BDF': Backward Differentiation Formula (for stiff systems)
+                - 'Radau': Implicit Runge-Kutta (for stiff systems)
+                默认值: 'LSODA' (自动检测刚性 / automatically detects stiffness)
             dt : float
                 初始时间步长，单位：秒 (initial time step in seconds)
                 默认值: 1e-9
@@ -379,17 +382,15 @@ class RefactoredGasSwellingModel:
             t_eval = np.linspace(t_span[0], t_span[1], 100)
 
         # 创建求解器 (create solver)
-        if method == 'RK23':
-            solver = RK23Solver(self._equations_wrapper, self.params)
-        else:
-            # 对于其他方法，使用RK23但可以通过参数调整
-            solver = RK23Solver(self._equations_wrapper, self.params)
+        # Pass the method parameter to RK23Solver which now supports multiple methods
+        # 将方法参数传递给RK23Solver，它现在支持多种方法
+        solver = RK23Solver(self._equations_wrapper, self.params, method=method)
 
         # 使用模块化求解器求解 (solve using modular solver)
         try:
             results = solver.solve(
-                t_span=t_span,
-                y0=self.initial_state,
+                t_span,
+                self.initial_state,
                 t_eval=t_eval,
                 dt=dt,
                 max_dt=max_dt
@@ -398,6 +399,11 @@ class RefactoredGasSwellingModel:
         except Exception as e:
             self.solver_success = False
             raise RuntimeError(f"Solver failed: {str(e)}")
+
+        # Check if solver succeeded before accessing results
+        # 检查求解器是否成功再访问结果
+        if not results.get('success', False):
+            raise RuntimeError(f"Solver failed: {results.get('message', 'Unknown error')}")
 
         # 计算并添加肿胀率 (calculate and add swelling percentage)
         Rcb = results['Rcb']

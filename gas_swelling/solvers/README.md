@@ -8,46 +8,36 @@ The solvers module implements numerical time integration methods that advance th
 
 **Key Features:**
 - **Adaptive step sizing**: Automatically adjusts time step for accuracy and efficiency
-- **Multiple methods**: RK23 (Runge-Kutta 2/3) and Euler integrators
-- **Progress tracking**: Optional callbacks for monitoring long simulations
+- **Multiple solver methods**: Support for stiff and non-stiff ODE systems
+- **Automatic stiffness detection**: LSODA method automatically switches between explicit and implicit methods
 - **Flexible output**: Dense output for smooth plotting or specified time points
 
-## Available Solvers
+## Supported Solver Methods
 
-### 1. RK23Solver (Recommended)
+### Available Methods
 
-**Method:** Explicit Runge-Kutta of order 2(3) with adaptive step size
+The RK23Solver now supports multiple scipy solver methods:
+
+| Method | Type | Best For | Speed | Stability |
+|--------|------|----------|-------|------------|
+| **LSODA** | Auto-switching | **General use (RECOMMENDED)** | Fast | Auto-detects stiffness |
+| **RK23** | Explicit | Non-stiff, short simulations | Fastest | Conditionally stable |
+| **RK45** | Explicit | Non-stiff, high accuracy | Fast | Conditionally stable |
+| **BDF** | Implicit | **Stiff systems** | Medium | Unconditionally stable |
+| **Radau** | Implicit | Stiff systems | Slow | Unconditionally stable |
+
+### 1. RK23Solver (Default: LSODA)
+
+**Default Method:** LSODA (Adams/BDF with automatic stiffness detection)
 
 **Characteristics:**
-- **Order**: 2nd order with 3rd order error estimation
-- **Adaptive**: Automatically adjusts step size to meet error tolerance
-- **Efficiency**: Good balance of accuracy and speed for non-stiff to moderately stiff problems
-- **Robustness**: Handles the wide range of timescales in gas swelling
+- **Flexible**: Supports all scipy ODE solver methods
+- **Auto-detection**: LSODA automatically detects stiffness and switches methods
+- **Backward compatible**: Can use RK23 for non-stiff problems
+- **Stiff-capable**: Can use BDF/Radau for highly stiff systems
 
-**Best For:**
-- Standard gas swelling simulations
-- Long irradiation times (days to months)
-- Most research applications
-
-**Example Usage:**
+**Method Selection:**
 ```python
-from gas_swelling.solvers import RK23Solver
-from gas_swelling.ode import swelling_ode_system
-from gas_swelling.params import create_default_parameters
-
-# Setup
-params = create_default_parameters()
-y0 = params.initial_state
-
-# Create solver
-solver = RK23Solver(
-    ode_func=swelling_ode_system,
-    params=params
-)
-
-# Solve for 100 days
-result = solver.solve(
-    t_span=(0, 8.64e6),        # 0 to 100 days (seconds)
     y0=y0,                      # Initial conditions
     t_eval=None,                # Adaptive output (or specify time points)
     rtol=1e-6,                  # Relative tolerance
@@ -400,3 +390,74 @@ Potential solver additions:
 **For ODE system definition, see:** `../ode/README.md`
 **For physics calculations, see:** `../physics/README.md`
 **For I/O utilities, see:** `../io/README.md`
+
+## Solver Selection Guide (Updated)
+
+### Quick Reference
+
+| Method | Type | Best For | Default |
+|--------|------|----------|---------|
+| **LSODA** | Auto-switch | **General use (RECOMMENDED)** | ✓ Yes |
+| **RK23** | Explicit | Short simulations, non-stiff | No |
+| **RK45** | Explicit | Non-stiff, high accuracy | No |
+| **BDF** | Implicit | Stiff systems | No |
+| **Radau** | Implicit | Highly stiff | No |
+
+### Usage Examples
+
+```python
+from gas_swelling.solvers import RK23Solver
+from gas_swelling.ode import swelling_ode_system
+from gas_swelling.params import create_default_parameters
+
+params = create_default_parameters()
+
+# Create solver with specific method
+solver = RK23Solver(
+    rate_equations=swelling_ode_system,
+    params=params,
+    method='LSODA'  # or 'RK23', 'RK45', 'BDF', 'Radau'
+)
+
+# Solve
+result = solver.solve(
+    (0, 8.64e6),              # Time span (0 to 100 days)
+    initial_state,             # Initial conditions
+    t_eval=np.linspace(0, 8.64e6, 101)  # Output points
+)
+```
+
+### Recommendations
+
+1. **For most users:** Use `method='LSODA'` (default)
+   - Automatically detects stiffness
+   - Switches between explicit and implicit methods
+   - Best performance for general cases
+
+2. **For short simulations:** Use `method='RK23'` or `method='RK45'`
+   - Faster for non-stiff problems
+   - Good for testing and debugging
+
+3. **For long simulations:** Use `method='BDF'` or `method='LSODA'`
+   - Handles stiffness better
+   - Larger time steps possible
+   - More stable for stiff systems
+
+### Model Usage
+
+The `GasSwellingModel` and `RefactoredGasSwellingModel` use `LSODA` by default:
+
+```python
+from gas_swelling import GasSwellingModel
+
+model = GasSwellingModel(params)
+result = model.solve(t_span=(0, 8.64e6))  # Uses LSODA by default
+
+# Override method if needed
+result = model.solve(t_span=(0, 8.64e6), method='BDF')
+```
+
+### Stiffness Note
+
+The gas swelling ODE system has **timescale ratio ~10^17**, making it extremely stiff. For simulations longer than a few hours, implicit methods (BDF, LSODA, Radau) are recommended over explicit methods (RK23, RK45).
+

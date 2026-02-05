@@ -88,3 +88,41 @@ jobs:
         flake8 gas_swelling/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # Check for style issues, but don't fail the build
         flake8 gas_swelling/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  test-validation:
+    # Run validation test suite and figure reproduction scripts
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: Run validation tests (fast only)
+      run: |
+        pytest tests/test_validation_suite.py -v -m 'not slow' --tb=short
+
+    - name: Run figure reproduction scripts (sanity check)
+      run: |
+        # Test Figure 6 reproduction
+        python -m gas_swelling.validation.scripts.reproduce_figure6 --output /tmp/fig6.png --no-show
+        # Test Figure 7 reproduction
+        python -m gas_swelling.validation.scripts.reproduce_figure7 --output /tmp/fig7.png --no-show
+        # Test Figures 9-10 reproduction
+        python -m gas_swelling.validation.scripts.reproduce_figures9_10 --output /tmp/fig9_10.png --no-show
+
+    - name: Verify output files
+      run: |
+        ls -lh /tmp/fig*.png
+        # Verify all three figure files were created
+        test -f /tmp/fig6.png || exit 1
+        test -f /tmp/fig7.png || exit 1
+        test -f /tmp/fig9_10.png || exit 1

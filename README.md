@@ -1,11 +1,5 @@
 # Gas Swelling Model for Nuclear Fuel Materials
 
-![Tests](https://github.com/Etoile04/gas-swelling-model/workflows/Tests/badge.svg)
-![codecov](https://codecov.io/gh/Etoile04/gas-swelling-model/branch/main/graph/badge.svg)
-![Lint](https://github.com/Etoile04/gas-swelling-model/workflows/Lint/badge.svg)
-![Docs](https://github.com/Etoile04/gas-swelling-model/workflows/Docs/badge.svg)
-![Pages](https://github.com/Etoile04/gas-swelling-model/workflows/Pages/badge.svg)
-
 A physics-based computational model for simulating fission gas bubble evolution and void swelling behavior in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys).
 
 ## Overview
@@ -100,8 +94,6 @@ plot_time_series(result['t'], result['swelling'], xlabel='Time (s)', ylabel='Swe
 **📘 See [REFACTORING.md](REFACTORING.md)** for complete migration guide and architecture details.
 
 ## Quick Start
-
-**🚀 New to the model? Start here:** **[QUICKSTART.md](QUICKSTART.md)** - The fastest way to get up and running with installation and your first simulation.
 
 ### Installation
 
@@ -414,9 +406,9 @@ These parameters have strong influence on swelling predictions:
 - **Boundary nucleation factor** (Fnf): Controls incubation period
 - **Temperature**: Bell-shaped swelling curve (~700-800 K peak)
 
-## Validation
+## Experimental Validation
 
-The model has been validated against experimental data:
+The model has been validated against experimental data from irradiation experiments:
 
 | Fuel Type | Temperature | Burnup | Validation Status |
 |-----------|-------------|--------|-------------------|

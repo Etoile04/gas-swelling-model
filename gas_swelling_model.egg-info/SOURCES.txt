@@ -49,7 +49,6 @@ verify_refactored_model.py
 verify_tests.py
 .auto-claude/specs/003-multi-parameter-sweep-optimization/build-progress.txt
 .auto-claude/specs/003-multi-parameter-sweep-optimization/implementation_plan.json
-.auto-claude/specs/019-comprehensive-test-suite/validation_report.md
 .github/workflows/test.yml
 cli/__init__.py
 cli/__main__.py
@@ -137,6 +136,17 @@ gas_swelling/solvers/README.md
 gas_swelling/solvers/__init__.py
 gas_swelling/solvers/euler_solver.py
 gas_swelling/solvers/rk23_solver.py
+gas_swelling/validation/__init__.py
+gas_swelling/validation/datasets.py
+gas_swelling/validation/metrics.py
+gas_swelling/validation/reporting.py
+gas_swelling/validation/data/high_purity_u_figures9_10.csv
+gas_swelling/validation/data/u10zr_figure6.csv
+gas_swelling/validation/data/u19pu10zr_figure7.csv
+gas_swelling/validation/scripts/__init__.py
+gas_swelling/validation/scripts/reproduce_figure6.py
+gas_swelling/validation/scripts/reproduce_figure7.py
+gas_swelling/validation/scripts/reproduce_figures9_10.py
 gas_swelling/visualization/DOCSTRING_VERIFICATION.md
 gas_swelling/visualization/README.md
 gas_swelling/visualization/__init__.py
@@ -178,6 +188,7 @@ tests/test_unit_model_methods.py
 tests/test_unit_parameters.py
 tests/test_unit_pressure.py
 tests/test_unit_solve_method.py
+tests/test_validation_metrics.py
 tests/test_validation_paper_data.py
 tests/test_visualization_e2e.py
 tests/utils.py

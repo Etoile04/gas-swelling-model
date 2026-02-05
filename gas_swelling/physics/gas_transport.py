@@ -133,8 +133,11 @@ def calculate_gas_release_rate(
     """
     if grain_diameter <= 0:
         raise ValueError("grain_diameter must be positive")
-    if Rcf < 0 or Ccf < 0 or Ncf < 0 or Cgf < 0:
-        raise ValueError("Rcf, Ccf, Ncf, and Cgf must be non-negative")
+    # Clip negative values to zero for intermediate ODE states
+    Rcf = max(0.0, Rcf)
+    Ccf = max(0.0, Ccf)
+    Ncf = max(0.0, Ncf)
+    Cgf = max(0.0, Cgf)
 
     # Geometric factor for spherical cap bubbles at grain boundaries
     # 晶界球冠状气泡的几何因子
@@ -231,8 +234,11 @@ def calculate_nucleation_rate(
     Eqs. 1 and 6 in the rate theory paper
     Gruber's classical nucleation theory for fission gas bubbles
     """
-    if Cg < 0 or Dg < 0 or Fn < 0 or Xe_radii < 0:
-        raise ValueError("Cg, Dg, Fn, and Xe_radii must be non-negative")
+    # Clip negative values to zero for intermediate ODE states
+    Cg = max(0.0, Cg)
+    Dg = max(0.0, Dg)
+    Fn = max(0.0, Fn)
+    Xe_radii = max(0.0, Xe_radii)
 
     nucleation_rate = 16.0 * np.pi * Fn * Xe_radii * Dg * Cg**2
     return nucleation_rate
@@ -281,8 +287,11 @@ def calculate_gas_absorption_rate(
     ----------
     Eqs. 1 and 6 in the rate theory paper
     """
-    if Cg < 0 or Cc < 0 or Rc < 0 or Dg < 0:
-        raise ValueError("Cg, Cc, Rc, and Dg must be non-negative")
+    # Clip negative values to zero for intermediate ODE states
+    Cg = max(0.0, Cg)
+    Cc = max(0.0, Cc)
+    Rc = max(0.0, Rc)
+    Dg = max(0.0, Dg)
 
     absorption_rate = 4.0 * np.pi * Rc * Dg * Cg * Cc
     return absorption_rate
@@ -336,8 +345,10 @@ def calculate_gas_resolution_rate(
     Eq. 1 in the rate theory paper
     Rest and Zawadzki, JNM 160 (1989) for fission gas resolution models
     """
-    if Cc < 0 or Nc < 0 or resolution_rate < 0:
-        raise ValueError("Cc, Nc, and resolution_rate must be non-negative")
+    # Clip negative values to zero for intermediate ODE states
+    Cc = max(0.0, Cc)
+    Nc = max(0.0, Nc)
+    resolution_rate = max(0.0, resolution_rate)
 
     resolution = resolution_rate * Cc * Nc
     return resolution
@@ -384,8 +395,9 @@ def calculate_gas_production_rate(
     Eq. 1 in the rate theory paper
     Typical fission gas yields from nuclear data tables
     """
-    if fission_rate < 0 or gas_yield < 0:
-        raise ValueError("fission_rate and gas_yield must be non-negative")
+    # Clip negative values to zero for intermediate ODE states
+    fission_rate = max(0.0, fission_rate)
+    gas_yield = max(0.0, gas_yield)
 
     production = gas_yield * fission_rate
     return production

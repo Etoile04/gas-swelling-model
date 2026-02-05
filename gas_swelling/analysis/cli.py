@@ -42,6 +42,15 @@ Examples:
   # List available parameters
   python -m gas_swelling.analysis.cli list-params
 
+  # Generate validation report
+  python -m gas_swelling.analysis.cli validation --output my_report.pdf
+
+  # Generate validation report for specific materials
+  python -m gas_swelling.analysis.cli validation --materials U-10Zr,U-19Pu-10Zr
+
+  # Generate quick validation report
+  python -m gas_swelling.analysis.cli validation --format quick --output quick_report.pdf
+
 For more information, see: https://github.com/yourusername/gas-swelling-model
         """
     )
@@ -189,6 +198,53 @@ For more information, see: https://github.com/yourusername/gas-swelling-model
         '--random-state',
         type=int,
         help='Random seed for reproducibility'
+    )
+
+    # Validation report generation
+    validation_parser = subparsers.add_parser(
+        'validation',
+        help='Generate validation report comparing model with experimental data',
+        description='Generate comprehensive validation report comparing model predictions with experimental data'
+    )
+    validation_parser.add_argument(
+        '--materials',
+        type=str,
+        help='Comma-separated list of materials to validate (e.g., U-10Zr,U-19Pu-10Zr,High-purity-U). Default: all'
+    )
+    validation_parser.add_argument(
+        '--output',
+        type=str,
+        default='validation_report.pdf',
+        help='Output file path for validation report (default: validation_report.pdf)'
+    )
+    validation_parser.add_argument(
+        '--format',
+        type=str,
+        choices=['pdf', 'quick', 'material'],
+        default='pdf',
+        help='Report format: pdf=full report, quick=quick validation, material=material-specific (default: pdf)'
+    )
+    validation_parser.add_argument(
+        '--material',
+        type=str,
+        help='Material name for material-specific report (required when format=material)'
+    )
+    validation_parser.add_argument(
+        '--temperatures',
+        type=str,
+        help='Comma-separated list of temperatures in Kelvin (e.g., 600,700,800). Default: use defaults for each material'
+    )
+    validation_parser.add_argument(
+        '--fission-rate',
+        type=float,
+        default=2.0e20,
+        help='Fission rate in fissions/m³/s (default: 2.0e20)'
+    )
+    validation_parser.add_argument(
+        '--sim-time',
+        type=float,
+        default=100,
+        help='Simulation time in days (default: 100)'
     )
 
     # Global options
@@ -516,6 +572,88 @@ def _run_single_sobol_study(
     return result.to_dict()
 
 
+def cmd_validation(args: argparse.Namespace) -> int:
+    """
+    Generate validation report comparing model with experimental data.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command-line arguments.
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, non-zero for error).
+    """
+    try:
+        from .validation import reporting
+
+        print("Generating validation report...")
+        print(f"  Format: {args.format}")
+
+        # Parse materials if specified
+        materials = None
+        if args.materials:
+            materials = [m.strip() for m in args.materials.split(',')]
+            print(f"  Materials: {', '.join(materials)}")
+        else:
+            print("  Materials: all")
+
+        # Parse temperatures if specified
+        temperatures = None
+        if args.temperatures:
+            temperatures = [float(t.strip()) for t in args.temperatures.split(',')]
+            print(f"  Temperatures: {', '.join(map(str, temperatures))}K")
+
+        print(f"  Fission rate: {args.fission_rate:.2e} fissions/m³/s")
+        print(f"  Simulation time: {args.sim_time} days")
+        print(f"  Output: {args.output}")
+        print()
+
+        # Generate report based on format
+        if args.format == 'pdf':
+            # Full validation report
+            print("Running full validation report (this may take several minutes)...")
+            report_path = reporting.generate_validation_report(
+                materials=materials,
+                output_path=args.output
+            )
+            print(f"Validation report generated: {report_path}")
+
+        elif args.format == 'quick':
+            # Quick validation report
+            print("Generating quick validation report...")
+            report_path = reporting.generate_quick_report(output_path=args.output)
+            print(f"Quick validation report generated: {report_path}")
+
+        elif args.format == 'material':
+            # Material-specific report
+            if not args.material:
+                print("Error: --material is required when format=material", file=sys.stderr)
+                print("Available materials: U-10Zr, U-19Pu-10Zr, High-purity-U", file=sys.stderr)
+                return 1
+
+            print(f"Generating validation report for {args.material}...")
+            report_path = reporting.generate_material_report(
+                material=args.material,
+                output_path=args.output
+            )
+            print(f"Material validation report generated: {report_path}")
+
+        return 0
+
+    except ImportError as e:
+        print(f"Error: Validation module not available: {e}", file=sys.stderr)
+        print("Please ensure the gas_swelling.validation module is installed.", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def cmd_batch(args: argparse.Namespace) -> int:
     """
     Run batch sensitivity analysis studies with parallel execution.
@@ -776,6 +914,8 @@ def main(args: Optional[list] = None) -> int:
         return cmd_sobol(parsed_args)
     elif parsed_args.command == 'batch':
         return cmd_batch(parsed_args)
+    elif parsed_args.command == 'validation':
+        return cmd_validation(parsed_args)
     else:
         # No command specified, show help
         print("Error: No command specified", file=sys.stderr)

@@ -1,10 +1,25 @@
 """
-RK23 Numerical Solver for Gas Swelling Model
-RK23数值求解器模块 (气体肿胀模型)
+Flexible ODE Solver for Gas Swelling Model
+灵活ODE求解器模块 (气体肿胀模型)
 
-This module provides a wrapper around scipy's RK23 (Runge-Kutta 2(3)) adaptive
-solver for solving the gas swelling ODE system.
-本模块提供scipy的RK23（龙格-库塔2(3)）自适应求解器的包装器，用于求解气体肿胀ODE系统。
+This module provides a flexible wrapper around scipy's solve_ivp supporting
+multiple solver methods for stiff and non-stiff ODE systems.
+本模块提供scipy的solve_ivp的灵活包装器，支持刚性和非刚性ODE系统的多种求解器方法。
+
+Supported Methods:
+- 'RK23': Explicit Runge-Kutta 2(3) - For non-stiff problems (fast)
+- 'RK45': Explicit Runge-Kutta 4(5) - For non-stiff problems (accurate)
+- 'LSODA': Adams/BDF method with automatic stiffness detection (RECOMMENDED)
+- 'BDF': Implicit Backward Differentiation Formula - For stiff problems
+- 'Radau': Implicit Runge-Kutta method - For stiff problems
+- 'BDF': Backward Differentiation Formula - For stiff problems
+
+支持的方法:
+- 'RK23': 显式龙格-库塔2(3) - 用于非刚性问题 (快速)
+- 'RK45': 显式龙格-库塔4(5) - 用于非刚性问题 (精确)
+- 'LSODA': Adams/BDF方法，自动检测刚性 (推荐)
+- 'BDF': 隐式向后微分公式 - 用于刚性问题
+- 'Radau': 隐式龙格-库塔方法 - 用于刚性问题
 """
 
 import numpy as np
@@ -14,14 +29,20 @@ from scipy.integrate import solve_ivp
 
 class RK23Solver:
     """
-    Runge-Kutta 2(3) Adaptive Solver for Gas Swelling Equations
-    龙格-库塔2(3)自适应求解器 (气体肿胀方程)
+    Flexible ODE Solver for Gas Swelling Equations
+    灵活ODE求解器 (气体肿胀方程)
 
-    This solver uses scipy's solve_ivp with the 'RK23' method, which is an
-    explicit Runge-Kutta method of order 3 with error control and adaptive
-    step sizing. Suitable for non-stiff to moderately stiff ODE systems.
-    该求解器使用scipy的solve_ivp函数和'RK23'方法，这是一个具有误差控制和自适应
-    步长的3阶显式龙格-库塔方法。适用于非刚性到中等刚性ODE系统。
+    This solver uses scipy's solve_ivp with configurable method selection.
+    It supports both explicit methods (RK23, RK45) for non-stiff problems
+    and implicit methods (BDF, Radau, LSODA) for stiff systems.
+    该求解器使用scipy的solve_ivp函数，可配置方法选择。支持显式方法（RK23、RK45）
+    用于非刚性问题，以及隐式方法（BDF、Radau、LSODA）用于刚性系统。
+
+    **Default method 'LSODA'** automatically detects stiffness and switches
+    between Adams (non-stiff) and BDF (stiff) methods, providing optimal
+    performance for both cases.
+    **默认方法'LSODA'** 自动检测刚性并在Adams（非刚性）和BDF（刚性）
+    方法之间切换，为两种情况提供最佳性能。
 
     Parameters
     ----------
@@ -30,6 +51,9 @@ class RK23Solver:
         Signature: rate_equations(t: float, y: np.ndarray, params: Dict) -> np.ndarray
     params : Dict
         Dictionary containing material and simulation parameters
+    method : str, optional
+        Solver method to use (default: 'LSODA')
+        Options: 'RK23', 'RK45', 'LSODA', 'BDF', 'Radau'
 
     Attributes
     ----------
@@ -37,6 +61,8 @@ class RK23Solver:
         The rate equations function
     params : Dict
         Model parameters
+    method : str
+        The solver method being used
     success : bool
         Solver success status flag
 
@@ -59,9 +85,9 @@ class RK23Solver:
     >>> results = solver.solve(t_span, t_eval, y0)
     """
 
-    def __init__(self, rate_equations: Callable, params: Dict):
+    def __init__(self, rate_equations: Callable, params: Dict, method: str = 'LSODA'):
         """
-        Initialize RK23 solver with rate equations and parameters.
+        Initialize ODE solver with rate equations, parameters, and method.
 
         Parameters
         ----------
@@ -69,9 +95,18 @@ class RK23Solver:
             Function that computes derivatives dy/dt = f(t, y, params)
         params : Dict
             Dictionary containing model parameters
+        method : str, optional
+            Solver method to use (default: 'LSODA')
+            Options:
+            - 'RK23': Explicit Runge-Kutta 2(3) - Fast for non-stiff
+            - 'RK45': Explicit Runge-Kutta 4(5) - Accurate for non-stiff
+            - 'LSODA': Adams/BDF with auto stiffness detection (RECOMMENDED)
+            - 'BDF': Backward Differentiation Formula - For stiff systems
+            - 'Radau': Implicit Runge-Kutta - For stiff systems
         """
         self.rate_equations = rate_equations
         self.params = params
+        self.method = method
         self.success = True
 
     def _equations_wrapper(self, t: float, y: np.ndarray) -> np.ndarray:
@@ -101,10 +136,11 @@ class RK23Solver:
         max_dt: float = 100.0,
         rtol: float = 1e-4,
         atol: float = 1e-6,
-        max_steps: int = 1000000
+        max_steps: int = 1000000,
+        method: Optional[str] = None
     ) -> Dict:
         """
-        Solve the ODE system using RK23 method.
+        Solve the ODE system using the specified method.
 
         Parameters
         ----------
@@ -124,6 +160,9 @@ class RK23Solver:
             Absolute tolerance for error control (default: 1e-6)
         max_steps : int
             Maximum number of internal steps (default: 1000000)
+        method : Optional[str]
+            Solver method to use. If None, uses the method from __init__ (default: 'LSODA')
+            Options: 'RK23', 'RK45', 'LSODA', 'BDF', 'Radau'
 
         Returns
         -------
@@ -156,6 +195,17 @@ class RK23Solver:
         # Clip initial conditions to avoid numerical issues (裁剪初始条件以避免数值问题)
         y0_clipped = np.clip(y0, 1e-12, 1e30)
 
+        # Determine which method to use (确定使用哪种方法)
+        solver_method = method if method is not None else self.method
+
+        # Validate method (验证方法)
+        valid_methods = ['RK23', 'RK45', 'LSODA', 'BDF', 'Radau', 'BDF']
+        if solver_method not in valid_methods:
+            raise ValueError(
+                f"Invalid method '{solver_method}'. "
+                f"Valid methods: {', '.join(valid_methods)}"
+            )
+
         # Solve ODE system with error handling (求解ODE系统，带错误处理)
         try:
             sol = solve_ivp(
@@ -163,7 +213,7 @@ class RK23Solver:
                 t_span=t_span,
                 y0=y0_clipped,
                 t_eval=t_eval,
-                method='RK23',
+                method=solver_method,
                 rtol=rtol,
                 atol=atol,
                 first_step=dt,
@@ -191,6 +241,30 @@ class RK23Solver:
         # 0: Cgb, 1: Ccb, 2: Ncb, 3: Rcb, 4: Cgf, 5: Ccf,
         # 6: Ncf, 7: Rcf, 8: cvb, 9: cib, 10: cvf, 11: cif,
         # 12: released_gas, 13: kvb, 14: kib, 15: kvf, 16: kif
+
+        # Check if solver succeeded before accessing solution data
+        # 检查求解器是否成功，再访问解数据
+        if not sol.success:
+            # Solver failed - return minimal results with error message
+            # 求解器失败 - 返回包含错误消息的最小结果
+            return {
+                'time': sol.t,
+                'success': sol.success,
+                'message': sol.message,
+                'y': sol.y if sol.y.size > 0 else np.zeros((17, len(t_eval))),
+                'nfev': sol.nfev,
+                'njev': sol.njev,
+                'nlu': sol.nlu,
+                # Add empty state variables for consistency
+                # 添加空状态变量以保持一致性
+                'Cgb': np.array([]), 'Ccb': np.array([]), 'Ncb': np.array([]),
+                'Rcb': np.array([]), 'Cgf': np.array([]), 'Ccf': np.array([]),
+                'Ncf': np.array([]), 'Rcf': np.array([]), 'cvb': np.array([]),
+                'cib': np.array([]), 'cvf': np.array([]), 'cif': np.array([]),
+                'released_gas': np.array([]), 'kvb': np.array([]), 'kib': np.array([]),
+                'kvf': np.array([]), 'kif': np.array([]),
+                'swelling': np.array([])
+            }
 
         results_dict = {
             'time': sol.t,
