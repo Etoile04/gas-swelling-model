@@ -18,6 +18,8 @@ phase of irradiated U-Zr and U-Pu-Zr fuel."
    :caption: Contents:
 
    api
+   validation_guide
+   sensitivity_analysis_guide
 
 Overview
 ========
