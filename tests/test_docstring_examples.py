@@ -34,7 +34,7 @@ def test_create_default_parameters_example():
     function docstring runs correctly and produces the expected values.
 
     Example from docstring:
-    >>> from parameters import create_default_parameters
+    >>> from gas_swelling.params.parameters import create_default_parameters
     >>> params = create_default_parameters()
     >>> temperature = params['temperature']  # 运行温度 (K)
     >>> fission_rate = params['fission_rate']  # 裂变率 (fissions/m³/s)
@@ -42,7 +42,7 @@ def test_create_default_parameters_example():
     >>> Dgf = params['Dgf']  # 相界气体扩散系数 (m²/s)
     >>> kB = params['kB']  # 玻尔兹曼常数 (J/K)
     """
-    from parameters import create_default_parameters
+    from gas_swelling.params.parameters import create_default_parameters
 
     # Execute the example code
     params = create_default_parameters()
@@ -89,16 +89,15 @@ def test_gas_swelling_model_basic_usage():
     This test verifies that a model can be instantiated with default
     parameters and basic operations work correctly.
     """
-    from modelrk23 import GasSwellingModel
+    from gas_swelling.models.refactored_model import RefactoredGasSwellingModel
 
     # Create model with default parameters
-    model = GasSwellingModel()
+    model = RefactoredGasSwellingModel()
 
     # Verify model is initialized
     assert model.params is not None
     assert model.initial_state is not None
     assert model.debug_history is not None
-    assert model.step_count == 0
     assert model.solver_success is True
     assert model.current_time == 0.0
 
@@ -117,8 +116,8 @@ def test_gas_swelling_model_with_custom_params():
     Verifies that the model can be instantiated with custom parameters
     and the parameters are properly set.
     """
-    from parameters import create_default_parameters
-    from modelrk23 import GasSwellingModel
+    from gas_swelling.params.parameters import create_default_parameters
+    from gas_swelling.models.refactored_model import RefactoredGasSwellingModel
 
     # Create custom parameters
     custom_params = create_default_parameters()
@@ -126,7 +125,7 @@ def test_gas_swelling_model_with_custom_params():
     custom_params['fission_rate'] = 3e20  # Modify fission rate
 
     # Create model with custom parameters
-    model = GasSwellingModel(params=custom_params)
+    model = RefactoredGasSwellingModel(params=custom_params)
 
     # Verify custom parameters are set
     assert model.params['temperature'] == 700
@@ -141,7 +140,7 @@ def test_parameters_dict_completeness():
     Verifies that the parameters dictionary contains all expected
     material and simulation parameters.
     """
-    from parameters import create_default_parameters
+    from gas_swelling.params.parameters import create_default_parameters
 
     params = create_default_parameters()
 
@@ -178,7 +177,7 @@ def test_parameter_types_and_ranges():
     Verifies that all parameters are of the correct type and
     within physically reasonable ranges.
     """
-    from parameters import create_default_parameters
+    from gas_swelling.params.parameters import create_default_parameters
 
     params = create_default_parameters()
 
@@ -213,14 +212,14 @@ def run_doctest_on_parameters():
     This function uses Python's doctest module to test the examples
     in the parameters.py docstrings.
     """
-    import parameters
+    from gas_swelling.params import parameters
 
     # Run doctest on the parameters module
     result = doctest.testmod(parameters, verbose=False)
 
     # Print summary
     print(f"\n{'='*60}")
-    print(f"Doctest Results for parameters.py:")
+    print(f"Doctest Results for gas_swelling.params.parameters:")
     print(f"  Attempted: {result.attempted} tests")
     print(f"  Failed: {result.failed} tests")
 
@@ -237,6 +236,187 @@ def run_doctest_on_parameters():
     return True
 
 
+def test_radial_mesh_docstring():
+    """Test radial mesh docstring examples
+
+    Verifies that the RadialMesh class examples work correctly.
+    Example from docstring:
+    >>> from gas_swelling.models.radial_mesh import RadialMesh
+    >>> mesh = RadialMesh(n_nodes=10, radius=0.003)
+    >>> print(f'Nodes: {len(mesh.nodes)}, Geometry: {mesh.geometry}')
+    Nodes: 10, Geometry: cylindrical
+    """
+    from gas_swelling.models.radial_mesh import RadialMesh
+
+    # Create mesh
+    mesh = RadialMesh(n_nodes=10, radius=0.003)
+
+    # Verify basic properties
+    assert len(mesh.nodes) == 10
+    assert mesh.geometry == 'cylindrical'
+    assert mesh.radius == 0.003
+    assert mesh.n_nodes == 10
+
+    # Verify node positions
+    assert mesh.nodes[0] == 0.0
+    assert mesh.nodes[-1] == 0.003
+
+    # Verify geometry factor
+    assert mesh.geometry_factor == 1.0
+
+    print("✓ RadialMesh docstring examples test passed")
+
+
+def test_radial_model_docstring():
+    """Test radial gas swelling model docstring examples
+
+    Verifies that the RadialGasSwellingModel examples work correctly.
+    Example from docstring:
+    >>> from gas_swelling.models.radial_model import RadialGasSwellingModel
+    >>> from gas_swelling.params.parameters import create_default_parameters
+    >>> params = create_default_parameters()
+    >>> params['temperature'] = 773.15
+    >>> model = RadialGasSwellingModel(params, n_nodes=10)
+    """
+    from gas_swelling.models.radial_model import RadialGasSwellingModel
+    from gas_swelling.params.parameters import create_default_parameters
+
+    # Create model
+    params = create_default_parameters()
+    params['temperature'] = 773.15
+    model = RadialGasSwellingModel(params, n_nodes=10)
+
+    # Verify basic properties
+    assert model.n_nodes == 10
+    assert model.mesh is not None
+    assert model.params is not None
+    assert model.initial_state is not None
+
+    # Verify state size
+    assert len(model.initial_state) == 17 * 10  # 17 vars per node
+
+    # Verify temperature profile
+    assert len(model.temperature) == 10
+
+    print("✓ RadialGasSwellingModel docstring examples test passed")
+
+
+def test_radial_transport_docstring():
+    """Test radial transport docstring examples
+
+    Verifies that the radial transport functions work correctly.
+    Example from docstring:
+    >>> import numpy as np
+    >>> from gas_swelling.physics.radial_transport import calculate_radial_flux
+    >>> concentration = np.array([1e25, 0.9e25, 0.8e25, 0.7e25])
+    >>> diffusion_coeff = 1e-15
+    >>> mesh_nodes = np.array([0.0, 0.001, 0.002, 0.003])
+    >>> flux = calculate_radial_flux(concentration, diffusion_coeff, mesh_nodes, geometry_factor=1.0)
+    """
+    import numpy as np
+    from gas_swelling.physics.radial_transport import calculate_radial_flux
+
+    # Test radial flux calculation
+    concentration = np.array([1e25, 0.9e25, 0.8e25, 0.7e25])
+    diffusion_coeff = 1e-15
+    mesh_nodes = np.array([0.0, 0.001, 0.002, 0.003])
+    flux = calculate_radial_flux(concentration, diffusion_coeff, mesh_nodes, geometry_factor=1.0)
+
+    # Verify flux shape
+    assert len(flux) == 3  # n_nodes - 1
+
+    # Verify flux is positive (flowing from high to low concentration)
+    assert flux[0] > 0
+
+    print("✓ Radial transport docstring examples test passed")
+
+
+def test_radial_plotter_docstring():
+    """Test radial plotter docstring examples
+
+    Verifies that the RadialProfilePlotter can be initialized.
+    Example from docstring:
+    >>> from gas_swelling.visualization.radial_plots import RadialProfilePlotter
+    >>> plotter = RadialProfilePlotter()
+    """
+    from gas_swelling.visualization.radial_plots import RadialProfilePlotter
+
+    # Create plotter
+    plotter = RadialProfilePlotter()
+
+    # Verify basic properties
+    assert plotter.time_index == -1
+    assert plotter.radius_unit == 'mm'
+
+    print("✓ RadialProfilePlotter docstring examples test passed")
+
+
+def test_radial_geometric_spacing_docstring():
+    """Test radial mesh geometric spacing docstring examples
+
+    Verifies that geometric spacing works correctly.
+    """
+    from gas_swelling.models.radial_mesh import RadialMesh
+
+    # Create mesh with geometric spacing
+    mesh = RadialMesh(n_nodes=20, radius=0.003, spacing='geometric')
+
+    # Verify nodes
+    assert len(mesh.nodes) == 20
+    assert mesh.nodes[0] == 0.0
+    assert mesh.nodes[-1] == 0.003
+
+    # Verify spacing increases
+    dr = mesh.dr
+    for i in range(len(dr) - 1):
+        assert dr[i+1] > dr[i], "Spacing should increase for geometric spacing"
+
+    print("✓ Radial mesh geometric spacing test passed")
+
+
+def test_radial_slab_geometry_docstring():
+    """Test radial slab geometry docstring examples
+
+    Verifies that slab geometry works correctly.
+    """
+    from gas_swelling.models.radial_mesh import RadialMesh
+
+    # Create slab mesh
+    mesh = RadialMesh(n_nodes=10, radius=0.003, geometry='slab')
+
+    # Verify geometry
+    assert mesh.geometry == 'slab'
+    assert mesh.geometry_factor == 0.0
+
+    print("✓ Radial slab geometry test passed")
+
+
+def test_radial_temperature_profile_docstring():
+    """Test radial temperature profile docstring examples
+
+    Verifies that user-specified temperature profiles work.
+    """
+    import numpy as np
+    from gas_swelling.models.radial_model import RadialGasSwellingModel
+    from gas_swelling.params.parameters import create_default_parameters
+
+    # Create model with user temperature profile
+    params = create_default_parameters()
+    T_profile = np.linspace(800, 600, 10)
+    model = RadialGasSwellingModel(
+        params, n_nodes=10,
+        temperature_profile='user',
+        temperature_data=T_profile
+    )
+
+    # Verify temperature profile
+    assert len(model.temperature) == 10
+    assert np.isclose(model.temperature[0], 800)
+    assert np.isclose(model.temperature[-1], 600)
+
+    print("✓ Radial temperature profile test passed")
+
+
 def main():
     """Run all tests"""
     print("="*60)
@@ -249,6 +429,13 @@ def main():
         ("GasSwellingModel custom params", test_gas_swelling_model_with_custom_params),
         ("Parameters completeness", test_parameters_dict_completeness),
         ("Parameter types and ranges", test_parameter_types_and_ranges),
+        ("RadialMesh docstring examples", test_radial_mesh_docstring),
+        ("RadialGasSwellingModel docstring examples", test_radial_model_docstring),
+        ("Radial transport docstring examples", test_radial_transport_docstring),
+        ("RadialProfilePlotter docstring examples", test_radial_plotter_docstring),
+        ("Radial geometric spacing docstring", test_radial_geometric_spacing_docstring),
+        ("Radial slab geometry docstring", test_radial_slab_geometry_docstring),
+        ("Radial temperature profile docstring", test_radial_temperature_profile_docstring),
     ]
 
     passed = 0

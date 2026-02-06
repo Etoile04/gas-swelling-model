@@ -7,6 +7,7 @@ INSTALL.md
 LICENSE
 MANIFEST.in
 PROGRESS_TRACKING.md
+QUICKSTART.md
 README.md
 REFACTORING.md
 SUBTASK_1-3_COMPLETION.md
@@ -14,6 +15,7 @@ THEORY_DOCUMENTATION.md
 VERIFICATION_SUMMARY.md
 backward_compatibility_report.md
 build_docs.py
+cli_error_tests_summary.md
 euler_model.log
 example_parameter_sweep.py
 model_design.md
@@ -24,6 +26,7 @@ requirements.txt
 run_test.py
 sampling_strategies.py
 setup.py
+subtask-5-3-completion-summary.md
 subtask-5-3-summary.md
 subtask-6-3-completion-summary.md
 test4_run_lsoda.log
@@ -49,6 +52,11 @@ verify_refactored_model.py
 verify_tests.py
 .auto-claude/specs/003-multi-parameter-sweep-optimization/build-progress.txt
 .auto-claude/specs/003-multi-parameter-sweep-optimization/implementation_plan.json
+.auto-claude/specs/019-comprehensive-test-suite/validation_report.md
+.github/workflows/README.md
+.github/workflows/docs.yml
+.github/workflows/lint.yml
+.github/workflows/pages-deploy.yml
 .github/workflows/test.yml
 cli/__init__.py
 cli/__main__.py
@@ -101,6 +109,7 @@ examples/__init__.py
 examples/adaptive_stepping_demo.py
 examples/config_example.yaml
 examples/plotting_examples.py
+examples/quickstart_simple.py
 examples/quickstart_tutorial.py
 examples/run_simulation.py
 examples/sensitivity_analysis_tutorial.py
@@ -121,6 +130,8 @@ gas_swelling/io/visualization.py
 gas_swelling/models/__init__.py
 gas_swelling/models/adaptive_solver.py
 gas_swelling/models/modelrk23.py
+gas_swelling/models/radial_mesh.py
+gas_swelling/models/radial_model.py
 gas_swelling/models/refactored_model.py
 gas_swelling/ode/README.md
 gas_swelling/ode/__init__.py
@@ -131,22 +142,12 @@ gas_swelling/physics/README.md
 gas_swelling/physics/__init__.py
 gas_swelling/physics/gas_transport.py
 gas_swelling/physics/pressure.py
+gas_swelling/physics/radial_transport.py
 gas_swelling/physics/thermal.py
 gas_swelling/solvers/README.md
 gas_swelling/solvers/__init__.py
 gas_swelling/solvers/euler_solver.py
 gas_swelling/solvers/rk23_solver.py
-gas_swelling/validation/__init__.py
-gas_swelling/validation/datasets.py
-gas_swelling/validation/metrics.py
-gas_swelling/validation/reporting.py
-gas_swelling/validation/data/high_purity_u_figures9_10.csv
-gas_swelling/validation/data/u10zr_figure6.csv
-gas_swelling/validation/data/u19pu10zr_figure7.csv
-gas_swelling/validation/scripts/__init__.py
-gas_swelling/validation/scripts/reproduce_figure6.py
-gas_swelling/validation/scripts/reproduce_figure7.py
-gas_swelling/validation/scripts/reproduce_figures9_10.py
 gas_swelling/visualization/DOCSTRING_VERIFICATION.md
 gas_swelling/visualization/README.md
 gas_swelling/visualization/__init__.py
@@ -158,6 +159,7 @@ gas_swelling/visualization/utils.py
 gas_swelling_model.egg-info/PKG-INFO
 gas_swelling_model.egg-info/SOURCES.txt
 gas_swelling_model.egg-info/dependency_links.txt
+gas_swelling_model.egg-info/entry_points.txt
 gas_swelling_model.egg-info/not-zip-safe
 gas_swelling_model.egg-info/requires.txt
 gas_swelling_model.egg-info/top_level.txt
@@ -178,6 +180,8 @@ tests/test_integration_solver.py
 tests/test_metrics.py
 tests/test_performance.py
 tests/test_progress_indicator.py
+tests/test_radial_mesh.py
+tests/test_radial_transport.py
 tests/test_refactored_model.py
 tests/test_sensitivity.py
 tests/test_unit_bubble_radius.py
@@ -188,7 +192,6 @@ tests/test_unit_model_methods.py
 tests/test_unit_parameters.py
 tests/test_unit_pressure.py
 tests/test_unit_solve_method.py
-tests/test_validation_metrics.py
 tests/test_validation_paper_data.py
 tests/test_visualization_e2e.py
 tests/utils.py

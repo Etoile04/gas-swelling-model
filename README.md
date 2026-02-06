@@ -1,5 +1,11 @@
 # Gas Swelling Model for Nuclear Fuel Materials
 
+![Tests](https://github.com/Etoile04/gas-swelling-model/workflows/Tests/badge.svg)
+![codecov](https://codecov.io/gh/Etoile04/gas-swelling-model/branch/main/graph/badge.svg)
+![Lint](https://github.com/Etoile04/gas-swelling-model/workflows/Lint/badge.svg)
+![Docs](https://github.com/Etoile04/gas-swelling-model/workflows/Docs/badge.svg)
+![Pages](https://github.com/Etoile04/gas-swelling-model/workflows/Pages/badge.svg)
+
 A physics-based computational model for simulating fission gas bubble evolution and void swelling behavior in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys).
 
 ## Overview
@@ -22,6 +28,7 @@ This implementation follows the theoretical framework from **"Kinetics of fissio
 
 - **Comprehensive Physics**: Models gas transport, defect kinetics, cavity growth, and gas release
 - **Validated**: Benchmarked against U-10Zr and U-Pu-Zr experimental data
+- **1D Radial Model**: Spatially-resolved simulations for realistic fuel pellet geometry with temperature and fission rate gradients
 - **Flexible Configuration**: YAML-based parameter system with sensible defaults
 - **Production-Ready**: Robust numerical solver with error handling and progress tracking
 - **Well-Documented**: Extensive tutorials, parameter reference, and physics documentation
@@ -49,7 +56,8 @@ gas_swelling/
 │   └── visualization.py   # Plotting utilities
 ├── models/           # Model orchestration
 │   ├── modelrk23.py       # Backward-compatible wrapper
-│   └── refactored_model.py # New modular model class
+│   ├── refactored_model.py # New modular model class
+│   └── radial_model.py    # 1D radial spatial discretization model
 └── params/           # Parameter management
     └── parameters.py      # MaterialParameters, SimulationParameters
 ```
@@ -94,6 +102,8 @@ plot_time_series(result['t'], result['swelling'], xlabel='Time (s)', ylabel='Swe
 **📘 See [REFACTORING.md](REFACTORING.md)** for complete migration guide and architecture details.
 
 ## Quick Start
+
+**🚀 New to the model? Start here:** **[QUICKSTART.md](QUICKSTART.md)** - The fastest way to get up and running with installation and your first simulation.
 
 ### Installation
 
@@ -152,6 +162,7 @@ For a detailed step-by-step tutorial, see **[examples/quickstart_tutorial.py](ex
 ### Example Scripts
 
 - **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)** - Basic simulation with detailed comments
+- **[examples/radial_model_tutorial.py](examples/radial_model_tutorial.py)** - 1D radial model with spatial discretization
 - **[test4_run_rk23.py](test4_run_rk23.py)** - Advanced example with parameter sweeps and plotting
 
 ## Model Physics
@@ -262,6 +273,91 @@ result = model.solve(t_span=(0, 8.64e6))
 ```
 
 For more examples, see the **[Parameter Reference](docs/parameter_reference.md)** and **[Jupyter Notebook](notebooks/Temperature_Sweep_Example.ipynb)**.
+
+### Example 4: 1D Radial Model
+
+The **1D radial model** (`RadialGasSwellingModel`) extends the homogeneous model to simulate spatial variations across a fuel pellet radius. This is essential for understanding temperature gradients, fission rate distributions, and their effects on swelling behavior in realistic fuel geometries.
+
+```python
+from gas_swelling import RadialGasSwellingModel
+from gas_swelling.params import create_default_parameters
+import numpy as np
+
+# Create default parameters
+params = create_default_parameters()
+
+# Define radial grid (e.g., 50 zones from center to surface)
+r_inner = 0.0  # Center of fuel pellet
+r_outer = 0.003  # Fuel pellet radius (m)
+num_zones = 50
+dr = (r_outer - r_inner) / num_zones
+
+# Define temperature and fission rate profiles (linear gradient as example)
+def temperature_profile(r):
+    """Linear temperature gradient from center to surface."""
+    T_center = 950  # K
+    T_surface = 650  # K
+    r_normalized = r / r_outer
+    return T_center - (T_center - T_surface) * r_normalized
+
+def fission_rate_profile(r):
+    """Flattened parabolic fission rate distribution."""
+    r_normalized = r / r_outer
+    # Parabolic profile (approximate cosine shape)
+    return 4.0e19 * (1 + 0.5 * (1 - r_normalized**2))
+
+# Initialize radial model
+model = RadialGasSwellingModel(
+    params=params,
+    r_inner=r_inner,
+    r_outer=r_outer,
+    num_zones=num_zones,
+    temperature_profile=temperature_profile,
+    fission_rate_profile=fission_rate_profile
+)
+
+# Solve for 100 days of irradiation
+result = model.solve(
+    t_span=(0, 8.64e6),
+    t_eval=np.linspace(0, 8.64e6, 100)
+)
+
+# Access spatially-resolved results
+print(f"Center swelling: {result['swelling'][:, 0][-1]*100:.2f}%")
+print(f"Mid-radius swelling: {result['swelling'][:, num_zones//2][-1]*100:.2f}%")
+print(f"Surface swelling: {result['swelling'][:, -1][-1]*100:.2f}%")
+
+# Plot radial swelling profile
+import matplotlib.pyplot as plt
+r_grid = np.linspace(r_inner, r_outer, num_zones)
+plt.plot(r_grid*1000, result['swelling'][-1, :]*100, 'o-')
+plt.xlabel('Radius (mm)')
+plt.ylabel('Swelling (%)')
+plt.title('Radial Swelling Profile after 100 Days')
+plt.grid(True)
+plt.show()
+```
+
+#### Key Features of the Radial Model
+
+- **Spatial discretization**: Fuel pellet divided into concentric zones
+- **Profile-based inputs**: Temperature and fission rate vary with radius
+- **Coupled solutions**: Each zone solves independent ODE system with local conditions
+- **Radially-resolved outputs**: Swelling, bubble size, gas pressure as functions of radius and time
+- **Volume-averaged results**: Calculate overall fuel performance metrics
+
+**📘 See [examples/radial_model_tutorial.py](examples/radial_model_tutorial.py)** for a complete tutorial with:
+- Multiple temperature profile examples (linear, parabolic, experimental data)
+- Fission rate profile configurations
+- Visualization techniques for radial results
+- Comparison with homogeneous model
+- Guidance on choosing grid resolution
+
+The radial model is particularly useful for:
+- **Fuel performance analysis** where temperature gradients are significant
+- **Burnup distribution studies** across fuel pellets
+- **Validation against post-irradiation examination (PIE) data**
+- **Design optimization** for fuel pin geometry and operating conditions
 
 ## Parameter Sensitivity Analysis
 
@@ -406,9 +502,9 @@ These parameters have strong influence on swelling predictions:
 - **Boundary nucleation factor** (Fnf): Controls incubation period
 - **Temperature**: Bell-shaped swelling curve (~700-800 K peak)
 
-## Experimental Validation
+## Validation
 
-The model has been validated against experimental data from irradiation experiments:
+The model has been validated against experimental data:
 
 | Fuel Type | Temperature | Burnup | Validation Status |
 |-----------|-------------|--------|-------------------|
