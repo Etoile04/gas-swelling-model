@@ -1250,4 +1250,4 @@ plot_sobol_convergence(
 
 ---
 
-**📘 Documentation Index** | **[README](../README.md)** | **[Parameter Reference](parameter_reference.md)** | **[Quick Start Tutorial](../examples/quickstart_tutorial.py)** | **[Sensitivity Examples](../examples/)**
+**📘 Documentation Index** | repo-root `README.md` | **[Parameter Reference](parameter_reference.md)** | **[Quick Start Tutorial](../examples/quickstart_tutorial.py)** | repo `examples/`

@@ -55,3 +55,14 @@ htmlcov/
 
 # Generated reports
 code_analysis_report.md
+
+# Documentation build artifacts
+docs/_build/
+
+# Local outputs
+test_output/
+test_output_radial/
+backups/
+
+# Local agent guidance
+AGENTS.md

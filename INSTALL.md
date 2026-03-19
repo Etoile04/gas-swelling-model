@@ -11,6 +11,7 @@ This guide provides step-by-step instructions for installing the Gas Swelling Mo
   - [Method 3: Build from Source](#method-3-build-from-source)
 - [Verifying Installation](#verifying-installation)
 - [Optional Dependencies](#optional-dependencies)
+- [Building Documentation](#building-documentation)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -305,11 +306,77 @@ pip install gas-swelling-model[dev]
 pip install pytest pytest-cov build twine
 ```
 
+### Safe Local Test Runner
+
+The repo includes a helper script for local test runs:
+
+```bash
+./scripts/test_safe.sh tests/test_import.py
+./.venv/bin/python scripts/test_safe.py tests/test_import.py
+./.venv/bin/python scripts/test_safe.py --timeout 300 -- tests/test_import.py
+```
+
+It adds a default timeout, sets writable cache directories for plotting-related
+imports, and terminates the whole pytest process tree if the run times out.
+Use `test_safe.py` when you want the same cross-platform entry point as CI.
+
+### Documentation Dependencies
+
+For local Sphinx builds:
+
+```bash
+./.venv/bin/python -m pip install -r docs/requirements.txt
+```
+
 ### All Optional Dependencies
 
 ```bash
 # Install everything
 pip install gas-swelling-model[all]
+```
+
+---
+
+## Building Documentation
+
+The repository includes a Sphinx documentation site under `docs/`.
+
+### Recommended Commands
+
+```bash
+# Install docs dependencies into the repo virtualenv
+./.venv/bin/python -m pip install -r docs/requirements.txt
+
+# Fast smoke build (no HTML output, checks links/parsing)
+make -C docs dummy-offline
+
+# Full offline HTML build
+make -C docs html-offline
+```
+
+### Output Location
+
+The generated HTML site is written to:
+
+```text
+docs/_build/html/
+```
+
+Open `docs/_build/html/index.html` in a browser after the build finishes.
+
+### Why the Offline Target Is Recommended
+
+- It uses the repo virtualenv by default through `docs/Makefile`
+- It avoids external intersphinx fetches, which helps in restricted or offline environments
+- It sets writable cache directories for Matplotlib/font handling during the build
+
+### Direct Python Alternative
+
+If you prefer not to use `make`, the equivalent command is:
+
+```bash
+SPHINX_OFFLINE=1 MPLCONFIGDIR=/tmp/mplconfig XDG_CACHE_HOME=/tmp/xdg-cache \
+./.venv/bin/python -m sphinx -b html docs docs/_build/html
 ```
 
 ---
@@ -433,10 +500,10 @@ After successful installation, choose your learning path:
 - Run [examples/quickstart_simple.py](examples/quickstart_simple.py) - Minimal working example
 
 **📚 Comprehensive Tutorial** (For in-depth understanding)
-- Read the [Quick Start Tutorial](examples/quickstart_tutorial.md) - Detailed walkthrough
-- Explore [Example Notebooks](notebooks/) - Interactive Jupyter notebooks
+- Run [examples/quickstart_tutorial.py](examples/quickstart_tutorial.py) - Detailed walkthrough
+- Explore the `notebooks/` directory - Interactive Jupyter notebooks
 - Consult the [Parameter Reference](docs/parameter_reference.md) - All parameters explained
-- Review the [Physics Documentation](docs/physics_overview.md) - Theoretical background
+- Review the [Repository Guide](docs/guides/repository_guide.md) - Structure, workflows, and entry points
 
 ---
 

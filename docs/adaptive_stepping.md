@@ -813,9 +813,9 @@ params['adaptive_stepping_enabled'] = False
 ## Related Documentation
 
 - [Parameter Reference Guide](./parameter_reference.md) - All model parameters and their meanings
-- [Model Theory](../docs/model_design.md) - Theoretical framework
+- Model theory: see repo-root `model_design.md`
 - [Adaptive Stepping Demo](../examples/adaptive_stepping_demo.py) - Interactive demonstration
-- [Installation Guide](../INSTALL.md) - Setting up the environment
+- Installation guide: see repo-root `INSTALL.md`
 
 ---
 

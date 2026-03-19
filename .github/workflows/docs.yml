@@ -10,6 +10,10 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
+    env:
+      SPHINX_OFFLINE: "1"
+      MPLCONFIGDIR: /tmp/mplconfig
+      XDG_CACHE_HOME: /tmp/xdg-cache
     steps:
     - uses: actions/checkout@v4
 
@@ -25,10 +29,11 @@ jobs:
         pip install -e .
         pip install -r docs/requirements.txt
 
+    - name: Run docs smoke build
+      run: make -C docs dummy-offline
+
     - name: Build HTML documentation
-      run: |
-        cd docs
-        make html
+      run: make -C docs html-offline
 
     - name: Upload documentation artifacts
       uses: actions/upload-artifact@v4

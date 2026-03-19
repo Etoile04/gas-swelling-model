@@ -108,6 +108,7 @@ Congratulations! You've successfully:
 
 - **[📘 INSTALL.md](INSTALL.md)** - Detailed installation options (pip, conda, from source)
 - **[📋 Parameter Reference](docs/parameter_reference.md)** - All 40+ parameters explained
+- **[🎓 30-Minute Comprehensive Tutorial](docs/tutorials/30minute_quickstart.md)** - Detailed hands-on guide for complete beginners
 - **[🐍 quickstart_tutorial.py](examples/quickstart_tutorial.py)** - Detailed step-by-step tutorial
 - **[📓 Jupyter Notebook](notebooks/Temperature_Sweep_Example.ipynb)** - Interactive temperature sweep study
 

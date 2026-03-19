@@ -28,16 +28,26 @@ The CI/CD pipeline ensures code quality, catches issues early, validates documen
 1. Checkout code
 2. Set up Python with pip caching
 3. Install dependencies with `pip install -e .[dev]`
-4. Run pytest with coverage:
+4. Run the main test suite with coverage:
    ```bash
-   pytest tests/ -v --tb=short --cov=gas_swelling --cov-report=term-missing --cov-report=xml
+   python scripts/test_safe.py --timeout 2400 -- tests/ -v --tb=short --cov=gas_swelling --cov-report=term-missing --cov-report=xml
    ```
 5. Upload coverage to Codecov (Ubuntu 3.11 only)
+
+**Platform behavior:**
+- Matrix jobs use the Python safe runner across Ubuntu, Windows, and macOS
+- The runner adds timeout-based cleanup without relying on a shell-specific wrapper
 
 #### Minimal Dependencies Test
 - Runs on Ubuntu with Python 3.11
 - Installs only core dependencies: `numpy`, `scipy`, `pytest`
 - Ensures package works without optional dev dependencies
+- Uses `python scripts/test_safe.py --timeout 1800 -- ...`
+
+#### Validation Test Job
+- Runs on Ubuntu with Python 3.11
+- Uses `python scripts/test_safe.py --timeout 1800 -- ...` for the validation test subset
+- Keeps figure-reproduction commands separate after the test phase
 
 #### Basic Lint Check
 - Runs critical flake8 checks for syntax errors (E9, F63, F7, F82)
@@ -140,17 +150,21 @@ The CI/CD pipeline ensures code quality, catches issues early, validates documen
    pip install -e .
    pip install -r docs/requirements.txt
    ```
-4. Build HTML documentation:
+4. Run docs smoke build:
    ```bash
-   cd docs
-   make html
+   make -C docs dummy-offline
    ```
-5. Upload documentation artifacts:
+5. Build HTML documentation:
+   ```bash
+   make -C docs html-offline
+   ```
+6. Upload documentation artifacts:
    - **Name:** `documentation-html`
    - **Path:** `docs/_build/html/`
    - **Retention:** 30 days
 
 **Notes:**
+- The workflow uses offline Sphinx mode plus writable cache directories
 - The workflow includes commented-out deployment steps
 - Actual deployment is handled by `pages-deploy.yml`
 
@@ -191,8 +205,7 @@ permissions:
    ```
 4. Build HTML documentation:
    ```bash
-   cd docs
-   make html
+   make -C docs html-offline
    ```
 5. Deploy to GitHub Pages using `peaceiris/actions-gh-pages@v3`:
    - **Token:** Automatic `GITHUB_TOKEN`
@@ -267,10 +280,13 @@ pages-deploy.yml (depends on docs.yml conceptually)
 pip install -e .[dev]
 
 # Run tests
-pytest tests/ -v
+./.venv/bin/python scripts/test_safe.py tests/ -v
 
 # Run with coverage
-pytest tests/ --cov=gas_swelling --cov-report=term-missing
+./.venv/bin/python scripts/test_safe.py tests/ --cov=gas_swelling --cov-report=term-missing
+
+# Use a shorter explicit timeout
+./.venv/bin/python scripts/test_safe.py --timeout 300 -- tests/test_import.py
 ```
 
 ### Run Linting Locally
@@ -288,16 +304,17 @@ flake8 gas_swelling/ tests/ --select=E9,F63,F7,F82 --show-source
 ### Build Documentation Locally
 ```bash
 # Install dependencies
-pip install -e .
-pip install -r docs/requirements.txt
+./.venv/bin/python -m pip install -r docs/requirements.txt
+
+# Fast smoke check
+make -C docs dummy-offline
 
 # Build docs
-cd docs
-make html
+make -C docs html-offline
 
 # View output
-open _build/html/index.html  # macOS
-xdg-open _build/html/index.html  # Linux
+open docs/_build/html/index.html  # macOS
+xdg-open docs/_build/html/index.html  # Linux
 ```
 
 ## Workflow Configuration
@@ -368,7 +385,7 @@ max-line-length = 127
 - Add docstrings to public functions/classes
 
 ### Documentation Build Fails
-- Build locally first: `cd docs && make html`
+- Build locally first: `make -C docs dummy-offline && make -C docs html-offline`
 - Check for syntax errors in RST files
 - Verify all imports work in documentation environment
 - Check `docs/requirements.txt` for missing dependencies

@@ -19,10 +19,13 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-# Add user site-packages to path if needed for macOS
+# Add user site-packages only as a last-resort fallback when not running inside
+# the project virtualenv. Prepending it can shadow the active environment and
+# break compiled dependencies such as contourpy during the full pytest run.
 user_site = os.path.expanduser('~/Library/Python/3.9/lib/python/site-packages')
-if os.path.exists(user_site) and user_site not in sys.path:
-    sys.path.insert(0, user_site)
+in_virtualenv = getattr(sys, 'base_prefix', sys.prefix) != sys.prefix
+if (not in_virtualenv) and os.path.exists(user_site) and user_site not in sys.path:
+    sys.path.append(user_site)
 
 import numpy as np
 

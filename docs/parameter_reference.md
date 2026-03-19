@@ -2183,8 +2183,8 @@ else:
 ## Related Documentation
 
 - [Sensitivity Analysis Guide](sensitivity_analysis_guide.md) - Detailed sensitivity methods
-- [Quick Start Tutorial](../examples/quickstart_tutorial.md) - Basic simulation examples
-- [Model Theory](model_design.md) - Theoretical framework
+- [30-Minute Quickstart](tutorials/30minute_quickstart.md) - Basic simulation examples
+- Model theory: see repo-root `model_design.md`
 - [Usage Examples](#usage-examples) - Code examples for all scenarios
 
 ---
@@ -2304,10 +2304,10 @@ for rho in densities:
 
 ## Related Documentation
 
-- [Quick Start Tutorial](../examples/quickstart_tutorial.md) - Basic simulation examples
-- [Model Theory](../docs/model_design.md) - Theoretical framework
-- [Installation Guide](../INSTALL.md) - Setting up the environment
-- [Jupyter Notebook Examples](../notebooks/) - Interactive tutorials
+- [30-Minute Quickstart](tutorials/30minute_quickstart.md) - Basic simulation examples
+- Model theory: see repo-root `model_design.md`
+- Installation guide: see repo-root `INSTALL.md`
+- Jupyter notebook examples: see repo `notebooks/`
 
 ---
 

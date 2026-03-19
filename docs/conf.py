@@ -27,6 +27,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.ifconfig',
+    'myst_parser',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -38,7 +39,12 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The suffix(es) of source filenames.
-source_suffix = '.rst'
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
+
+myst_heading_anchors = 6
 
 # The master toctree document.
 master_doc = 'index'
@@ -82,12 +88,15 @@ napoleon_include_init_with_doc = True
 # -- Options for intersphinx extension --------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-    'numpy': ('https://numpy.org/doc/stable/', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
-    'matplotlib': ('https://matplotlib.org/stable/', None),
-}
+if os.environ.get('SPHINX_OFFLINE', '0') == '1':
+    intersphinx_mapping = {}
+else:
+    intersphinx_mapping = {
+        'python': ('https://docs.python.org/3', None),
+        'numpy': ('https://numpy.org/doc/stable/', None),
+        'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
+        'matplotlib': ('https://matplotlib.org/stable/', None),
+    }
 
 # -- Options for todo extension ---------------------------------------------
 

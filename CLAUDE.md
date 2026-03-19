@@ -4,111 +4,124 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a scientific computing project that implements a **Gas Swelling Model** for nuclear fuel materials (U-Zr and U-Pu-Zr alloys). The model simulates fission gas bubble evolution and void swelling behavior in irradiated metallic fuels based on rate theory. The implementation follows the theoretical framework from "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel."
+A scientific computing package for modeling fission gas bubble evolution and void swelling in irradiated metallic nuclear fuels (U-Zr and U-Pu-Zr alloys). Based on rate theory from "Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel."
+
+## Commands
+
+### Running Tests
+```bash
+# Safe test runner (recommended - handles timeouts and process cleanup)
+./scripts/test_safe.sh tests/ -v
+
+# Run single test file
+./scripts/test_safe.sh tests/test_import.py -v
+
+# Run fast tests only (exclude slow integration tests)
+./scripts/test_safe.sh tests/ -v -m 'not slow'
+
+# Run with coverage
+./scripts/test_safe.sh tests/ --cov=gas_swelling --cov-report=term-missing
+
+# Shorter timeout for quick runs
+./.venv/bin/python scripts/test_safe.py --timeout 300 -- tests/test_import.py
+```
+
+### Running Examples
+```bash
+# Use repo virtualenv
+./.venv/bin/python examples/quickstart_simple.py
+./.venv/bin/python examples/quickstart_tutorial.py
+./.venv/bin/python examples/plotting_examples.py
+```
+
+### Building Documentation
+```bash
+# Build HTML docs
+make -C docs html
+
+# Build offline (no network access)
+make -C docs html-offline
+```
 
 ## Core Architecture
 
-### State Vector (10 variables)
-The model solves a system of 10 coupled ordinary differential equations (ODEs):
+### Model Backends (`model_backend` parameter)
 
-1. **Cgb**: Gas atom concentration in bulk matrix (atoms/m³)
-2. **Ccb**: Cavity/bubble concentration in bulk (cavities/m³)
-3. **Ncb**: Gas atoms per bulk cavity (atoms/cavity)
-4. **cvb**: Vacancy concentration in bulk
-5. **cib**: Interstitial concentration in bulk
-6. **Cgf**: Gas atom concentration at phase boundaries
-7. **Ccf**: Cavity concentration at phase boundaries
-8. **Ncf**: Gas atoms per boundary cavity
-9. **cvf**: Vacancy concentration at boundaries
-10. **cif**: Interstitial concentration at boundaries
+| Backend | Description | Use Case |
+|---------|-------------|----------|
+| `full` | 17-state ODE system (default) | Production runs, full physics |
+| `qssa` | Quasi-steady-state approximation | Faster studies, sensitivity analysis |
+| `hybrid_qssa` | Hybrid reduced-order | Balance of speed and accuracy |
 
-### Key Physical Relationships
+### State Vector (17 components in `full` backend)
 
-- **Gas Pressure**: Calculated via ideal gas law or modified Van der Waals EOS (configurable via `eos_model` parameter)
-- **Cavity Radius**: Computed from gas atoms per cavity (Nc) using mechanical equilibrium between gas pressure and surface tension
-- **Swelling Rate**: Total volume fraction occupied by cavities: `V_bubble = (4/3)πR³ × Cc`
-- **Critical Radius**: Distinguishes gas-driven swelling (overpressurized) from bias-driven void growth (underpressurized)
+The main ODE system tracks:
+- **Gas**: Cgb (bulk gas), Cgf (boundary gas), released_gas
+- **Cavities**: Ccb, Ccf (concentrations), Ncb, Ncf (gas atoms per cavity), Rcb, Rcf (radii)
+- **Defects**: cvb, cib (bulk vacancies/interstitials), cvf, cif (boundary)
+- **Sink strengths**: kvb, kib, kvf, kif
 
-## Common Development Tasks
-
-### Running the Model
-
-```bash
-# Run default simulation
-python test4_run_rk23.py
-
-# Run temperature sweep study
-python test4_run_rk23.py  # (contains temperature_sweep function)
+### Package Structure
+```
+gas_swelling/
+├── models/           # Model implementations
+│   ├── refactored_model.py   # Main 0D model (RefactoredGasSwellingModel)
+│   ├── qssa_model.py         # Reduced-order variant
+│   ├── hybrid_qssa_model.py  # Hybrid variant
+│   └── radial_model.py       # 1D radial model
+├── physics/          # Pressure, transport, thermal calculations
+├── ode/              # Rate equation systems (full, qssa, hybrid)
+├── solvers/          # Numerical solvers (RK23, Euler)
+├── params/           # Parameter dataclasses and defaults
+├── analysis/         # Sensitivity analysis (OAT, Morris, Sobol)
+├── visualization/    # Plotting utilities
+├── io/               # Debug output helpers
+└── validation/       # Paper data comparison scripts
 ```
 
-### Parameter Configuration
+### Key Entry Points
 
-All material and simulation parameters are defined in `parameters.py`:
+- **Package API**: `gas_swelling/__init__.py` - exports `GasSwellingModel`, `create_default_parameters`
+- **Main 0D model**: `gas_swelling/models/refactored_model.py`
+- **Parameters**: `gas_swelling/params/parameters.py`
+- **1D radial model**: `gas_swelling/models/radial_model.py` (uses `radial_solver_mode='decoupled'` by default)
 
-- **MaterialParameters**: Physical constants (lattice constants, diffusion coefficients, surface energy, dislocation density, etc.)
-- **SimulationParameters**: Fission rate, temperature, time stepping, gas production rates
-
-Key parameters frequently modified:
-- `temperature`: Operating temperature (K)
-- `fission_rate`: Fission density (fissions/m³/s)
-- `dislocation_density`: Defect sink strength (m⁻²)
-- `surface_energy`: Affects cavity stability (J/m²)
-- `Fnb`, `Fnf`: Bubble nucleation factors (bulk and boundary)
-- `eos_model`: 'ideal' or 'ronchi' for gas equation of state
-
-### Numerical Solver
-
-The model uses `scipy.integrate.solve_ivp` with the RK23 method:
+## Usage
 
 ```python
-result = model.solve(
-    t_span=(0, sim_time),
-    t_eval=time_points
-)
+from gas_swelling import GasSwellingModel, create_default_parameters
+
+params = create_default_parameters()
+params['temperature'] = 800  # K
+params['model_backend'] = 'full'  # or 'qssa', 'hybrid_qssa'
+
+model = GasSwellingModel(params)
+result = model.solve(t_span=(0, 8.64e6))  # 100 days
+print(f"Final swelling: {result['swelling'][-1]:.4f}%")
 ```
 
-Returns dictionary with time series of all state variables plus derived quantities (Rcb, Rcf, Pg, swelling, etc.).
+## Key Parameters
 
-## Code Organization
+| Parameter | Effect | Typical Range |
+|-----------|--------|---------------|
+| `temperature` | Bell-shaped swelling curve | 600-1000 K |
+| `dislocation_density` | Strong effect (±40% swelling) | 1e13-1e15 m⁻² |
+| `surface_energy` | Cavity stability | 0.8-1.5 J/m² |
+| `fission_rate` | Gas production rate | 1e19-1e20 fissions/m³/s |
+| `eos_model` | Gas equation of state | 'ideal' or 'ronchi' |
+| `model_backend` | ODE system variant | 'full', 'qssa', 'hybrid_qssa' |
 
-- `modelrk23.py`: Main model class `GasSwellingModel` containing all rate equations and solver logic
-- `parameters.py`: Parameter dataclasses and default configuration
-- `test4_run_rk23.py`: Test harness with plotting and parameter sweep studies
-- `model_design.md`: Theoretical framework documentation (Chinese)
-- `original paper of swelling rate theory.md`: Reference paper (English)
+## 1D Radial Model
 
-## Model Equations (Paper references)
+The radial model extends the 0D model to capture spatial variations across the fuel pellet:
+- `radial_solver_mode='decoupled'` (default): Fast node-wise solve, reuses 0D backend
+- `radial_solver_mode='coupled'`: Full coupled ODE solve (slower, for numerical studies)
 
-1. **Gas transport** (Eqs. 1-8): Diffusion, nucleation, cavity growth
-2. **Defect kinetics** (Eqs. 17-20): Vacancy/interstitial production, recombination, sink annihilation
-3. **Cavity growth** (Eq. 14): Bias-driven vacancy influx vs thermal emission
-4. **Gas release** (Eqs. 9-12): Interconnectivity threshold and release fraction
-5. **Swelling calculation**: Volume fraction of cavities
+## Validation
 
-## Testing and Validation
+Model validated against:
+- U-10Zr data (Fig. 6)
+- U-19Pu-10Zr data (Fig. 7)
+- High-purity U (Figs. 9-10)
 
-The model has been validated against:
-- U-10Zr fuel swelling data (Fig. 6 in paper)
-- U-19Pu-10Zr fuel data (Fig. 7)
-- High-purity uranium swelling (Figs. 9-10)
-
-Typical validation metrics:
-- Final swelling percent at given burnup
-- Bubble radius evolution
-- Gas release fraction
-- Temperature-dependent swelling peak
-
-## Performance Notes
-
-- The ODE system is stiff due to widely varying timescales (defect recombination vs cavity growth)
-- RK23 method chosen for balance of accuracy and speed
-- Debug history tracking available for diagnostics (can be disabled for production runs)
-- Typical simulation: 100 days of irradiation in ~100 seconds of computation
-
-## Parameter Sensitivity
-
-High-sensitivity parameters (from paper Section 5):
-- Dislocation density (ρ): ±40% swelling change
-- Dislocation bias (Zi): Affects vacancy supersaturation
-- Boundary nucleation factor (Fnf): Controls incubation period
-- Temperature: Bell-shaped swelling curve with peak ~700-800K
+Validation scripts in `gas_swelling/validation/scripts/`

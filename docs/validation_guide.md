@@ -1032,4 +1032,4 @@ python -m gas_swelling.analysis.cli validation \
 
 ---
 
-**📘 Documentation Index** | **[README](../README.md)** | **[Parameter Reference](parameter_reference.md)** | **[Sensitivity Analysis Guide](sensitivity_analysis_guide.md)** | **[Quick Start Tutorial](../examples/quickstart_tutorial.py)**
+**📘 Documentation Index** | repo-root `README.md` | **[Parameter Reference](parameter_reference.md)** | **[Sensitivity Analysis Guide](sensitivity_analysis_guide.md)** | **[Quick Start Tutorial](../examples/quickstart_tutorial.py)**

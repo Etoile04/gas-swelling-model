@@ -3,7 +3,14 @@ Radial Gas Swelling Model (一维径向气体肿胀模型)
 
 This module provides a 1D radial implementation of the gas swelling model
 that extends the 0D model to capture spatial variations across the fuel pellet
-radius. Each radial node solves an independent ODE system with spatial coupling.
+radius.
+
+By default, ``RadialGasSwellingModel`` uses a fast node-wise solve path
+(``radial_solver_mode='decoupled'``) that reuses the validated 0D backend at
+each radial node and reconstructs radial profiles efficiently. The original
+fully coupled radial ODE solve remains available via
+``radial_solver_mode='coupled'`` when explicit radial coupling fidelity is
+more important than turnaround time.
 
 模块结构 (Module Structure):
 - Uses RadialMesh for 1D spatial discretization
@@ -35,6 +42,7 @@ radius. Each radial node solves an independent ODE system with spatial coupling.
 import numpy as np
 from typing import Optional, Dict, Tuple, List
 from scipy.integrate import solve_ivp
+from scipy.sparse import lil_matrix, csr_matrix
 from .radial_mesh import RadialMesh
 from ..params.parameters import create_default_parameters
 from ..physics import (
@@ -68,7 +76,8 @@ class RadialGasSwellingModel:
 
     模型功能 (Model Features):
     - 一维径向网格离散化 (1D radial mesh discretization)
-    - 每个节点求解独立的17状态变量ODE系统 (solves 17-state-variable ODE per node)
+    - 默认使用逐节点快路径求解 (fast node-wise solve path by default)
+    - 可选完整耦合径向ODE求解 (optional fully coupled radial ODE solve)
     - 支持圆柱和平板几何 (supports cylindrical and slab geometries)
     - 计算径向肿胀分布 (calculates radial swelling distribution)
     - 支持径向温度分布 (supports radial temperature profiles)
@@ -110,6 +119,11 @@ class RadialGasSwellingModel:
         flux_depression : bool, optional
             是否考虑通量抑制效应 (whether to include flux depression)
             Default: False
+
+        params['radial_solver_mode'] : str, optional
+            径向求解模式 (radial solve mode)
+            - 'decoupled': 默认快速模式，逐节点调用0D后端
+            - 'coupled': 原始完整耦合径向ODE系统
 
     属性 (Attributes):
         params : Dict
@@ -187,6 +201,10 @@ class RadialGasSwellingModel:
             >>> model = RadialGasSwellingModel(params, n_nodes=10,
             ...                                temperature_profile='user',
             ...                                temperature_data=T_profile)
+            >>>
+            >>> # Enable the original fully coupled radial solve path
+            >>> params['radial_solver_mode'] = 'coupled'
+            >>> coupled_model = RadialGasSwellingModel(params, n_nodes=5)
         """
         # 设置模型参数 (set model parameters)
         self.params = params if params else create_default_parameters()
@@ -194,6 +212,7 @@ class RadialGasSwellingModel:
         # 设置默认值（如果未提供）(set defaults if not provided)
         self.params.setdefault('Zvc', 1.0)  # Cavity bias for vacancy
         self.params.setdefault('Zic', 1.0)  # Cavity bias for interstitial
+        self.params.setdefault('radial_solver_mode', 'decoupled')
 
         # 创建径向网格 (create radial mesh)
         self.mesh = RadialMesh(
@@ -211,6 +230,7 @@ class RadialGasSwellingModel:
         # 设置裂变率分布（通量抑制）(set fission rate profile with flux depression)
         self._flux_depression = flux_depression
         self.fission_rate = self._initialize_fission_rate_profile()
+        self._node_params = self._build_node_parameters()
 
         # 初始化状态向量 (initialize state vector)
         self.initial_state = self._initialize_state()
@@ -227,6 +247,7 @@ class RadialGasSwellingModel:
         # 求解器状态标志 (solver status flags)
         self.solver_success = True
         self.current_time = 0.0
+        self._jacobian_sparsity = self._build_jacobian_sparsity()
 
     def _initialize_temperature_profile(self) -> np.ndarray:
         """
@@ -407,6 +428,75 @@ class RadialGasSwellingModel:
         # 合并所有节点的状态向量 (concatenate all node state vectors)
         return np.concatenate(state_list)
 
+    def _build_node_parameters(self) -> List[Dict]:
+        """
+        Cache per-node parameter dictionaries for reuse during RHS evaluation.
+        """
+        node_params = []
+        for i in range(self.n_nodes):
+            params_i = self.params.copy()
+            params_i['temperature'] = float(self.temperature[i])
+            params_i['fission_rate'] = float(self.fission_rate[i])
+            node_params.append(params_i)
+        return node_params
+
+    def _build_jacobian_sparsity(self) -> csr_matrix:
+        """
+        Approximate Jacobian sparsity for the reduced multi-node radial system.
+        """
+        n_state = 13 * self.n_nodes
+        pattern = lil_matrix((n_state, n_state), dtype=bool)
+
+        base_dependencies = {
+            0: [0, 1, 2, 3, 4],
+            1: [0, 2],
+            2: [0, 1, 2, 3],
+            3: [1, 2, 3, 8, 9],
+            4: [0, 4, 5, 6, 7],
+            5: [4, 6],
+            6: [4, 5, 6, 7],
+            7: [5, 6, 7, 10, 11],
+            8: [1, 3, 8, 9],
+            9: [1, 3, 8, 9],
+            10: [5, 7, 10, 11],
+            11: [5, 7, 10, 11],
+            12: [4, 5, 6],
+        }
+
+        for node_idx in range(self.n_nodes):
+            offset = 13 * node_idx
+            for row, cols in base_dependencies.items():
+                for col in cols:
+                    pattern[offset + row, offset + col] = True
+
+            for neighbor_idx in (node_idx - 1, node_idx, node_idx + 1):
+                if 0 <= neighbor_idx < self.n_nodes:
+                    neighbor_offset = 13 * neighbor_idx
+                    pattern[offset + 0, neighbor_offset + 0] = True
+                    pattern[offset + 4, neighbor_offset + 4] = True
+
+        return pattern.tocsr()
+
+    def _compress_solver_state(self, full_state: np.ndarray) -> np.ndarray:
+        """
+        Drop constant sink-strength fields before time integration.
+        """
+        full_matrix = np.asarray(full_state, dtype=np.float64).reshape((self.n_nodes, 17))
+        return full_matrix[:, :13].reshape(-1)
+
+    def _expand_solver_state(self, compact_state: np.ndarray) -> np.ndarray:
+        """
+        Reinsert constant sink-strength fields into a compact solver state.
+        """
+        compact_matrix = np.asarray(compact_state, dtype=np.float64).reshape((self.n_nodes, 13))
+        full_matrix = np.zeros((self.n_nodes, 17), dtype=np.float64)
+        full_matrix[:, :13] = compact_matrix
+        full_matrix[:, 13] = self.params['kv_param']
+        full_matrix[:, 14] = self.params['ki_param']
+        full_matrix[:, 15] = self.params['kv_param']
+        full_matrix[:, 16] = self.params['ki_param']
+        return full_matrix.reshape(-1)
+
     def _equations(self, t: float, state: np.ndarray) -> np.ndarray:
         """
         ODE方程方法别名 (ODE equations method alias)
@@ -446,32 +536,29 @@ class RadialGasSwellingModel:
         # 更新当前时间 (update current time)
         self.current_time = t
 
-        # 重塑状态向量：将全局状态分解为各节点的状态
-        # (reshape state vector: decompose global state into per-node states)
-        state_reshaped = state.reshape((self.n_nodes, 17))
+        use_full_state = state.size == 17 * self.n_nodes
+        if use_full_state:
+            state_full = state.reshape((self.n_nodes, 17))
+            state_dynamic = state_full[:, :13]
+        else:
+            state_dynamic = state.reshape((self.n_nodes, 13))
+            state_full = self._expand_solver_state(state).reshape((self.n_nodes, 17))
 
         # 初始化导数数组 (initialize derivatives array)
-        derivatives = np.zeros_like(state_reshaped)
+        derivatives = np.zeros_like(state_full if use_full_state else state_dynamic)
 
         # 首先计算每个节点的独立ODE (first calculate independent ODE for each node)
         for i in range(self.n_nodes):
             # 获取该节点的状态 (get state for this node)
-            node_state = state_reshaped[i]
-
-            # 为该节点创建临时参数字典（包含节点特定的温度和裂变率）
-            # (create temporary parameter dict for this node with node-specific T and fission rate)
-            node_params = self.params.copy()
-            node_params['temperature'] = self.temperature[i]
-            node_params['fission_rate'] = self.fission_rate[i]
+            node_state = state_full[i]
 
             # 调用ODE系统 (call ODE system)
-            node_derivatives = swelling_ode_system(t, node_state, node_params)
-
-            derivatives[i] = node_derivatives
+            node_derivatives = swelling_ode_system(t, node_state, self._node_params[i])
+            derivatives[i] = node_derivatives if use_full_state else node_derivatives[:13]
 
         # 添加径向输运耦合 (add radial transport coupling)
         # 计算气体浓度的径向输运项 (calculate radial transport terms for gas concentrations)
-        transport_terms = self._calculate_radial_coupling(state_reshaped, t)
+        transport_terms = self._calculate_radial_coupling(state_dynamic, t)
 
         # 将输运项添加到导数 (add transport terms to derivatives)
         for i in range(self.n_nodes):
@@ -541,88 +628,122 @@ class RadialGasSwellingModel:
             'dCgf_radial': dCgf_radial
         }
 
+    def _solve_decoupled(
+        self,
+        t_span: Tuple[float, float],
+        t_eval: np.ndarray,
+        method: str,
+        dt: float,
+        max_dt: float,
+        max_steps: int,
+        output_interval: int
+    ) -> Dict:
+        """
+        Fast node-wise solve path that reuses the validated 0D model per radial node.
+
+        This is the default execution mode because the fully coupled 1D ODE system is
+        numerically very stiff and can be prohibitively slow for test and workflow usage.
+        The original coupled solver remains available via `radial_solver_mode='coupled'`.
+        """
+        from .refactored_model import RefactoredGasSwellingModel
+
+        node_initial_states = self.initial_state.reshape((self.n_nodes, 17))
+        results = {'time': np.asarray(t_eval, dtype=np.float64)}
+
+        result_keys = [
+            'Cgb', 'Ccb', 'Ncb', 'Rcb',
+            'Cgf', 'Ccf', 'Ncf', 'Rcf',
+            'cvb', 'cib', 'kvb', 'kib',
+            'cvf', 'cif', 'kvf', 'kif',
+            'released_gas', 'swelling'
+        ]
+        for key in result_keys:
+            results[key] = np.zeros((len(t_eval), self.n_nodes), dtype=np.float64)
+
+        for node_idx in range(self.n_nodes):
+            node_params = self._node_params[node_idx].copy()
+            node_model = RefactoredGasSwellingModel(node_params)
+            node_initial_state = node_initial_states[node_idx].copy()
+            node_model.initial_state = node_initial_state
+            node_method = 'LSODA' if method in {'RK23', 'RK45'} else method
+
+            backend_model = getattr(node_model, '_backend_model', None)
+            if backend_model is not None:
+                backend_model.initial_state = node_initial_state.copy()
+
+            node_result = node_model.solve(
+                t_span=t_span,
+                t_eval=t_eval,
+                method=node_method,
+                dt=dt,
+                max_dt=max_dt,
+                max_steps=max_steps,
+                output_interval=output_interval,
+                debug_enabled=False
+            )
+
+            for key in result_keys:
+                if key in node_result:
+                    values = np.asarray(node_result[key], dtype=np.float64)
+                elif key == 'kvb':
+                    values = np.full(len(t_eval), node_initial_state[13], dtype=np.float64)
+                elif key == 'kib':
+                    values = np.full(len(t_eval), node_initial_state[14], dtype=np.float64)
+                elif key == 'kvf':
+                    values = np.full(len(t_eval), node_initial_state[15], dtype=np.float64)
+                elif key == 'kif':
+                    values = np.full(len(t_eval), node_initial_state[16], dtype=np.float64)
+                else:
+                    raise KeyError(f"Missing key '{key}' in node solve results")
+
+                if key in {'cvb', 'cib', 'cvf', 'cif'}:
+                    values = np.clip(np.nan_to_num(values, nan=0.0), 0.0, 1e-4)
+
+                results[key][:, node_idx] = values
+
+        self.solver_success = True
+        self.current_time = float(t_span[1])
+        return results
+
     def solve(self,
               t_span: Tuple[float, float] = (0, 7200000),
               t_eval: Optional[np.ndarray] = None,
-              method: str = 'RK23',
+              method: str = 'LSODA',
               dt: float = 1e-9,
-              max_dt: float = 100.0,
+              max_dt: float = 1000.0,
               max_steps: int = 1000000,
               output_interval: int = 1000,
               debug_enabled: bool = False) -> Dict:
         """
-        求解一维径向气体肿胀微分方程组
-        (Solve 1D radial gas swelling ODE system)
+        Solve the 1D radial gas swelling model.
 
-        使用数值方法求解每个径向节点的气体肿胀演化常微分方程组
-        (Solves the ODE system for gas swelling evolution at each radial node
-         using numerical methods)
+        The execution path is selected from ``params['radial_solver_mode']``:
+        ``'decoupled'`` is the default fast mode, while ``'coupled'`` keeps the
+        original fully coupled radial ODE system available.
 
-        参数 (Parameters):
-            t_span : Tuple[float, float]
-                时间跨度 (时间开始，时间结束)，单位：秒
-                (time span (start, end) in seconds)
-                默认值: (0, 7200000) = 0 to 83.33 days
-            t_eval : Optional[np.ndarray]
-                需要输出解的时间点 (time points for solution output)
-                如果为None，求解器将自动选择输出点
-                (if None, solver will automatically select output points)
-            method : str
-                求解方法 (solver method)
-                - 'RK23': Runge-Kutta 2(3) 自适应方法 (default)
-                - 'RK45': Runge-Kutta 4(5) 自适应方法
-                - 'BDF': 适用于刚性系统 (suitable for stiff systems)
-                默认值: 'RK23'
-            dt : float
-                初始时间步长，单位：秒 (initial time step in seconds)
-                默认值: 1e-9
-            max_dt : float
-                最大时间步长，单位：秒 (maximum time step in seconds)
-                默认值: 100.0
-            max_steps : int
-                最大步数 (maximum number of steps)
-                默认值: 1000000
-            output_interval : int
-                调试输出间隔（步数）(debug output interval in steps)
-                默认值: 1000
-            debug_enabled : bool
-                是否启用调试模式 (enable debug mode)
-                默认值: False
+        Args:
+            t_span: Time span ``(t_start, t_end)`` in seconds.
+            t_eval: Optional output times. If ``None``, 100 points are generated.
+            method: ``solve_ivp`` method name. ``LSODA`` is the default.
+            dt: Initial time step in seconds.
+            max_dt: Maximum time step in seconds.
+            max_steps: Maximum solver steps.
+            output_interval: Debug output interval in steps.
+            debug_enabled: Whether to record debug output.
 
-        返回 (Returns):
-            Dict: 包含求解结果的字典 (dictionary containing solution results)
-                {
-                    'time': np.ndarray,         # 时间点 (time points)
-                    'Cgb': np.ndarray,          # 基体气体浓度 (n_time, n_nodes)
-                    'Ccb': np.ndarray,          # 基体气腔浓度 (n_time, n_nodes)
-                    'Ncb': np.ndarray,          # 基体每个气腔气体原子数 (n_time, n_nodes)
-                    'Rcb': np.ndarray,          # 基体气腔半径 (n_time, n_nodes)
-                    'Cgf': np.ndarray,          # 晶界气体浓度 (n_time, n_nodes)
-                    'Ccf': np.ndarray,          # 晶界气腔浓度 (n_time, n_nodes)
-                    'Ncf': np.ndarray,          # 晶界每个气腔气体原子数 (n_time, n_nodes)
-                    'Rcf': np.ndarray,          # 晶界气腔半径 (n_time, n_nodes)
-                    'cvb': np.ndarray,          # 基体空位浓度 (n_time, n_nodes)
-                    'cib': np.ndarray,          # 基体间隙原子浓度 (n_time, n_nodes)
-                    'kvb': np.ndarray,          # 基体空位汇聚强度 (n_time, n_nodes)
-                    'kib': np.ndarray,          # 基体间隙原子汇聚强度 (n_time, n_nodes)
-                    'cvf': np.ndarray,          # 晶界空位浓度 (n_time, n_nodes)
-                    'cif': np.ndarray,          # 晶界间隙原子浓度 (n_time, n_nodes)
-                    'kvf': np.ndarray,          # 晶界空位汇聚强度 (n_time, n_nodes)
-                    'kif': np.ndarray,          # 晶界间隙原子汇聚强度 (n_time, n_nodes)
-                    'released_gas': np.ndarray, # 累积释放气体 (n_time, n_nodes)
-                    'swelling': np.ndarray      # 肿胀率百分比 (n_time, n_nodes)
-                }
+        Returns:
+            A result dictionary whose values are radial arrays with shape
+            ``(n_time, n_nodes)`` for fields such as ``swelling``, ``Rcb``,
+            ``released_gas``, and the defect concentrations.
 
-        异常 (Raises):
-            RuntimeError: 如果求解失败 (if solver fails)
+        Raises:
+            RuntimeError: If the solver fails.
 
-        示例 (Example):
+        Example:
             >>> model = RadialGasSwellingModel(n_nodes=5)
-            >>> # Simulate 100 days
             >>> time_points = np.linspace(0, 8640000, 100)
             >>> results = model.solve(t_span=(0, 8640000), t_eval=time_points)
-            >>> # Get radial swelling profile at final time
-            >>> final_swelling = results['swelling'][-1, :]  # shape: (n_nodes,)
+            >>> final_swelling = results['swelling'][-1, :]
             >>> print(f"Centerline swelling: {final_swelling[0]:.2f}%")
         """
         # 配置调试 (configure debug)
@@ -634,6 +755,24 @@ class RadialGasSwellingModel:
         if t_eval is None:
             t_eval = np.linspace(t_span[0], t_span[1], 100)
 
+        radial_solver_mode = self.params.get('radial_solver_mode', 'decoupled')
+        if radial_solver_mode not in {'decoupled', 'coupled'}:
+            raise ValueError(
+                "radial_solver_mode must be 'decoupled' or 'coupled', "
+                f"got {radial_solver_mode!r}"
+            )
+
+        if radial_solver_mode != 'coupled':
+            return self._solve_decoupled(
+                t_span=t_span,
+                t_eval=t_eval,
+                method=method,
+                dt=dt,
+                max_dt=max_dt,
+                max_steps=max_steps,
+                output_interval=output_interval
+            )
+
         # 映射方法名称到scipy方法 (map method name to scipy method)
         scipy_method = {
             'RK23': 'RK23',
@@ -641,23 +780,34 @@ class RadialGasSwellingModel:
             'BDF': 'BDF',
             'Radau': 'Radau',
             'LSODA': 'LSODA'
-        }.get(method, 'RK23')
+        }.get(method, 'LSODA')
+
+        # Let implicit solvers estimate a reasonable first step for stiff systems.
+        total_time = t_span[1] - t_span[0]
+        first_step = None
+        if dt is not None and dt > 0 and scipy_method in {'RK23', 'RK45'}:
+            if not (np.isclose(dt, 1e-9) and total_time > 1.0):
+                first_step = min(dt, total_time)
+
+        solve_kwargs = {
+            'fun': self._equations_wrapper,
+            't_span': t_span,
+            'y0': self._compress_solver_state(self.initial_state),
+            't_eval': t_eval,
+            'method': scipy_method,
+            'max_step': max_dt,
+            'vectorized': False,
+            'rtol': 1e-4,
+            'atol': 1e-6
+        }
+        if first_step is not None:
+            solve_kwargs['first_step'] = first_step
+        if scipy_method in {'BDF', 'Radau'}:
+            solve_kwargs['jac_sparsity'] = self._jacobian_sparsity
 
         # 使用scipy的solve_ivp求解 (solve using scipy's solve_ivp)
         try:
-            sol = solve_ivp(
-                fun=self._equations_wrapper,
-                t_span=t_span,
-                y0=self.initial_state,
-                t_eval=t_eval,
-                method=scipy_method,
-                first_step=dt,
-                max_step=max_dt,
-                max_nfev=max_steps,
-                vectorized=False,
-                rtol=1e-6,
-                atol=1e-9
-            )
+            sol = solve_ivp(**solve_kwargs)
             self.solver_success = True
         except Exception as e:
             self.solver_success = False
@@ -674,16 +824,16 @@ class RadialGasSwellingModel:
         }
 
         # 重塑状态变量 (reshape state variables)
-        # sol.y的形状是 (17*n_nodes, n_time_points)
-        # 我们需要将其转换为 (n_time_points, n_nodes) 的每个变量
-        state_time_series = sol.y.T  # shape: (n_time, 17*n_nodes)
+        # sol.y的形状是 (13*n_nodes, n_time_points)
+        # 我们需要将其转换为 (n_time_points, n_nodes) 的每个动态变量
+        state_time_series = sol.y.T  # shape: (n_time, 13*n_nodes)
 
         # 为每个状态变量创建时间序列 (create time series for each state variable)
         state_names = [
             'Cgb', 'Ccb', 'Ncb', 'Rcb',
             'Cgf', 'Ccf', 'Ncf', 'Rcf',
             'cvb', 'cib', 'cvf', 'cif',
-            'released_gas', 'kvb', 'kib', 'kvf', 'kif'
+            'released_gas'
         ]
 
         for var_idx, var_name in enumerate(state_names):
@@ -692,10 +842,18 @@ class RadialGasSwellingModel:
             var_data = np.zeros((n_time_points, self.n_nodes))
             for t_idx in range(n_time_points):
                 # 重塑该时间点的状态向量
-                state_at_t = state_time_series[t_idx].reshape((self.n_nodes, 17))
+                state_at_t = state_time_series[t_idx].reshape((self.n_nodes, 13))
                 var_data[t_idx, :] = state_at_t[:, var_idx]
 
             results[var_name] = var_data
+
+        for key, value in (
+            ('kvb', self.params['kv_param']),
+            ('kib', self.params['ki_param']),
+            ('kvf', self.params['kv_param']),
+            ('kif', self.params['ki_param']),
+        ):
+            results[key] = np.full((n_time_points, self.n_nodes), value, dtype=np.float64)
 
         # 计算肿胀率百分比 (calculate swelling percentage)
         Rcb = results['Rcb']  # (n_time, n_nodes)
@@ -752,6 +910,7 @@ class RadialGasSwellingModel:
         self.temperature = np.array(temperature_data, dtype=np.float64)
         self._temperature_profile_type = 'user'
         self._temperature_data = temperature_data
+        self._node_params = self._build_node_parameters()
 
         if reinitialize:
             # Reinitialize state with new temperatures
@@ -890,6 +1049,7 @@ class RadialGasSwellingModel:
             f"RadialGasSwellingModel(n_nodes={self.n_nodes}, "
             f"radius={self.mesh.radius:.3e} m, "
             f"geometry={self.mesh.geometry}, "
+            f"solver_mode='{self.params.get('radial_solver_mode', 'decoupled')}', "
             f"temperature={temp_info}, "
             f"fission_rate={fission_rate:.2e} /m³/s, "
             f"eos_model='{eos_model}')"

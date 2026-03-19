@@ -161,9 +161,9 @@ def calculate_r2(
     """计算决定系数 (R², Coefficient of Determination)
 
     决定系数衡量模型对观测数据的拟合程度。
-    公式: R² = 1 - (SS_res / SS_tot)
-    其中 SS_res = Σ(y_true - y_pred)² (残差平方和)
-         SS_tot = Σ(y_true - ȳ)² (总平方和)
+    公式: R² = 1 - (SS_res / SS_tot), 其中
+    SS_res = Σ(y_true - y_pred)² (残差平方和),
+    SS_tot = Σ(y_true - ȳ)² (总平方和)。
 
     Parameters
     ----------

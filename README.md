@@ -10,12 +10,9 @@ A physics-based computational model for simulating fission gas bubble evolution 
 
 ## Overview
 
-This implementation follows the theoretical framework from **"Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"**. The model uses rate theory to solve a system of 10 coupled ordinary differential equations (ODEs) that track:
+This implementation follows the theoretical framework from **"Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel"**.
 
-- Gas atom concentrations (bulk and phase boundaries)
-- Cavity/bubble concentrations and sizes
-- Vacancy and interstitial defect populations
-- Temperature-dependent swelling evolution
+The original paper formulation is often described as a 10-variable rate-theory model. The current packaged implementation in this repository is broader: the main 0D solver exposes a 17-state representation, supports multiple reduced-order backends (`full`, `qssa`, `hybrid_qssa`), and includes an optional 1D radial model.
 
 ### Who Should Use This Model
 
@@ -28,11 +25,64 @@ This implementation follows the theoretical framework from **"Kinetics of fissio
 
 - **Comprehensive Physics**: Models gas transport, defect kinetics, cavity growth, and gas release
 - **Validated**: Benchmarked against U-10Zr and U-Pu-Zr experimental data
-- **1D Radial Model**: Spatially-resolved simulations for realistic fuel pellet geometry with temperature and fission rate gradients
-- **Flexible Configuration**: YAML-based parameter system with sensible defaults
+- **Flexible Configuration**: Dictionary-based defaults generated from parameter dataclasses
 - **Production-Ready**: Robust numerical solver with error handling and progress tracking
 - **Well-Documented**: Extensive tutorials, parameter reference, and physics documentation
 - **Modular Architecture**: Clean separation of physics, solvers, I/O, and models for easy maintenance
+
+## Repository Guide / 仓库导览
+
+This section is the short bilingual entry point for new readers. For the full guide, see **[docs/guides/repository_guide.md](docs/guides/repository_guide.md)**.
+
+### Repository Structure / 仓库结构
+
+```
+gas_swelling/    core package / 核心包
+tests/           pytest suite / 测试
+examples/        runnable examples / 可运行示例
+docs/            longer-form documentation / 详细文档
+notebooks/       exploratory notebooks / 交互式分析
+README.md        project overview / 项目总览
+QUICKSTART.md    fastest onboarding / 快速上手
+INSTALL.md       installation details / 安装说明
+```
+
+### Recommended Entry Points / 推荐入口
+
+- New user / 新用户: start with **[QUICKSTART.md](QUICKSTART.md)**
+- Package API / 包入口: **[gas_swelling/__init__.py](gas_swelling/__init__.py)**
+- Main 0D implementation / 主 0D 实现: **[gas_swelling/models/refactored_model.py](gas_swelling/models/refactored_model.py)**
+- Parameters / 参数定义: **[gas_swelling/params/parameters.py](gas_swelling/params/parameters.py)**
+- Simple example / 最小示例: **[examples/quickstart_simple.py](examples/quickstart_simple.py)**
+- Guided example / 带讲解示例: **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)**
+- 1D radial model / 一维径向模型: **[gas_swelling/models/radial_model.py](gas_swelling/models/radial_model.py)** and **[docs/1d_radial_model.md](docs/1d_radial_model.md)**
+
+### Usage at a Glance / 使用速览
+
+```bash
+# Use the repo virtualenv / 使用仓库虚拟环境
+./.venv/bin/python examples/quickstart_simple.py
+
+# Run a focused test / 跑单个测试文件
+./scripts/test_safe.sh tests/test_import.py
+
+# Build docs offline / 离线构建文档
+make -C docs html-offline
+
+# Run the full suite / 跑全量测试
+./scripts/test_safe.sh -q
+```
+
+```python
+from gas_swelling import GasSwellingModel, create_default_parameters
+
+params = create_default_parameters()
+model = GasSwellingModel(params)
+result = model.solve()
+print(f"Final swelling: {result['swelling'][-1]:.4f}%")
+```
+
+For a fuller repository map, workflows, model variants, and testing notes, see **[docs/guides/repository_guide.md](docs/guides/repository_guide.md)**.
 
 ## Architecture
 
@@ -47,19 +97,19 @@ gas_swelling/
 │   ├── gas_transport.py   # Gas transport, release, nucleation, resolution
 │   └── thermal.py         # Thermal equilibrium defect concentrations
 ├── ode/              # Rate equation system
-│   └── rate_equations.py  # 17-variable ODE system (gas + defects)
+│   └── rate_equations.py  # Main packaged ODE system (17-state representation)
 ├── solvers/          # Numerical solvers
-│   ├── rk23_solver.py     # RK23 adaptive solver (scipy wrapper)
+│   ├── rk23_solver.py     # solve_ivp wrapper with multiple solver methods
 │   └── euler_solver.py    # Explicit Euler method
-├── io/               # Output and visualization
-│   ├── debug_output.py    # Debug logging and history tracking
-│   └── visualization.py   # Plotting utilities
-├── models/           # Model orchestration
-│   ├── modelrk23.py       # Backward-compatible wrapper
-│   ├── refactored_model.py # New modular model class
-│   └── radial_model.py    # 1D radial spatial discretization model
+├── analysis/         # Sensitivity analysis and metrics
+├── io/               # Debug output and result helpers
+├── models/           # Model orchestration and variants
+│   ├── refactored_model.py   # Main modular 0D implementation
+│   ├── qssa_model.py         # Reduced-order QSSA variant
+│   ├── hybrid_qssa_model.py  # Hybrid reduced-order variant
+│   └── radial_model.py       # 1D radial model
 └── params/           # Parameter management
-    └── parameters.py      # MaterialParameters, SimulationParameters
+    └── parameters.py      # Default dict builders + parameter dataclasses
 ```
 
 ### Design Principles
@@ -68,7 +118,7 @@ gas_swelling/
 2. **Separation of Concerns**: Physics separated from numerics and I/O
 3. **Testability**: Individual components can be unit tested
 4. **Reusability**: Modules can be used independently
-5. **Documentation**: Each module has its own README with examples
+5. **Documentation**: Core subpackages include focused READMEs and examples
 
 ### Using Individual Modules
 
@@ -85,10 +135,8 @@ influx = calculate_gas_influx(Cgb=1e20, Cgf=1e19, Dgb=1e-20, Lb=1e-6)
 from gas_swelling.ode import swelling_ode_system
 from gas_swelling.solvers import RK23Solver
 
-solver = RK23Solver()
+solver = RK23Solver(swelling_ode_system, params_dict)
 result = solver.solve(
-    rate_equations=swelling_ode_system,
-    params=params_dict,
     t_span=(0, 8.64e6),
     y0=initial_conditions
 )
@@ -122,8 +170,7 @@ pip install gas-swelling-model[plotting]
 ### Run Your First Simulation
 
 ```python
-from gas_swelling import GasSwellingModel
-from gas_swelling.params import create_default_parameters
+from gas_swelling import GasSwellingModel, create_default_parameters
 
 # Create default parameters for U-10Zr fuel at 800 K
 params = create_default_parameters()
@@ -133,13 +180,35 @@ model = GasSwellingModel(params)
 result = model.solve(t_span=(0, 8.64e6), t_eval=None)  # 100 days
 
 # Access results
-print(f"Final swelling: {result['swelling'][-1]:.2%}")
+print(f"Final swelling: {result['swelling'][-1]:.4f}%")
 print(f"Final bubble radius: {result['Rcb'][-1]*1e9:.1f} nm")
 ```
 
 For a detailed step-by-step tutorial, see **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)**.
 
 ## Documentation
+
+### 📚 Tutorials & Learning Resources
+
+New to rate theory or this model? Start with our beginner-friendly tutorials:
+
+**Fundamentals Tutorials:**
+- **[🎓 Rate Theory Fundamentals](docs/tutorials/rate_theory_fundamentals.md)** - Plain-language introduction to rate theory concepts, fission gas behavior, and swelling mechanisms
+- **[⚡ 30-Minute Quickstart](docs/tutorials/30minute_quickstart.md)** - Comprehensive hands-on tutorial covering installation, first simulation, understanding output, modifying parameters, and advanced visualizations
+- **[📐 Model Equations Explained](docs/tutorials/model_equations_explained.md)** - Walkthrough of the paper-level variables and how they relate to the packaged implementation
+
+**Jupyter Notebooks (Interactive Examples):**
+- **[📓 01 - Basic Simulation Walkthrough](notebooks/01_Basic_Simulation_Walkthrough.ipynb)** - Step-by-step guide through model setup, parameters, running simulations, and interpreting results
+- **[📊 02 - Parameter Sweep Studies](notebooks/02_Parameter_Sweep_Studies.ipynb)** - Temperature sweeps, fission rate variations, sensitivity analysis, and two-parameter studies
+- **[💨 03 - Gas Distribution Analysis](notebooks/03_Gas_Distribution_Analysis.ipynb)** - Analyze gas partitioning between bulk solution, bubbles, grain boundaries, and released gas
+- **[🔬 04 - Experimental Data Comparison](notebooks/04_Experimental_Data_Comparison.ipynb)** - Validate model against U-10Zr, U-19Pu-10Zr, and high-purity uranium experimental data
+- **[🧪 05 - Custom Material Composition](notebooks/05_Custom_Material_Composition.ipynb)** - Explore U-Zr and U-Pu-Zr alloy variations with helper functions for custom compositions
+- **[📈 06 - Advanced Analysis Techniques](notebooks/06_Advanced_Analysis_Techniques.ipynb)** - Sensitivity analysis (OAT, Morris, Sobol), Monte Carlo uncertainty quantification, and parameter prioritization
+
+**User Guides:**
+- **[🎯 Interpreting Results Guide](docs/guides/interpreting_results.md)** - Comprehensive guide to all 17 output variables with typical ranges, physical interpretations, and warning signs
+- **[🖼️ Plot Gallery](docs/guides/plot_gallery.md)** - Collection of 16+ ready-to-use plotting code snippets with examples and customization tips
+- **[🔧 Troubleshooting Guide](docs/guides/troubleshooting.md)** - Solutions for 31+ common issues covering installation, parameters, solver convergence, performance, and more
 
 ### Getting Started Guides
 
@@ -162,28 +231,22 @@ For a detailed step-by-step tutorial, see **[examples/quickstart_tutorial.py](ex
 ### Example Scripts
 
 - **[examples/quickstart_tutorial.py](examples/quickstart_tutorial.py)** - Basic simulation with detailed comments
-- **[examples/radial_model_tutorial.py](examples/radial_model_tutorial.py)** - 1D radial model with spatial discretization
-- **[test4_run_rk23.py](test4_run_rk23.py)** - Advanced example with parameter sweeps and plotting
+- **[examples/results_interpretation_guide.py](examples/results_interpretation_guide.py)** - Complete guide for interpreting simulation results with runnable code examples
+- **[examples/plotting_examples.py](examples/plotting_examples.py)** - Plotting-focused example suite for simulation outputs
 
 ## Model Physics
 
-### The 10-Variable ODE System
+### Original Theory vs Current Implementation
 
-The model tracks these state variables:
+The paper-level theory is often summarized as a **10-variable ODE model** that tracks gas, cavities, and point defects in the bulk and at interfaces.
 
-**Bulk Matrix:**
-1. **Cgb**: Gas atom concentration (atoms/m³)
-2. **Ccb**: Cavity/bubble concentration (cavities/m³)
-3. **Ncb**: Gas atoms per cavity (atoms/cavity)
-4. **cvb**: Vacancy concentration (dimensionless)
-5. **cib**: Interstitial concentration (dimensionless)
+The current package implementation is broader:
 
-**Phase Boundaries:**
-6. **Cgf**: Gas atom concentration (atoms/m³)
-7. **Ccf**: Cavity concentration (cavities/m³)
-8. **Ncf**: Gas atoms per cavity (atoms/cavity)
-9. **cvf**: Vacancy concentration (dimensionless)
-10. **cif**: Interstitial concentration (dimensionless)
+- The main packaged 0D solver uses a **17-state representation**
+- The repository also includes **QSSA** and **Hybrid QSSA** reduced-order variants
+- The 1D radial model defaults to `radial_solver_mode='decoupled'` and keeps `coupled` available as an option
+
+For the most up-to-date implementation details, prefer the package code and tests over older architecture prose.
 
 ### Key Outputs
 
@@ -207,13 +270,12 @@ See [model_design.md](model_design.md) for complete equations.
 ### Example 1: Basic Simulation
 
 ```python
-from gas_swelling import GasSwellingModel
-from gas_swelling.params import create_default_parameters
+from gas_swelling import GasSwellingModel, create_default_parameters
 
 # Setup
 params = create_default_parameters()
-params.temperature = 800  # K
-params.fission_rate = 4.0e19  # fissions/m³/s
+params['temperature'] = 800  # K
+params['fission_rate'] = 4.0e19  # fissions/m³/s
 
 # Run
 model = GasSwellingModel(params)
@@ -230,12 +292,16 @@ plt.show()
 ### Example 2: Temperature Sweep
 
 ```python
+import matplotlib.pyplot as plt
+
+from gas_swelling import GasSwellingModel, create_default_parameters
+
 temperatures = [600, 700, 800, 900, 1000]  # K
 swelling_results = []
 
 for T in temperatures:
     params = create_default_parameters()
-    params.temperature = T
+    params['temperature'] = T
     model = GasSwellingModel(params)
     result = model.solve(t_span=(0, 8.64e6), t_eval=None)
     swelling_results.append(result['swelling'][-1])
@@ -250,114 +316,22 @@ plt.show()
 ### Example 3: Custom Parameters
 
 ```python
-from gas_swelling.params import MaterialParameters, SimulationParameters
+from gas_swelling import GasSwellingModel, create_default_parameters
 
-# Custom material parameters
-mat_params = MaterialParameters(
-    dislocation_density=1e14,  # Higher dislocation density
-    surface_energy=1.0,         # J/m², affects cavity stability
-    Fnb=1e-4,                  # Bulk nucleation factor
-    Fnf=1e-3                   # Boundary nucleation factor
-)
+params = create_default_parameters()
+params['dislocation_density'] = 1e14
+params['surface_energy'] = 1.0
+params['Fnb'] = 1e-4
+params['Fnf'] = 1e-3
+params['temperature'] = 850
+params['fission_rate'] = 5.0e19
+params['eos_model'] = 'ronchi'
 
-# Simulation parameters
-sim_params = SimulationParameters(
-    temperature=850,
-    fission_rate=5.0e19,
-    eos_model='ronchi'  # Use modified Van der Waals EOS
-)
-
-# Run simulation
-model = GasSwellingModel(mat_params, sim_params)
+model = GasSwellingModel(params)
 result = model.solve(t_span=(0, 8.64e6))
 ```
 
 For more examples, see the **[Parameter Reference](docs/parameter_reference.md)** and **[Jupyter Notebook](notebooks/Temperature_Sweep_Example.ipynb)**.
-
-### Example 4: 1D Radial Model
-
-The **1D radial model** (`RadialGasSwellingModel`) extends the homogeneous model to simulate spatial variations across a fuel pellet radius. This is essential for understanding temperature gradients, fission rate distributions, and their effects on swelling behavior in realistic fuel geometries.
-
-```python
-from gas_swelling import RadialGasSwellingModel
-from gas_swelling.params import create_default_parameters
-import numpy as np
-
-# Create default parameters
-params = create_default_parameters()
-
-# Define radial grid (e.g., 50 zones from center to surface)
-r_inner = 0.0  # Center of fuel pellet
-r_outer = 0.003  # Fuel pellet radius (m)
-num_zones = 50
-dr = (r_outer - r_inner) / num_zones
-
-# Define temperature and fission rate profiles (linear gradient as example)
-def temperature_profile(r):
-    """Linear temperature gradient from center to surface."""
-    T_center = 950  # K
-    T_surface = 650  # K
-    r_normalized = r / r_outer
-    return T_center - (T_center - T_surface) * r_normalized
-
-def fission_rate_profile(r):
-    """Flattened parabolic fission rate distribution."""
-    r_normalized = r / r_outer
-    # Parabolic profile (approximate cosine shape)
-    return 4.0e19 * (1 + 0.5 * (1 - r_normalized**2))
-
-# Initialize radial model
-model = RadialGasSwellingModel(
-    params=params,
-    r_inner=r_inner,
-    r_outer=r_outer,
-    num_zones=num_zones,
-    temperature_profile=temperature_profile,
-    fission_rate_profile=fission_rate_profile
-)
-
-# Solve for 100 days of irradiation
-result = model.solve(
-    t_span=(0, 8.64e6),
-    t_eval=np.linspace(0, 8.64e6, 100)
-)
-
-# Access spatially-resolved results
-print(f"Center swelling: {result['swelling'][:, 0][-1]*100:.2f}%")
-print(f"Mid-radius swelling: {result['swelling'][:, num_zones//2][-1]*100:.2f}%")
-print(f"Surface swelling: {result['swelling'][:, -1][-1]*100:.2f}%")
-
-# Plot radial swelling profile
-import matplotlib.pyplot as plt
-r_grid = np.linspace(r_inner, r_outer, num_zones)
-plt.plot(r_grid*1000, result['swelling'][-1, :]*100, 'o-')
-plt.xlabel('Radius (mm)')
-plt.ylabel('Swelling (%)')
-plt.title('Radial Swelling Profile after 100 Days')
-plt.grid(True)
-plt.show()
-```
-
-#### Key Features of the Radial Model
-
-- **Spatial discretization**: Fuel pellet divided into concentric zones
-- **Profile-based inputs**: Temperature and fission rate vary with radius
-- **Coupled solutions**: Each zone solves independent ODE system with local conditions
-- **Radially-resolved outputs**: Swelling, bubble size, gas pressure as functions of radius and time
-- **Volume-averaged results**: Calculate overall fuel performance metrics
-
-**📘 See [examples/radial_model_tutorial.py](examples/radial_model_tutorial.py)** for a complete tutorial with:
-- Multiple temperature profile examples (linear, parabolic, experimental data)
-- Fission rate profile configurations
-- Visualization techniques for radial results
-- Comparison with homogeneous model
-- Guidance on choosing grid resolution
-
-The radial model is particularly useful for:
-- **Fuel performance analysis** where temperature gradients are significant
-- **Burnup distribution studies** across fuel pellets
-- **Validation against post-irradiation examination (PIE) data**
-- **Design optimization** for fuel pin geometry and operating conditions
 
 ## Parameter Sensitivity Analysis
 
@@ -475,22 +449,18 @@ For detailed methodology, see the **[Sensitivity Analysis Guide](docs/sensitivit
 
 ## Parameter Configuration
 
-All parameters are organized into two dataclasses:
+Default parameters are exposed through `create_default_parameters()`, which returns a dictionary assembled from the underlying `MaterialParameters` and `SimulationParameters` dataclasses.
 
-### MaterialParameters
-Physical properties of the fuel material:
-- Lattice constants and atomic volumes
-- Diffusion coefficients (Arrhenius parameters)
-- Dislocation density and bias factors
-- Surface energy and nucleation factors
-- Xenon thermodynamic properties
+Typical usage is:
 
-### SimulationParameters
-Runtime configuration:
-- Fission rate and irradiation conditions
-- Temperature and time stepping
-- Gas production rates
-- Numerical solver settings
+```python
+from gas_swelling import create_default_parameters
+
+params = create_default_parameters()
+params['temperature'] = 850
+params['model_backend'] = 'hybrid_qssa'
+params['radial_solver_mode'] = 'decoupled'
+```
 
 **📋 See [Parameter Reference](docs/parameter_reference.md) for complete documentation.**
 
@@ -520,13 +490,10 @@ Typical validation metrics:
 
 ## Performance
 
-- **Typical simulation**: 100 days of irradiation in ~100 seconds
-- **Solver**: `scipy.integrate.solve_ivp` with RK23 method
-- **Stiffness handling**: Automatic adaptive step sizing for widely varying timescales
-- **Memory**: < 500 MB for standard simulations
-- **Modular overhead**: Negligible - refactoring maintained computational performance while improving development velocity
-
-The refactoring from monolithic to modular architecture **maintained identical computational performance** while significantly improving code maintainability, testability, and extensibility.
+- **Main 0D default**: stiff-aware `solve_ivp` workflow through the packaged model interface
+- **Reduced-order options**: `qssa` and `hybrid_qssa` are available for faster studies
+- **Radial default**: `radial_solver_mode='decoupled'` for practical turnaround, with `coupled` retained for deeper numerical studies
+- **Performance depends strongly on** simulation horizon, backend choice, and whether radial coupling is enabled
 
 ## Requirements
 
@@ -603,14 +570,18 @@ Please see [CLAUDE.md](CLAUDE.md) for development guidelines and [REFACTORING.md
 ### Testing
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Safe default test entry (timeout + child-process cleanup)
+./scripts/test_safe.sh tests/ -v
+./.venv/bin/python scripts/test_safe.py tests/ -v
 
 # Run fast tests only (exclude slow integration tests)
-pytest tests/ -v -m 'not slow'
+./scripts/test_safe.sh tests/ -v -m 'not slow'
 
 # Run with coverage
-pytest tests/ --cov=gas_swelling --cov-report=term-missing
+./scripts/test_safe.sh tests/ --cov=gas_swelling --cov-report=term-missing
+
+# Shorter timeout for a targeted run
+./.venv/bin/python scripts/test_safe.py --timeout 300 -- tests/test_import.py
 ```
 
 ## Acknowledgments

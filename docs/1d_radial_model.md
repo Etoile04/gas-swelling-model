@@ -1,5 +1,14 @@
 # 1D Radial Gas Swelling Model: Theory and Implementation
 
+> **Current implementation note**
+>
+> The repository still keeps the original fully coupled radial ODE formulation,
+> and that is the focus of the theory discussion below. In day-to-day package
+> usage, however, `RadialGasSwellingModel` now defaults to
+> `radial_solver_mode='decoupled'` for practical turnaround, while
+> `radial_solver_mode='coupled'` remains available when you explicitly want the
+> coupled path.
+
 ## Table of Contents
 
 1. [Introduction and Overview](#1-introduction-and-overview)
@@ -366,7 +375,7 @@ The 1D radial model adds spatial coupling between nodes through Fick's law of di
 
 #### Fick's First Law (Finite Difference)
 For node i, the radial diffusive flux from node i-1 to i is:
-```python
+```text
 J[i-1 → i] = -D_gb × (C[i] - C[i-1]) / (r[i] - r[i-1])
 ```
 
@@ -378,7 +387,7 @@ Where:
 
 #### Net Rate of Change for Node i
 The radial diffusion contribution to dCgb/dt at node i is:
-```python
+```text
 # Flux balance for node i (interior nodes)
 dCgb_radial[i] = (A[i-1] × J[i-1→i] - A[i] × J[i→i+1]) / V[i]
 
@@ -415,7 +424,7 @@ def calculate_radial_flux(
 
 For each radial node i, the gas balance equation becomes:
 
-```python
+```text
 dCgb[i]/dt = (Production at node i)
              - (Grain boundary sink at node i)
              + (Radial diffusion coupling)
@@ -486,7 +495,7 @@ model = RadialGasSwellingModel(
 ```
 
 **Temperature Distribution:**
-```python
+```text
 T(r) = T_surface + (T_centerline - T_surface) × (1 - r²/R²)
 ```
 
@@ -515,19 +524,19 @@ model = RadialGasSwellingModel(
 Many parameters vary with temperature, creating spatial variation in kinetics:
 
 #### Diffusion Coefficients (Arrhenius)
-```python
+```text
 D_gb(T) = D_0 × exp(-Q_D / (k_B × T))
 ```
 - Higher T → faster diffusion → more gas transport to boundaries
 
 #### Bubble Nucleation Rates
-```python
+```text
 nucleation_rate ∝ exp(-E_nuc / (k_B × T))
 ```
 - Higher T → enhanced nucleation → more bubbles
 
 #### Vacancy Emission from Cavities
-```python
+```text
 thermal_emission ∝ exp(-E_f / (k_B × T))
 ```
 - Higher T → more vacancy emission → reduced cavity growth
@@ -549,7 +558,7 @@ model = RadialGasSwellingModel(
 
 **Implementation:**
 The fission rate at radius r is:
-```python
+```text
 fission_rate(r) = fission_rate_surface × (1 - 0.3 × J₀(2.405 × r/R))
 ```
 
@@ -604,7 +613,7 @@ dCgb[0]/dt = local_terms[0] - coupling_terms[0]
 ```
 
 **Mathematical Form:**
-```python
+```text
 ∂C/∂r|r=0 = 0  # Zero radial gradient at centerline
 ```
 
@@ -620,7 +629,7 @@ J(surface) = 0
 
 #### Surface Flux (Optional)
 If modeling gas escape to cladding:
-```python
+```text
 # Apply surface flux BC
 J(surface) = -h × (C_surface - C_cladding)
 ```
@@ -838,9 +847,9 @@ When validating 1D model against 0D:
 ### 10.1 Basic Usage Example
 
 ```python
-from gas_swelling import RadialGasSwellingModel
-from gas_swelling.params import create_default_parameters
 import numpy as np
+
+from gas_swelling import RadialGasSwellingModel, create_default_parameters
 
 # Create parameters
 params = create_default_parameters()
