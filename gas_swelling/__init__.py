@@ -9,7 +9,7 @@ This package implements rate theory models based on:
 phase of irradiated U-Zr and U-Pu-Zr fuel."
 
 Package Structure:
-- models: Core model implementations (original, refactored, and radial)
+- models: Core model implementations (original, refactored, QSSA, and radial)
 - physics: Physics calculations (pressure, transport, thermal)
 - ode: Rate equation system
 - solvers: Numerical integration methods
@@ -17,13 +17,17 @@ Package Structure:
 - io: Debug output and visualization
 """
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 
 # Original model (deprecated - use RefactoredGasSwellingModel)
 from .models.modelrk23 import GasSwellingModel
 
 # Refactored model (recommended)
 from .models.refactored_model import RefactoredGasSwellingModel
+
+# Experimental reduced-order model
+from .models.qssa_model import QSSAGasSwellingModel
+from .models.hybrid_qssa_model import HybridQSSAGasSwellingModel
 
 # Radial model (1D spatial discretization)
 from .models.radial_model import RadialGasSwellingModel
@@ -50,7 +54,11 @@ from .physics import (
 )
 
 # ODE system
-from .ode import swelling_ode_system
+from .ode import (
+    swelling_ode_system,
+    swelling_qssa_ode_system,
+    swelling_hybrid_qssa_ode_system,
+)
 
 # Solvers
 from .solvers import RK23Solver, EulerSolver
@@ -67,6 +75,8 @@ __all__ = [
     # Models
     'GasSwellingModel',
     'RefactoredGasSwellingModel',
+    'QSSAGasSwellingModel',
+    'HybridQSSAGasSwellingModel',
     'RadialGasSwellingModel',
 
     # Parameters
@@ -88,6 +98,8 @@ __all__ = [
 
     # ODE
     'swelling_ode_system',
+    'swelling_qssa_ode_system',
+    'swelling_hybrid_qssa_ode_system',
 
     # Solvers
     'RK23Solver',
