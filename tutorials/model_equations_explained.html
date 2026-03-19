@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Model Equations Explained: The 10 State Variables &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Learning Paths Guide" href="../learning_paths.html" />
+    <link rel="prev" title="Rate Theory Fundamentals: A Gentle Introduction" href="rate_theory_fundamentals.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="model-equations-explained-the-10-state-variables">
+<h1>Model Equations Explained: The 10 State Variables<a class="headerlink" href="#model-equations-explained-the-10-state-variables" title="Link to this heading">¶</a></h1>
+<p><strong>Target Audience:</strong> Graduate students and researchers who want to understand what each variable in the model represents
+<strong>Reading Time:</strong> ~25 minutes
+<strong>Prerequisites:</strong> Basic understanding of differential equations and <a class="reference internal" href="rate_theory_fundamentals.html"><span class="std std-doc">Rate Theory Fundamentals</span></a></p>
+<hr class="docutils" />
+<section id="learning-objectives">
+<h2>Learning Objectives<a class="headerlink" href="#learning-objectives" title="Link to this heading">¶</a></h2>
+<p>After reading this tutorial, you will understand:</p>
+<ul class="simple">
+<li><p>✓ What each of the 10 state variables represents physically</p></li>
+<li><p>✓ The typical values for each variable during irradiation</p></li>
+<li><p>✓ How each variable affects fuel swelling behavior</p></li>
+<li><p>✓ The relationships between variables in plain language</p></li>
+<li><p>✓ How to interpret the equations without advanced mathematics</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#overview-the-two-location-framework">Overview: The Two-Location Framework</a></p></li>
+<li><p><a class="reference internal" href="#bulk-matrix-variables">Bulk Matrix Variables (1-5)</a></p></li>
+<li><p><a class="reference internal" href="#phase-boundary-variables">Phase Boundary Variables (6-10)</a></p></li>
+<li><p><a class="reference internal" href="#how-variables-interact">How Variables Interact</a></p></li>
+<li><p><a class="reference internal" href="#typical-evolution-during-irradiation">Typical Evolution During Irradiation</a></p></li>
+<li><p><a class="reference internal" href="#common-questions">Common Questions</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="overview-the-two-location-framework">
+<h2>Overview: The Two-Location Framework<a class="headerlink" href="#overview-the-two-location-framework" title="Link to this heading">¶</a></h2>
+<p>The model tracks gas behavior in <strong>two distinct regions</strong> of the fuel material:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────┐
+│                    FUEL GRAIN                           │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                   │  │
+│  │            BULK MATRIX                            │  │
+│  │     (Where gas atoms wander randomly)             │  │
+│  │                                                   │  │
+│  │   Variables 1-5 live here                        │  │
+│  │   • Cgb: Gas concentration                        │  │
+│  │   • Ccb: Bubble concentration                     │  │
+│  │   • Ncb: Gas per bubble                           │  │
+│  │   • cvb: Vacancy concentration                    │  │
+│  │   • cib: Interstitial concentration               │  │
+│  │                                                   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                         ↕                                │
+│              (Gas diffuses to boundary)                  │
+│                         ↕                                │
+│  ══════════════════════════════════════════════════════  │
+│              PHASE BOUNDARY (The Edge)                  │
+│  ══════════════════════════════════════════════════════  │
+│  • Cgf: Gas concentration                               │
+│  • Ccf: Bubble concentration                            │
+│  • Ncf: Gas per bubble                                  │
+│  • cvf: Vacancy concentration                           │
+│  • cif: Interstitial concentration                     │
+│  (Variables 6-10 live here)                             │
+└─────────────────────────────────────────────────────────┘
+</pre></div>
+</div>
+<section id="why-two-locations">
+<h3>Why Two Locations?<a class="headerlink" href="#why-two-locations" title="Link to this heading">¶</a></h3>
+<p><strong>Physical reason:</strong> Gas behaves very differently in the bulk versus at boundaries:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p>Bulk Matrix</p></th>
+<th class="head"><p>Phase Boundaries</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Gas atom behavior</strong></p></td>
+<td><p>Wander randomly,容易被击出</p></td>
+<td><p>Stick and accumulate</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Re-solution effect</strong></p></td>
+<td><p>Strong - fission knocks gas out of bubbles</p></td>
+<td><p>Weak - knocked-out gas is quickly recaptured</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Bubble growth</strong></p></td>
+<td><p>Limited - bubbles stay small</p></td>
+<td><p>Rapid - bubbles grow large</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Swelling contribution</strong></p></td>
+<td><p>Small volume fraction</p></td>
+<td><p>Large volume fraction</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Gas release</strong></p></td>
+<td><p>None (gas is trapped)</p></td>
+<td><p>Possible when bubbles interconnect</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="bulk-matrix-variables">
+<h2>Bulk Matrix Variables<a class="headerlink" href="#bulk-matrix-variables" title="Link to this heading">¶</a></h2>
+<section id="variable-1-cgb-gas-atom-concentration-in-bulk-matrix">
+<h3>Variable 1: Cgb - Gas Atom Concentration in Bulk Matrix<a class="headerlink" href="#variable-1-cgb-gas-atom-concentration-in-bulk-matrix" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Cgb</span></code> (pronounced “C-g-b” or “C-g-bulk”)
+<strong>Units:</strong> atoms per cubic meter (atoms/m³)
+<strong>State Vector Index:</strong> 0</p>
+<section id="physical-meaning">
+<h4>Physical Meaning<a class="headerlink" href="#physical-meaning" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Cgb</span></code> represents the number of fission gas atoms (mainly xenon and krypton) that are:</p>
+<ul class="simple">
+<li><p>Dissolved in the fuel crystal lattice</p></li>
+<li><p>Wandering randomly through the bulk material</p></li>
+<li><p>Not yet trapped in bubbles or at boundaries</p></li>
+</ul>
+</section>
+<section id="plain-language-description">
+<h4>Plain Language Description<a class="headerlink" href="#plain-language-description" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Cgb as “wandering gas atoms”</strong> - individual gas atoms moving through the fuel like people walking around in a room. They haven’t settled into bubbles yet, and they’re still free to move around.</p>
+</div></blockquote>
+</section>
+<section id="typical-values">
+<h4>Typical Values<a class="headerlink" href="#typical-values" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Cgb Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10²⁰ atoms/m³</p></td>
+<td><p>Small amount of gas initially present</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>1×10²⁰ - 5×10²⁰ atoms/m³</p></td>
+<td><p>Gas production outpaces loss to bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>5×10¹⁹ - 2×10²⁰ atoms/m³</p></td>
+<td><p>Balance between production and capture by bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Low temperature</strong></p></td>
+<td><p>Higher</p></td>
+<td><p>Less diffusion to bubbles → more gas stays dissolved</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Faster diffusion to boundaries → gas leaves bulk</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="how-it-affects-swelling">
+<h4>How It Affects Swelling<a class="headerlink" href="#how-it-affects-swelling" title="Link to this heading">¶</a></h4>
+<p><strong>Direct effect:</strong> None - dissolved gas doesn’t directly cause swelling</p>
+<p><strong>Indirect effects (very important!):</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Higher Cgb → More bubble nucleation:</strong> More gas atoms colliding creates new bubble nuclei</p></li>
+<li><p><strong>Higher Cgb → Faster bubble growth:</strong> More gas available for existing bubbles to absorb</p></li>
+<li><p><strong>Temperature dependence:</strong> At high T, Cgb decreases (gas diffuses away), affecting where swelling occurs</p></li>
+</ol>
+</section>
+<section id="the-equation-plain-language">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#the-equation-plain-language" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">Cgb</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">created</span> <span class="n">by</span> <span class="n">fission</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">used</span> <span class="n">to</span> <span class="n">create</span> <span class="n">new</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">existing</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">that</span> <span class="n">diffused</span> <span class="n">to</span> <span class="n">grain</span> <span class="n">boundaries</span><span class="p">)</span>
+                           <span class="o">+</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">knocked</span> <span class="n">out</span> <span class="n">of</span> <span class="n">bubbles</span> <span class="n">by</span> <span class="n">fission</span> <span class="n">fragments</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Cgb is like a “holding tank” for gas. It fills up from fission, but constantly drains as gas finds its way into bubbles or boundaries.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-2-ccb-cavity-bubble-concentration-in-bulk">
+<h3>Variable 2: Ccb - Cavity/Bubble Concentration in Bulk<a class="headerlink" href="#variable-2-ccb-cavity-bubble-concentration-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Ccb</span></code> (pronounced “C-c-b” or “C-c-bulk”)
+<strong>Units:</strong> cavities per cubic meter (cavities/m³)
+<strong>State Vector Index:</strong> 1</p>
+<section id="id1">
+<h4>Physical Meaning<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Ccb</span></code> represents the <strong>number density of bubbles</strong> in the bulk material - how many distinct bubble clusters exist per unit volume.</p>
+</section>
+<section id="id2">
+<h4>Plain Language Description<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Ccb as “bubble count”</strong> - if you could magically count all the tiny gas bubbles in a cube of fuel, Ccb is that number. It’s not about the SIZE of bubbles, just how MANY there are.</p>
+</div></blockquote>
+</section>
+<section id="id3">
+<h4>Typical Values<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Ccb Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10¹⁸ cavities/m³</p></td>
+<td><p>Small initial number of nuclei</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>1×10¹⁸ - 5×10¹⁸ cavities/m³</p></td>
+<td><p>Rapid nucleation creates many new bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>5×10¹⁸ - 2×10¹⁹ cavities/m³</p></td>
+<td><p>Nucleation slows, bubble count stabilizes</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High nucleation factor</strong></p></td>
+<td><p>Higher</p></td>
+<td><p>More aggressive bubble formation</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Low temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Less gas mobility → fewer nucleation events</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id4">
+<h4>How It Affects Swelling<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
+<p><strong>Direct contribution:</strong> Moderate - more bubbles means more potential swelling volume</p>
+<p><strong>Key effects:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Bubble number × bubble size = swelling:</strong> Ccb provides the “count” multiplier</p></li>
+<li><p><strong>Competition for gas:</strong> More bubbles means each bubble gets less gas (fixed total gas supply)</p></li>
+<li><p><strong>Nucleation vs. growth trade-off:</strong> High Ccb means many small bubbles; low Ccb means fewer larger bubbles</p></li>
+</ol>
+</section>
+<section id="id5">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">Ccb</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Number</span> <span class="n">of</span> <span class="n">new</span> <span class="n">bubbles</span> <span class="n">formed</span> <span class="n">per</span> <span class="n">second</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Bubbles are only CREATED in bulk, never destroyed. The equation only has a creation term because bubbles in the bulk don’t disappear (they only grow or shrink by gaining/losing gas).</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-3-ncb-gas-atoms-per-bulk-cavity">
+<h3>Variable 3: Ncb - Gas Atoms per Bulk Cavity<a class="headerlink" href="#variable-3-ncb-gas-atoms-per-bulk-cavity" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Ncb</span></code> (pronounced “N-c-b” or “N-c-bulk”)
+<strong>Units:</strong> atoms per cavity (atoms/cavity) - dimensionless count
+<strong>State Vector Index:</strong> 2</p>
+<section id="id6">
+<h4>Physical Meaning<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Ncb</span></code> represents the <strong>average number of gas atoms</strong> contained within each bubble in the bulk matrix. This determines the gas pressure inside bubbles.</p>
+</section>
+<section id="id7">
+<h4>Plain Language Description<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Ncb as “crowding level”</strong> - how many people are squeezed into each room (bubble). More atoms in a bubble means higher pressure, which affects whether the bubble grows or shrinks.</p>
+</div></blockquote>
+</section>
+<section id="id8">
+<h4>Typical Values<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Ncb Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~2-10 atoms/cavity</p></td>
+<td><p>Newly nucleated bubbles contain few atoms</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Growing bubbles</strong></p></td>
+<td><p>10 - 1000 atoms/cavity</p></td>
+<td><p>Bubbles accumulate gas over time</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Large bubbles</strong></p></td>
+<td><p>1000 - 100,000 atoms/cavity</p></td>
+<td><p>Significant gas content in mature bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Overpressurized</strong></p></td>
+<td><p>&gt; Critical value</p></td>
+<td><p>Gas pressure pushes bubble outward, driving growth</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Underpressurized</strong></p></td>
+<td><p>&lt; Critical value</p></td>
+<td><p>Surface tension dominates, bubble may shrink</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id9">
+<h4>How It Affects Swelling<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h4>
+<p><strong>CRITICAL for swelling mechanism!</strong> Ncb determines whether a bubble is:</p>
+<ol class="arabic simple">
+<li><p><strong>Gas-driven (overpressurized):</strong> High Ncb → high pressure → bubble grows by pushing outward</p></li>
+<li><p><strong>Bias-driven (underpressurized):</strong> Low Ncb → low pressure → bubble grows from vacancy influx</p></li>
+</ol>
+<p><strong>The relationship:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Ncb determines gas pressure (Pg)
+Pg determines bubble radius (R) through mechanical equilibrium
+R determines swelling volume: V_bubble = (4/3)πR³ × Ccb
+</pre></div>
+</div>
+</section>
+<section id="id10">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">Ncb</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">atoms</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">bubble</span> <span class="n">per</span> <span class="n">second</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">atoms</span> <span class="n">knocked</span> <span class="n">out</span> <span class="n">by</span> <span class="n">fission</span> <span class="n">per</span> <span class="n">second</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Individual bubbles grow by absorbing gas but shrink when fission fragments knock atoms out. The balance determines if Ncb increases or decreases.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-4-cvb-vacancy-concentration-in-bulk">
+<h3>Variable 4: cvb - Vacancy Concentration in Bulk<a class="headerlink" href="#variable-4-cvb-vacancy-concentration-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">cvb</span></code> (pronounced “c-v-b” or “c-v-bulk”)
+<strong>Units:</strong> dimensionless (fraction of lattice sites that are vacant)
+<strong>State Vector Index:</strong> 8</p>
+<section id="id11">
+<h4>Physical Meaning<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">cvb</span></code> represents the <strong>fraction of empty lattice sites</strong> in the bulk crystal. Vacancies are “missing atoms” - holes in the crystal structure where an atom should be but isn’t.</p>
+</section>
+<section id="id12">
+<h4>Plain Language Description<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of cvb as “empty parking spaces”</strong> - vacancies are like empty spots in a parking lot. Atoms can shift into these empty spaces, allowing the crystal to rearrange itself. Vacancies are essential for bubble growth because bubbles need empty space to expand into.</p>
+</div></blockquote>
+</section>
+<section id="id13">
+<h4>Typical Values<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>cvb Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Thermal equilibrium</strong></p></td>
+<td><p>~1×10⁻⁶ - 1×10⁻⁴</p></td>
+<td><p>Depends strongly on temperature</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>During irradiation</strong></p></td>
+<td><p>1×10⁻⁶ - 1×10⁻⁵</p></td>
+<td><p>Radiation creates excess vacancies</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>~1×10⁻⁶</p></td>
+<td><p>Balance between production and annihilation</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High fission rate</strong></p></td>
+<td><p>Higher</p></td>
+<td><p>More radiation damage → more vacancies</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High temperature</strong></p></td>
+<td><p>Higher</p></td>
+<td><p>Thermal excitation creates more vacancies</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id14">
+<h4>How It Affects Swelling<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h4>
+<p><strong>FUNDAMENTAL for swelling!</strong> Vacancies are the “building blocks” of bubble growth:</p>
+<ol class="arabic simple">
+<li><p><strong>Direct mechanism:</strong> When vacancies flow to a bubble, the bubble grows (volume increases)</p></li>
+<li><p><strong>Bias-driven swelling:</strong> Dislocations preferentially absorb interstitials, leaving excess vacancies that flow to bubbles</p></li>
+<li><p><strong>Critical radius:</strong> cvb determines the thermal emission term that affects cavity stability</p></li>
+</ol>
+<p><strong>Without excess vacancies, there would be no significant swelling!</strong></p>
+</section>
+<section id="id15">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">cvb</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Vacancies</span> <span class="n">created</span> <span class="n">by</span> <span class="n">radiation</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Vacancies</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">sinks</span><span class="p">:</span> <span class="n">dislocations</span><span class="p">,</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Vacancies</span> <span class="n">that</span> <span class="n">recombined</span> <span class="k">with</span> <span class="n">interstitials</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Vacancies are constantly being created by radiation, but also constantly being destroyed by absorption at sinks or recombination with interstitials. The balance determines the steady-state concentration.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-5-cib-interstitial-concentration-in-bulk">
+<h3>Variable 5: cib - Interstitial Concentration in Bulk<a class="headerlink" href="#variable-5-cib-interstitial-concentration-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">cib</span></code> (pronounced “c-i-b” or “c-i-bulk”)
+<strong>Units:</strong> dimensionless (fraction of lattice sites with extra atoms)
+<strong>State Vector Index:</strong> 9</p>
+<section id="id16">
+<h4>Physical Meaning<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">cib</span></code> represents the concentration of <strong>interstitial atoms</strong> - extra atoms squeezed into spaces between normal lattice sites. These create lattice distortion and stress.</p>
+</section>
+<section id="id17">
+<h4>Plain Language Description<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of cib as “crowded elevator”</strong> - imagine an elevator that’s supposed to hold 10 people, but 11 people squeeze in. That extra person is like an interstitial - an atom where there shouldn’t be one, causing crowding and stress.</p>
+</div></blockquote>
+</section>
+<section id="id18">
+<h4>Typical Values<a class="headerlink" href="#id18" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>cib Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Thermal equilibrium</strong></p></td>
+<td><p>~1×10⁻¹² or lower</p></td>
+<td><p>Interstitials are very unstable</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>During irradiation</strong></p></td>
+<td><p>1×10⁻¹⁰ - 1×10⁻⁸</p></td>
+<td><p>Radiation creates interstitial-vacancy pairs</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>~1×10⁻⁹ - 1×10⁻⁸</p></td>
+<td><p>Lower than cvb due to higher mobility</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High fission rate</strong></p></td>
+<td><p>Higher</p></td>
+<td><p>More radiation damage → more interstitials</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Interstitials migrate quickly to sinks</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id19">
+<h4>How It Affects Swelling<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h4>
+<p><strong>Counteracts swelling (mostly!):</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Shrinkage mechanism:</strong> When interstitials are absorbed by cavities, the cavity shrinks</p></li>
+<li><p><strong>Bias effect:</strong> Dislocations preferentially absorb interstitials, leaving excess vacancies for bubbles</p></li>
+<li><p><strong>Recombination:</strong> Interstitials annihilate vacancies, reducing the vacancy surplus</p></li>
+</ol>
+<p><strong>The swelling rate depends on the VACANCY-INTERSTITIAL BALANCE:</strong></p>
+<ul class="simple">
+<li><p>More vacancies absorbed → bubble grows</p></li>
+<li><p>More interstitials absorbed → bubble shrinks</p></li>
+</ul>
+</section>
+<section id="id20">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">cib</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Interstitials</span> <span class="n">created</span> <span class="n">by</span> <span class="n">radiation</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Interstitials</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">sinks</span><span class="p">:</span> <span class="n">dislocations</span><span class="p">,</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Interstitials</span> <span class="n">that</span> <span class="n">recombined</span> <span class="k">with</span> <span class="n">vacancies</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Interstitials are more mobile than vacancies and get absorbed faster (especially by dislocations). This “bias” creates the vacancy surplus that drives swelling.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="phase-boundary-variables">
+<h2>Phase Boundary Variables<a class="headerlink" href="#phase-boundary-variables" title="Link to this heading">¶</a></h2>
+<p>The boundary variables (6-10) parallel the bulk variables (1-5), but describe behavior at <strong>grain boundaries and phase boundaries</strong> - the interfaces between crystalline regions.</p>
+<section id="variable-6-cgf-gas-atom-concentration-at-phase-boundaries">
+<h3>Variable 6: Cgf - Gas Atom Concentration at Phase Boundaries<a class="headerlink" href="#variable-6-cgf-gas-atom-concentration-at-phase-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Cgf</span></code> (pronounced “C-g-f” or “C-g-film/boundary”)
+<strong>Units:</strong> atoms per cubic meter (atoms/m³)
+<strong>State Vector Index:</strong> 4</p>
+<section id="id21">
+<h4>Physical Meaning<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Cgf</span></code> represents the concentration of gas atoms that have <strong>diffused to grain boundaries</strong> and are located at or near the interface between crystalline grains.</p>
+</section>
+<section id="id22">
+<h4>Plain Language Description<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Cgf as “gas at the walls”</strong> - gas atoms that have migrated from the interior of grains and accumulated at the boundaries (like people gathering at the edges of a room). Boundaries act as “sinks” that trap gas.</p>
+</div></blockquote>
+</section>
+<section id="id23">
+<h4>Typical Values<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Cgf Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10²⁰ atoms/m³</p></td>
+<td><p>Similar to initial Cgb</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>Can be higher or lower than Cgb</p></td>
+<td><p>Depends on diffusion rate</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>Often 2-10× higher than Cgb</p></td>
+<td><p>Gas accumulates at boundaries</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High temperature</strong></p></td>
+<td><p>Much higher</p></td>
+<td><p>Fast diffusion to boundaries</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Low temperature</strong></p></td>
+<td><p>Similar to Cgb</p></td>
+<td><p>Slow diffusion, gas stays in bulk</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id24">
+<h4>How It Affects Swelling<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h4>
+<p><strong>Critical for boundary bubble formation:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Higher Cgf → More boundary bubble nucleation:</strong> Gas at boundaries forms new bubbles</p></li>
+<li><p><strong>Higher Cgf → Faster boundary bubble growth:</strong> More gas for existing bubbles</p></li>
+<li><p><strong>Temperature-dependent:</strong> At high T, most gas ends up at boundaries, shifting swelling location</p></li>
+</ol>
+<p><strong>Why boundary bubbles matter:</strong></p>
+<ul class="simple">
+<li><p>Boundary bubbles grow MUCH larger than bulk bubbles</p></li>
+<li><p>Boundary bubbles contribute MOST of the swelling volume</p></li>
+<li><p>Boundary bubbles can interconnect and release gas</p></li>
+</ul>
+</section>
+<section id="id25">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">Cgf</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">diffusing</span> <span class="ow">in</span> <span class="kn">from</span><span class="w"> </span><span class="nn">bulk</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">used</span> <span class="n">to</span> <span class="n">create</span> <span class="n">new</span> <span class="n">boundary</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">existing</span> <span class="n">boundary</span> <span class="n">bubbles</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">released</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fuel</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key insight:</strong> Cgf fills up from gas diffusing out of the bulk, and drains as gas forms bubbles or gets released.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-7-ccf-cavity-concentration-at-phase-boundaries">
+<h3>Variable 7: Ccf - Cavity Concentration at Phase Boundaries<a class="headerlink" href="#variable-7-ccf-cavity-concentration-at-phase-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Ccf</span></code> (pronounced “C-c-f” or “C-c-film/boundary”)
+<strong>Units:</strong> cavities per cubic meter (cavities/m³)
+<strong>State Vector Index:</strong> 5</p>
+<section id="id26">
+<h4>Physical Meaning<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Ccf</span></code> represents the <strong>number of bubbles located at grain boundaries</strong> per unit volume.</p>
+</section>
+<section id="id27">
+<h4>Plain Language Description<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Ccf as “bubble count at the walls”</strong> - if you count all the bubbles forming along the edges and corners of grains, that’s Ccf. These are typically larger and more important for swelling than bulk bubbles.</p>
+</div></blockquote>
+</section>
+<section id="id28">
+<h4>Typical Values<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Ccf Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10¹⁷ - 1×10¹⁸ cavities/m³</p></td>
+<td><p>Fewer initial nuclei than bulk</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>1×10¹⁸ - 5×10¹⁸ cavities/m³</p></td>
+<td><p>Nucleation at boundaries</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>Often lower than Ccb</p></td>
+<td><p>Fewer but larger bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Gas concentrates in fewer, larger bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Low temperature</strong></p></td>
+<td><p>Similar to Ccb</p></td>
+<td><p>More distributed nucleation</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id29">
+<h4>How It Affects Swelling<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h4>
+<p><strong>Significant despite lower numbers:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Fewer bubbles but much larger:</strong> Each boundary bubble holds way more gas</p></li>
+<li><p><strong>Volume fraction contribution:</strong> Boundary bubbles often contribute 50-80% of total swelling</p></li>
+<li><p><strong>Interconnection pathway:</strong> When boundary bubbles grow large enough, they touch and form tunnels for gas release</p></li>
+</ol>
+<p><strong>Relationship to bulk bubbles:</strong></p>
+<ul class="simple">
+<li><p>Bulk: Many small bubbles (high Ccb, small Rcb)</p></li>
+<li><p>Boundary: Fewer large bubbles (lower Ccf, large Rcf)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-8-ncf-gas-atoms-per-boundary-cavity">
+<h3>Variable 8: Ncf - Gas Atoms per Boundary Cavity<a class="headerlink" href="#variable-8-ncf-gas-atoms-per-boundary-cavity" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">Ncf</span></code> (pronounced “N-c-f” or “N-c-film/boundary”)
+<strong>Units:</strong> atoms per cavity (atoms/cavity) - dimensionless count
+<strong>State Vector Index:</strong> 6</p>
+<section id="id30">
+<h4>Physical Meaning<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Ncf</span></code> represents the <strong>average number of gas atoms</strong> in each boundary bubble. Because boundary bubbles grow larger, Ncf is typically much larger than Ncb.</p>
+</section>
+<section id="id31">
+<h4>Plain Language Description<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of Ncf as “crowding at the edges”</strong> - boundary bubbles are like conference rooms that keep getting more people squeezed in. They can hold WAY more people (gas atoms) than bulk bubbles because they grow so large.</p>
+</div></blockquote>
+</section>
+<section id="id32">
+<h4>Typical Values<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Ncf Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~2-10 atoms/cavity</p></td>
+<td><p>Newly nucleated bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Growing</strong></p></td>
+<td><p>100 - 10,000 atoms/cavity</p></td>
+<td><p>Boundary bubbles accumulate lots of gas</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Large bubbles</strong></p></td>
+<td><p>10,000 - 1,000,000 atoms/cavity</p></td>
+<td><p>Mature boundary bubbles are HUGE</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Pre-release</strong></p></td>
+<td><p>Very high</p></td>
+<td><p>Gas builds up before interconnection</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id33">
+<h4>How It Affects Swelling<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h4>
+<p><strong>Dominant contributor to swelling:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Ncf determines Rcf:</strong> More atoms → larger radius → much more volume</p></li>
+<li><p><strong>Volume scales with R³:</strong> A bubble 10× larger has 1000× more volume!</p></li>
+<li><p><strong>Gas release trigger:</strong> When Ncf gets high enough, bubbles interconnect and gas escapes</p></li>
+</ol>
+<p><strong>Why Ncf &gt;&gt; Ncb:</strong></p>
+<ul class="simple">
+<li><p>Less re-solution at boundaries (gas stays in bubbles)</p></li>
+<li><p>Continuous gas supply from bulk diffusion</p></li>
+<li><p>More space to grow at boundaries</p></li>
+</ul>
+</section>
+<section id="id34">
+<h4>The Equation (Plain Language)<a class="headerlink" href="#id34" title="Link to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Change</span> <span class="ow">in</span> <span class="n">Ncf</span> <span class="n">over</span> <span class="n">time</span> <span class="o">=</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">atoms</span> <span class="n">absorbed</span> <span class="n">by</span> <span class="n">boundary</span> <span class="n">bubble</span> <span class="n">per</span> <span class="n">second</span><span class="p">)</span>
+                           <span class="o">-</span> <span class="p">(</span><span class="n">Gas</span> <span class="n">atoms</span> <span class="n">released</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fuel</span> <span class="n">per</span> <span class="n">second</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Key difference from Ncb:</strong> Boundary bubbles lose gas through “release” (escaping the fuel) rather than “re-solution” (being knocked back into solution).</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-9-cvf-vacancy-concentration-at-boundaries">
+<h3>Variable 9: cvf - Vacancy Concentration at Boundaries<a class="headerlink" href="#variable-9-cvf-vacancy-concentration-at-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">cvf</span></code> (pronounced “c-v-f” or “c-v-film/boundary”)
+<strong>Units:</strong> dimensionless (fraction of boundary lattice sites that are vacant)
+<strong>State Vector Index:</strong> 10</p>
+<section id="id35">
+<h4>Physical Meaning<a class="headerlink" href="#id35" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">cvf</span></code> represents the vacancy concentration in the <strong>boundary region</strong> - the fraction of empty lattice sites near grain boundaries.</p>
+</section>
+<section id="id36">
+<h4>Plain Language Description<a class="headerlink" href="#id36" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of cvf as “empty spots at the edges”</strong> - similar to cvb but specifically at the grain boundaries. The boundary region has different properties that affect vacancy behavior.</p>
+</div></blockquote>
+</section>
+<section id="id37">
+<h4>Typical Values<a class="headerlink" href="#id37" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>cvf Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Similar to cvb</strong></p></td>
+<td><p>~1×10⁶ - 1×10⁻⁵</p></td>
+<td><p>Often comparable to bulk concentration</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High temperature</strong></p></td>
+<td><p>Can be higher</p></td>
+<td><p>Enhanced vacancy formation at boundaries</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>After long times</strong></p></td>
+<td><p>May differ from cvb</p></td>
+<td><p>Boundary-specific evolution</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id38">
+<h4>How It Affects Swelling<a class="headerlink" href="#id38" title="Link to this heading">¶</a></h4>
+<p><strong>Supports boundary bubble growth:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Vacancies for boundary bubbles:</strong> cvf provides vacancies for Rcf growth</p></li>
+<li><p><strong>May differ from cvb:</strong> Boundary-specific defect dynamics</p></li>
+<li><p><strong>Affects critical radius:</strong> Helps determine when boundary bubbles become stable</p></li>
+</ol>
+<p><strong>Note:</strong> In many treatments, cvf ≈ cvb is assumed, but they can diverge under certain conditions.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="variable-10-cif-interstitial-concentration-at-boundaries">
+<h3>Variable 10: cif - Interstitial Concentration at Boundaries<a class="headerlink" href="#variable-10-cif-interstitial-concentration-at-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Symbol:</strong> <code class="docutils literal notranslate"><span class="pre">cif</span></code> (pronounced “c-i-f” or “c-i-film/boundary”)
+<strong>Units:</strong> dimensionless (fraction of boundary sites with extra atoms)
+<strong>State Vector Index:</strong> 11</p>
+<section id="id39">
+<h4>Physical Meaning<a class="headerlink" href="#id39" title="Link to this heading">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">cif</span></code> represents the interstitial concentration at <strong>grain boundaries</strong> - extra atoms squeezed into the boundary region.</p>
+</section>
+<section id="id40">
+<h4>Plain Language Description<a class="headerlink" href="#id40" title="Link to this heading">¶</a></h4>
+<blockquote>
+<div><p><strong>Think of cif as “crowding at the edges”</strong> - similar to cib but at the boundaries. Interstitials at boundaries behave differently than in the bulk.</p>
+</div></blockquote>
+</section>
+<section id="id41">
+<h4>Typical Values<a class="headerlink" href="#id41" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>cif Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Similar to cib</strong></p></td>
+<td><p>~1×10⁻⁹ - 1×10⁻⁸</p></td>
+<td><p>Often comparable to bulk</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Fast annihilation at boundaries</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>After long times</strong></p></td>
+<td><p>May be lower than cib</p></td>
+<td><p>Boundary sinks are effective</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id42">
+<h4>How It Affects Swelling<a class="headerlink" href="#id42" title="Link to this heading">¶</a></h4>
+<p><strong>Counteracts boundary bubble growth:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Interstitial absorption shrinks bubbles:</strong> When cif is high, boundary bubbles may shrink</p></li>
+<li><p><strong>Boundary sinks:</strong> Grain boundaries are effective sinks for interstitials</p></li>
+<li><p><strong>Balance with cvf:</strong> Net vacancy influx (cvf - cif balance) drives growth</p></li>
+</ol>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="how-variables-interact">
+<h2>How Variables Interact<a class="headerlink" href="#how-variables-interact" title="Link to this heading">¶</a></h2>
+<section id="the-coupled-system">
+<h3>The Coupled System<a class="headerlink" href="#the-coupled-system" title="Link to this heading">¶</a></h3>
+<p>All 10 variables are <strong>coupled</strong> - they affect each other. Here’s how:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Gas Production (fission)
+    ↓
+Cgb increases (gas dissolved in bulk)
+    ↓
+    ├─→ More bubble nucleation → Ccb increases
+    ├─→ More gas absorption → Ncb increases
+    ├─→ Gas diffuses to boundary → Cgf increases
+    │       ↓
+    │   More boundary nucleation → Ccf increases
+    │   More boundary absorption → Ncf increases
+    │
+    └─→ Gas pressure increases → R increases → Swelling increases
+
+Radiation Damage
+    ↓
+cvb and cib increase (vacancy-interstitial pairs)
+    ↓
+    ├─→ Bias creates vacancy surplus → Excess vacancies
+    ├─→ Vacancies flow to bubbles → R increases
+    └─→ Interstitials prefer dislocations → Vacancy surplus grows
+
+Temperature Effects
+    ↓
+    ├─→ Higher diffusion → Cgb decreases (gas leaves bulk)
+    ├─→ Higher diffusion → Cgf increases (gas arrives at boundary)
+    ├─→ Higher thermal emission → cv increases (more equilibrium vacancies)
+    └─→ Higher recombination → Lower cv, ci concentrations
+</pre></div>
+</div>
+</section>
+<section id="key-relationships">
+<h3>Key Relationships<a class="headerlink" href="#key-relationships" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Cgb → Ccb, Ncb:</strong> More dissolved gas → more bubble nucleation and growth</p></li>
+<li><p><strong>Cgb → Cgf:</strong> Dissolved gas diffuses to boundaries</p></li>
+<li><p><strong>Cgf → Ccf, Ncf:</strong> Boundary gas forms boundary bubbles</p></li>
+<li><p><strong>Ncb → Rcb → Swelling:</strong> Gas atoms determine radius, radius determines swelling</p></li>
+<li><p><strong>cvb - cib balance → R growth:</strong> Vacancy surplus drives bubble growth</p></li>
+<li><p><strong>Temperature → All variables:</strong> Affects diffusion, recombination, equilibrium values</p></li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="typical-evolution-during-irradiation">
+<h2>Typical Evolution During Irradiation<a class="headerlink" href="#typical-evolution-during-irradiation" title="Link to this heading">¶</a></h2>
+<section id="stage-1-incubation-early-time">
+<h3>Stage 1: Incubation (Early Time)<a class="headerlink" href="#stage-1-incubation-early-time" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Time</span><span class="p">:</span> <span class="mi">0</span> <span class="o">-</span> <span class="mi">10</span> <span class="n">days</span>
+<span class="n">Bubbles</span><span class="p">:</span> <span class="n">Many</span> <span class="n">small</span> <span class="n">bubbles</span> <span class="n">nucleating</span>
+<span class="n">Gas</span><span class="p">:</span> <span class="n">Mostly</span> <span class="ow">in</span> <span class="n">bulk</span> <span class="p">(</span><span class="n">high</span> <span class="n">Cgb</span><span class="p">),</span> <span class="n">starting</span> <span class="n">to</span> <span class="n">diffuse</span> <span class="n">to</span> <span class="n">boundaries</span>
+<span class="n">Swelling</span><span class="p">:</span> <span class="n">Very</span> <span class="n">low</span> <span class="p">(</span><span class="o">~</span><span class="mf">0.1</span><span class="o">%</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Variable behavior:</strong></p>
+<ul class="simple">
+<li><p>Cgb: Increases (gas production exceeds loss)</p></li>
+<li><p>Ccb: Increases rapidly (nucleation phase)</p></li>
+<li><p>Ncb: Increases slowly (bubbles starting to grow)</p></li>
+<li><p>cvb: Slightly elevated (radiation creates vacancies)</p></li>
+<li><p>Cgf: Starting to increase (gas arriving at boundaries)</p></li>
+<li><p>Ccf: Starting to increase (boundary nucleation)</p></li>
+<li><p>Ncf: Low but increasing</p></li>
+<li><p>Swelling: Minimal</p></li>
+</ul>
+</section>
+<section id="stage-2-rapid-growth-intermediate-time">
+<h3>Stage 2: Rapid Growth (Intermediate Time)<a class="headerlink" href="#stage-2-rapid-growth-intermediate-time" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Time</span><span class="p">:</span> <span class="mi">10</span> <span class="o">-</span> <span class="mi">100</span> <span class="n">days</span>
+<span class="n">Bubbles</span><span class="p">:</span> <span class="n">Reaching</span> <span class="n">critical</span> <span class="n">size</span><span class="p">,</span> <span class="n">growing</span> <span class="n">rapidly</span>
+<span class="n">Gas</span><span class="p">:</span> <span class="n">Shifting</span> <span class="kn">from</span><span class="w"> </span><span class="nn">bulk</span> <span class="n">to</span> <span class="n">boundaries</span>
+<span class="n">Swelling</span><span class="p">:</span> <span class="n">Accelerating</span> <span class="p">(</span><span class="mf">0.1</span><span class="o">%</span> <span class="o">-</span> <span class="mi">2</span><span class="o">%</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Variable behavior:</strong></p>
+<ul class="simple">
+<li><p>Cgb: May stabilize or decrease (gas diffusing to boundaries)</p></li>
+<li><p>Ccb: Stabilizes (nucleation slows)</p></li>
+<li><p>Ncb: Increasing (bubbles growing)</p></li>
+<li><p>cvb: Stabilized at steady-state value</p></li>
+<li><p>Rcb: Increasing (bias-driven growth)</p></li>
+<li><p>Cgf: Increasing (gas accumulation)</p></li>
+<li><p>Ccf: Increasing (more boundary bubbles)</p></li>
+<li><p>Ncf: Increasing rapidly (boundary bubbles growing fast)</p></li>
+<li><p>Rcf: Increasing rapidly (large boundary bubbles)</p></li>
+<li><p>Swelling: Increasing rapidly</p></li>
+</ul>
+</section>
+<section id="stage-3-saturation-late-time">
+<h3>Stage 3: Saturation (Late Time)<a class="headerlink" href="#stage-3-saturation-late-time" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Time</span><span class="p">:</span> <span class="mi">100</span><span class="o">+</span> <span class="n">days</span>
+<span class="n">Bubbles</span><span class="p">:</span> <span class="n">Large</span><span class="p">,</span> <span class="n">growth</span> <span class="n">slowing</span>
+<span class="n">Gas</span><span class="p">:</span> <span class="n">Mostly</span> <span class="n">at</span> <span class="n">boundaries</span> <span class="ow">or</span> <span class="ow">in</span> <span class="n">bubbles</span>
+<span class="n">Swelling</span><span class="p">:</span> <span class="n">Slowing</span> <span class="n">toward</span> <span class="n">saturation</span> <span class="p">(</span><span class="mi">2</span><span class="o">%</span> <span class="o">-</span> <span class="mi">10</span><span class="o">%</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Variable behavior:</strong></p>
+<ul class="simple">
+<li><p>Cgb: Low steady-state</p></li>
+<li><p>Ccb: Constant (no new nucleation)</p></li>
+<li><p>Ncb: Stable or slowly increasing</p></li>
+<li><p>cvb: Steady-state</p></li>
+<li><p>Rcb: Slow growth or stable</p></li>
+<li><p>Cgf: May decrease (gas release starting)</p></li>
+<li><p>Ccf: Stable</p></li>
+<li><p>Ncf: High, may decrease (gas release)</p></li>
+<li><p>Rcf: Large, stable</p></li>
+<li><p>Swelling: Approaching saturation value</p></li>
+</ul>
+</section>
+<section id="stage-4-gas-release-very-late-time">
+<h3>Stage 4: Gas Release (Very Late Time)<a class="headerlink" href="#stage-4-gas-release-very-late-time" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Time</span><span class="p">:</span> <span class="n">When</span> <span class="n">bubbles</span> <span class="n">interconnect</span>
+<span class="n">Bubbles</span><span class="p">:</span> <span class="n">Forming</span> <span class="n">tunnels</span>
+<span class="n">Gas</span><span class="p">:</span> <span class="n">Escaping</span> <span class="kn">from</span><span class="w"> </span><span class="nn">fuel</span>
+<span class="n">Swelling</span><span class="p">:</span> <span class="n">May</span> <span class="n">slow</span> <span class="ow">or</span> <span class="n">plateau</span>
+</pre></div>
+</div>
+<p><strong>Variable behavior:</strong></p>
+<ul class="simple">
+<li><p>Cgf: Decreasing (gas leaving boundaries)</p></li>
+<li><p>Ncf: May decrease (gas escaping)</p></li>
+<li><p>Gas release fraction: Increasing</p></li>
+<li><p>Swelling: May plateau as gas escapes</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="common-questions">
+<h2>Common Questions<a class="headerlink" href="#common-questions" title="Link to this heading">¶</a></h2>
+<section id="q1-why-are-there-10-variables-instead-of-fewer">
+<h3>Q1: Why are there 10 variables instead of fewer?<a class="headerlink" href="#q1-why-are-there-10-variables-instead-of-fewer" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> The physics requires tracking gas and defects in two locations (bulk and boundaries) because they behave very differently:</p>
+<ul class="simple">
+<li><p>Bulk bubbles stay small due to re-solution</p></li>
+<li><p>Boundary bubbles grow large and cause most swelling</p></li>
+<li><p>Tracking both is essential for accurate prediction</p></li>
+</ul>
+</section>
+<section id="q2-which-variables-are-most-important-for-swelling">
+<h3>Q2: Which variables are most important for swelling?<a class="headerlink" href="#q2-which-variables-are-most-important-for-swelling" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> In order of importance:</p>
+<ol class="arabic simple">
+<li><p><strong>Rcf (boundary bubble radius):</strong> Largest contributor to swelling volume</p></li>
+<li><p><strong>Ccf (boundary bubble concentration):</strong> Number of large bubbles</p></li>
+<li><p><strong>Ncf (gas per boundary bubble):</strong> Determines Rcf through pressure</p></li>
+<li><p><strong>cvb (vacancy concentration):</strong> Drives bubble growth</p></li>
+<li><p><strong>Ccb (bulk bubble concentration):</strong> Moderate contributor</p></li>
+</ol>
+</section>
+<section id="q3-why-do-boundary-bubbles-grow-larger-than-bulk-bubbles">
+<h3>Q3: Why do boundary bubbles grow larger than bulk bubbles?<a class="headerlink" href="#q3-why-do-boundary-bubbles-grow-larger-than-bulk-bubbles" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Two key reasons:</p>
+<ol class="arabic simple">
+<li><p><strong>Weaker re-solution:</strong> When fission knocks gas out of boundary bubbles, it gets quickly recaptured. In bulk, the gas escapes away.</p></li>
+<li><p><strong>Continuous gas supply:</strong> Gas diffusing from bulk accumulates at boundaries, feeding boundary bubbles.</p></li>
+</ol>
+</section>
+<section id="q4-what-does-steady-state-mean-for-these-variables">
+<h3>Q4: What does “steady state” mean for these variables?<a class="headerlink" href="#q4-what-does-steady-state-mean-for-these-variables" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Steady state means production rate = loss rate:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dC</span><span class="o">/</span><span class="n">dt</span> <span class="o">=</span> <span class="mi">0</span> <span class="p">(</span><span class="n">production</span> <span class="o">=</span> <span class="n">loss</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For example:</p>
+<ul class="simple">
+<li><p>Cgb steady state: Fission produces gas at same rate gas is absorbed by bubbles</p></li>
+<li><p>cvb steady state: Radiation creates vacancies at same rate they are absorbed</p></li>
+</ul>
+</section>
+<section id="q5-how-do-i-know-if-my-simulation-results-are-reasonable">
+<h3>Q5: How do I know if my simulation results are reasonable?<a class="headerlink" href="#q5-how-do-i-know-if-my-simulation-results-are-reasonable" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Check these things:</p>
+<ol class="arabic simple">
+<li><p><strong>Cgb, Cgf:</strong> Should be 10¹⁹ - 10²¹ atoms/m³</p></li>
+<li><p><strong>Ccb, Ccf:</strong> Should be 10¹⁷ - 10¹⁹ cavities/m³</p></li>
+<li><p><strong>Ncb:</strong> Should be 10 - 1000 atoms/cavity (bulk)</p></li>
+<li><p><strong>Ncf:</strong> Should be 100 - 100,000 atoms/cavity (boundary)</p></li>
+<li><p><strong>cvb, cib:</strong> cvb &gt; cib typically (vacancy surplus)</p></li>
+<li><p><strong>Rcb:</strong> Should be 1 - 100 nm (1×10⁻⁹ - 1×10⁻⁷ m)</p></li>
+<li><p><strong>Rcf:</strong> Should be 10 - 1000 nm (1×10⁻⁸ - 1×10⁻⁶ m)</p></li>
+<li><p><strong>Swelling:</strong> 0.1% - 10% depending on conditions</p></li>
+</ol>
+</section>
+<section id="q6-why-do-bulk-and-boundary-have-different-equations">
+<h3>Q6: Why do bulk and boundary have different equations?<a class="headerlink" href="#q6-why-do-bulk-and-boundary-have-different-equations" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Physical differences:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p>Bulk</p></th>
+<th class="head"><p>Boundary</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Re-solution</p></td>
+<td><p>Strong (gas escapes)</p></td>
+<td><p>Weak (gas recaptured)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gas loss term</p></td>
+<td><p>-g₀ (diffusion to boundary)</p></td>
+<td><p>-hCgf (release from fuel)</p></td>
+</tr>
+<tr class="row-even"><td><p>Bubble destruction</p></td>
+<td><p>None</p></td>
+<td><p>Possible through interconnection</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="q7-what-s-the-relationship-between-nc-and-r">
+<h3>Q7: What’s the relationship between Nc and R?<a class="headerlink" href="#q7-what-s-the-relationship-between-nc-and-r" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Mechanical equilibrium:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Gas pressure (Pg) pushes outward
+Surface tension (2γ/R) pulls inward
+
+At equilibrium: Pg = 2γ/R
+
+More gas atoms (Nc) → Higher pressure (Pg)
+Higher pressure → Larger radius (R) to balance surface tension
+</pre></div>
+</div>
+</section>
+<section id="q8-why-is-swelling-often-bell-shaped-with-temperature">
+<h3>Q8: Why is swelling often bell-shaped with temperature?<a class="headerlink" href="#q8-why-is-swelling-often-bell-shaped-with-temperature" title="Link to this heading">¶</a></h3>
+<p><strong>A:</strong> Competing effects:</p>
+<ul class="simple">
+<li><p><strong>Low T:</strong> Low diffusion → bubbles don’t grow → low swelling</p></li>
+<li><p><strong>Medium T:</strong> Optimal diffusion + bias → maximum swelling</p></li>
+<li><p><strong>High T:</strong> Thermal emission depletes vacancies → reduced swelling</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
+<section id="the-10-variables-at-a-glance">
+<h3>The 10 Variables at a Glance<a class="headerlink" href="#the-10-variables-at-a-glance" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>#</p></th>
+<th class="head"><p>Symbol</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Location</p></th>
+<th class="head"><p>Key Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Cgb</p></td>
+<td><p>Bulk gas concentration</p></td>
+<td><p>Bulk</p></td>
+<td><p>Feeds bubble nucleation and growth</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Ccb</p></td>
+<td><p>Bulk bubble concentration</p></td>
+<td><p>Bulk</p></td>
+<td><p>Number of small bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Ncb</p></td>
+<td><p>Gas per bulk bubble</p></td>
+<td><p>Bulk</p></td>
+<td><p>Determines bulk bubble size</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>cvb</p></td>
+<td><p>Bulk vacancy concentration</p></td>
+<td><p>Bulk</p></td>
+<td><p>Provides vacancies for growth</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>cib</p></td>
+<td><p>Bulk interstitial concentration</p></td>
+<td><p>Bulk</p></td>
+<td><p>Counteracts growth (bias)</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>Cgf</p></td>
+<td><p>Boundary gas concentration</p></td>
+<td><p>Boundary</p></td>
+<td><p>Feeds boundary bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p>7</p></td>
+<td><p>Ccf</p></td>
+<td><p>Boundary bubble concentration</p></td>
+<td><p>Boundary</p></td>
+<td><p>Number of large bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p>8</p></td>
+<td><p>Ncf</p></td>
+<td><p>Gas per boundary bubble</p></td>
+<td><p>Boundary</p></td>
+<td><p>Determines boundary bubble size</p></td>
+</tr>
+<tr class="row-even"><td><p>9</p></td>
+<td><p>cvf</p></td>
+<td><p>Boundary vacancy concentration</p></td>
+<td><p>Boundary</p></td>
+<td><p>Supports boundary growth</p></td>
+</tr>
+<tr class="row-odd"><td><p>10</p></td>
+<td><p>cif</p></td>
+<td><p>Boundary interstitial concentration</p></td>
+<td><p>Boundary</p></td>
+<td><p>Counteracts boundary growth</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="key-takeaways">
+<h3>Key Takeaways<a class="headerlink" href="#key-takeaways" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Two-location framework:</strong> Bulk vs. boundary behavior is fundamentally different</p></li>
+<li><p><strong>Gas flows:</strong> Cgb → (diffusion) → Cgf → (bubble formation) → swelling</p></li>
+<li><p><strong>Defect balance:</strong> cvb - cib = vacancy surplus = growth driver</p></li>
+<li><p><strong>Size matters:</strong> Boundary bubbles (Rcf) &gt;&gt; Bulk bubbles (Rcb) in size and swelling contribution</p></li>
+<li><p><strong>Coupled system:</strong> All variables affect each other; no variable acts alone</p></li>
+<li><p><strong>Temperature controls:</strong> Temperature affects all variables through diffusion and equilibrium</p></li>
+</ol>
+</section>
+<section id="next-steps">
+<h3>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h3>
+<p>Now that you understand the variables:</p>
+<ul class="simple">
+<li><p><strong><a class="reference internal" href="30minute_quickstart.html"><span class="std std-doc">30-Minute Quickstart</span></a></strong> - Run simulations and see the variables evolve</p></li>
+<li><p><strong><a class="reference download internal" download="" href="../_downloads/c393e497ce2e254b2e421f0d5817995c/01_Basic_Simulation_Walkthrough.ipynb"><span class="xref download myst">Basic Simulation Notebook</span></a></strong> - Interactive exploration</p></li>
+<li><p><strong><a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></strong> - How to modify parameters affecting these variables</p></li>
+<li><p><strong><a class="reference internal" href="../guides/interpreting_results.html"><span class="std std-doc">Results Interpretation Guide</span></a></strong> - Understanding what the output means</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Document Version:</strong> 1.0
+<strong>Last Updated:</strong> 2024
+<strong>Feedback:</strong> Please report any confusion or suggestions for improvement via GitHub issues</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Model Equations Explained: The 10 State Variables</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#overview-the-two-location-framework">Overview: The Two-Location Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bulk-matrix-variables">Bulk Matrix Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#phase-boundary-variables">Phase Boundary Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-variables-interact">How Variables Interact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#typical-evolution-during-irradiation">Typical Evolution During Irradiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-questions">Common Questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="rate_theory_fundamentals.html" title="previous chapter">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+      <li>Next: <a href="../learning_paths.html" title="next chapter">Learning Paths Guide</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/tutorials/model_equations_explained.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

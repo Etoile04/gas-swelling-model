@@ -14,6 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="1D Radial Gas Swelling Model: Theory and Implementation" href="1d_radial_model.html" />
     <link rel="prev" title="Welcome to Gas Swelling Model’s documentation!" href="index.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -41,28 +42,1652 @@
 <h2>Model Classes<a class="headerlink" href="#model-classes" title="Link to this heading">¶</a></h2>
 <section id="main-model">
 <h3>Main Model<a class="headerlink" href="#main-model" title="Link to this heading">¶</a></h3>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.models.modelrk23.GasSwellingModel">
+<span class="sig-prename descclassname"><span class="pre">gas_swelling.models.modelrk23.</span></span><span class="sig-name descname"><span class="pre">GasSwellingModel</span></span><a class="headerlink" href="#gas_swelling.models.modelrk23.GasSwellingModel" title="Link to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel" title="gas_swelling.models.refactored_model.RefactoredGasSwellingModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">RefactoredGasSwellingModel</span></code></a></p>
+</dd></dl>
+
 </section>
-<section id="euler-method-model">
-<h3>Euler Method Model<a class="headerlink" href="#euler-method-model" title="Link to this heading">¶</a></h3>
+<section id="refactored-model">
+<h3>Refactored Model<a class="headerlink" href="#refactored-model" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.models.refactored_model.</span></span><span class="sig-name descname"><span class="pre">RefactoredGasSwellingModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>重构的气体肿胀模型类 (Refactored Gas Swelling Model Class)</p>
+<p>This class provides a modular implementation of the gas swelling model
+for nuclear fuel materials. It uses separated physics calculations,
+ODE system, numerical solvers, and I/O utilities.</p>
+<p>模型功能 (Model Features):
+- 求解17个状态变量的常微分方程组 (solves 17-state-variable ODE system)
+- 计算气体气泡演化 (calculates gas bubble evolution)
+- 计算肿胀率 (calculates swelling rate)
+- 支持多种气体状态方程 (supports multiple gas EOS models)
+- 提供调试输出和可视化 (provides debug output and visualization)</p>
+<p>状态变量 (State Variables - 17 total):
+0-7: Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf (gas and cavity variables)
+8-11: cvb, cib, cvf, cif (point defect concentrations)
+12: released_gas (cumulative gas release)
+13-16: kvb, kib, kvf, kif (point defect sink strengths)</p>
+<dl class="simple">
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Optional[Dict]</span></dt><dd><p>模型参数字典 (model parameter dictionary)
+如果为None，使用默认参数 (use default parameters if None)</p>
+</dd>
+</dl>
+</dd>
+<dt>属性 (Attributes):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Dict</span></dt><dd><p>模型参数 (model parameters)</p>
+</dd>
+<dt>initial_state<span class="classifier">np.ndarray</span></dt><dd><p>初始状态向量 (initial state vector)</p>
+</dd>
+<dt>debug_config<span class="classifier">DebugConfig</span></dt><dd><p>调试配置 (debug configuration)</p>
+</dd>
+<dt>debug_history<span class="classifier">DebugHistory</span></dt><dd><p>调试历史记录 (debug history)</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Dict</em><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>初始化重构的气体肿胀模型 (Initialize refactored gas swelling model)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Optional[Dict]</span></dt><dd><p>模型参数字典，如果为None则使用默认参数
+(model parameter dictionary, use default if None)</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Dict</em><em> | </em><em>None</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">7200000)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LSODA'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.solve" title="Link to this definition">¶</a></dt>
+<dd><p>Solve the 0D gas swelling model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em>) – Time span <code class="docutils literal notranslate"><span class="pre">(t_start,</span> <span class="pre">t_end)</span></code> in seconds.</p></li>
+<li><p><strong>t_eval</strong> (<em>ndarray</em><em> | </em><em>None</em>) – Optional output times. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, 100 points are generated.</p></li>
+<li><p><strong>method</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">solve_ivp</span></code> method name. <code class="docutils literal notranslate"><span class="pre">LSODA</span></code> is the default.</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Initial time step in seconds.</p></li>
+<li><p><strong>max_dt</strong> (<em>float</em>) – Maximum time step in seconds.</p></li>
+<li><p><strong>max_steps</strong> (<em>int</em>) – Maximum solver steps.</p></li>
+<li><p><strong>output_interval</strong> (<em>int</em>) – Debug output interval in steps.</p></li>
+<li><p><strong>debug_enabled</strong> (<em>bool</em>) – Whether to record debug output.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A result dictionary containing time-series arrays such as <code class="docutils literal notranslate"><span class="pre">time</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Cgb</span></code>, <code class="docutils literal notranslate"><span class="pre">Ccb</span></code>, <code class="docutils literal notranslate"><span class="pre">Rcb</span></code>, <code class="docutils literal notranslate"><span class="pre">released_gas</span></code>, and <code class="docutils literal notranslate"><span class="pre">swelling</span></code>.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>RuntimeError</strong> – If the solver fails.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em></p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">time_points</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final swelling: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_pressure">
+<span class="sig-name descname"><span class="pre">get_gas_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bulk'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.get_gas_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_pressure" title="Link to this definition">¶</a></dt>
+<dd><p>计算气泡内的气体压力 (Calculate gas pressure inside bubble)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>R<span class="classifier">float</span></dt><dd><p>气泡半径，单位：米 (bubble radius in meters)</p>
+</dd>
+<dt>N<span class="classifier">float</span></dt><dd><p>气泡内气体原子数 (number of gas atoms in bubble)</p>
+</dd>
+<dt>location<span class="classifier">str</span></dt><dd><p>位置标识 (‘bulk’ 或 ‘boundary’)
+(location identifier: ‘bulk’ or ‘boundary’)
+默认值: ‘bulk’</p>
+</dd>
+</dl>
+</dd>
+<dt>返回 (Returns):</dt><dd><p>float: 气体压力，单位：帕斯卡 (gas pressure in Pascals)</p>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pressure</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_gas_pressure</span><span class="p">(</span><span class="mf">1e-8</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble pressure: </span><span class="si">{</span><span class="n">pressure</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> Pa&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>float</em>)</p></li>
+<li><p><strong>N</strong> (<em>float</em>)</p></li>
+<li><p><strong>location</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_influx">
+<span class="sig-name descname"><span class="pre">get_gas_influx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Cgb</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Cgf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.get_gas_influx"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_influx" title="Link to this definition">¶</a></dt>
+<dd><p>计算从基体到相界面的气体原子通量
+(Calculate gas atom flux from bulk to phase boundary)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>Cgb<span class="classifier">float</span></dt><dd><p>基体气体浓度，单位：原子/立方米
+(bulk gas concentration in atoms/m³)</p>
+</dd>
+<dt>Cgf<span class="classifier">float</span></dt><dd><p>相界面气体浓度，单位：原子/立方米
+(phase boundary gas concentration in atoms/m³)</p>
+</dd>
+</dl>
+</dd>
+<dt>返回 (Returns):</dt><dd><dl class="simple">
+<dt>float: 气体通量，单位：原子/(立方米·秒)</dt><dd><p>(gas flux in atoms/(m³·s))</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">influx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_gas_influx</span><span class="p">(</span><span class="mf">1e20</span><span class="p">,</span> <span class="mf">1e19</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gas influx: </span><span class="si">{</span><span class="n">influx</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> atoms/(m³·s)&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Cgb</strong> (<em>float</em>)</p></li>
+<li><p><strong>Cgf</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_release_rate">
+<span class="sig-name descname"><span class="pre">get_gas_release_rate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Cgf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ccf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Rcf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ncf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.get_gas_release_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_gas_release_rate" title="Link to this definition">¶</a></dt>
+<dd><p>计算气体释放率 (Calculate gas release rate)</p>
+<p>基于气泡互连模型计算气体释放到晶界和自由表面的速率
+(Calculates gas release rate based on bubble interconnection model)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>Cgf<span class="classifier">float</span></dt><dd><p>晶界气体浓度，单位：原子/立方米
+(grain boundary gas concentration in atoms/m³)</p>
+</dd>
+<dt>Ccf<span class="classifier">float</span></dt><dd><p>晶界气腔浓度，单位：气腔/立方米
+(grain boundary cavity concentration in cavities/m³)</p>
+</dd>
+<dt>Rcf<span class="classifier">float</span></dt><dd><p>晶界气腔半径，单位：米 (grain boundary cavity radius in meters)</p>
+</dd>
+<dt>Ncf<span class="classifier">float</span></dt><dd><p>晶界每个气腔气体原子数 (atoms per grain boundary cavity)</p>
+</dd>
+</dl>
+</dd>
+<dt>返回 (Returns):</dt><dd><p>float: 气体释放率，单位：1/秒 (gas release rate in 1/s)</p>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">release_rate</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_gas_release_rate</span><span class="p">(</span><span class="mf">1e20</span><span class="p">,</span> <span class="mf">1e15</span><span class="p">,</span> <span class="mf">1e-7</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gas release rate: </span><span class="si">{</span><span class="n">release_rate</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> /s&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Cgf</strong> (<em>float</em>)</p></li>
+<li><p><strong>Ccf</strong> (<em>float</em>)</p></li>
+<li><p><strong>Rcf</strong> (<em>float</em>)</p></li>
+<li><p><strong>Ncf</strong> (<em>float</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_thermal_equilibrium_concentrations">
+<span class="sig-name descname"><span class="pre">get_thermal_equilibrium_concentrations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.get_thermal_equilibrium_concentrations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.get_thermal_equilibrium_concentrations" title="Link to this definition">¶</a></dt>
+<dd><p>计算热平衡点缺陷浓度
+(Calculate thermal equilibrium point defect concentrations)</p>
+<dl>
+<dt>返回 (Returns):</dt><dd><dl class="simple">
+<dt>Tuple[float, float]: (cv0, ci0)</dt><dd><p>cv0 : 热平衡空位浓度 (thermal equilibrium vacancy concentration)
+ci0 : 热平衡间隙原子浓度 (thermal equilibrium interstitial concentration)</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cv0</span><span class="p">,</span> <span class="n">ci0</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_thermal_equilibrium_concentrations</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cv0 = </span><span class="si">{</span><span class="n">cv0</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">, ci0 = </span><span class="si">{</span><span class="n">ci0</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Tuple</em>[float, float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.enable_debug">
+<span class="sig-name descname"><span class="pre">enable_debug</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_step_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'debug_output.csv'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.enable_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.enable_debug" title="Link to this definition">¶</a></dt>
+<dd><p>启用调试模式 (Enable debug mode)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>time_step_interval<span class="classifier">int</span></dt><dd><p>调试输出间隔（步数）(debug output interval in steps)
+默认值: 1000</p>
+</dd>
+<dt>output_file<span class="classifier">str</span></dt><dd><p>调试输出文件路径 (debug output file path)
+默认值: ‘debug_output.csv’</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">enable_debug</span><span class="p">(</span><span class="n">time_step_interval</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">debug_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time_step_interval</strong> (<em>int</em>)</p></li>
+<li><p><strong>output_file</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.refactored_model.RefactoredGasSwellingModel.disable_debug">
+<span class="sig-name descname"><span class="pre">disable_debug</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/refactored_model.html#RefactoredGasSwellingModel.disable_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.refactored_model.RefactoredGasSwellingModel.disable_debug" title="Link to this definition">¶</a></dt>
+<dd><p>禁用调试模式 (Disable debug mode)</p>
+<dl>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">disable_debug</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="radial-model">
+<h3>Radial Model<a class="headerlink" href="#radial-model" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">RadialGasSwellingModel</span></code> now supports two execution modes through
+<code class="docutils literal notranslate"><span class="pre">params['radial_solver_mode']</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'decoupled'</span></code>: default fast path that advances each radial node with the
+validated 0D backend and reassembles the radial profiles.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'coupled'</span></code>: original fully coupled radial ODE solve with explicit
+inter-node transport terms.</p></li>
+</ul>
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.models.radial_model.</span></span><span class="sig-name descname"><span class="pre">RadialGasSwellingModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.003</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geometry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cylindrical'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature_profile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flux_depression</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>一维径向气体肿胀模型类 (1D Radial Gas Swelling Model Class)</p>
+<p>This class provides a 1D radial implementation of the gas swelling model
+for nuclear fuel materials. It extends the 0D model to capture spatial
+variations in temperature, fission rate, and swelling across the fuel
+pellet radius.</p>
+<p>模型功能 (Model Features):
+- 一维径向网格离散化 (1D radial mesh discretization)
+- 默认使用逐节点快路径求解 (fast node-wise solve path by default)
+- 可选完整耦合径向ODE求解 (optional fully coupled radial ODE solve)
+- 支持圆柱和平板几何 (supports cylindrical and slab geometries)
+- 计算径向肿胀分布 (calculates radial swelling distribution)
+- 支持径向温度分布 (supports radial temperature profiles)
+- 提供调试输出和可视化 (provides debug output and visualization)</p>
+<p>每节点状态变量 (State Variables Per Node - 17 total):
+0-7: Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf (gas and cavity variables)
+8-15: cvb, cib, kvb, kib, cvf, cif, kvf, kif (point defect variables)
+16: released_gas (cumulative gas release)</p>
+<p>总状态变量数 (Total State Variables): 17 × n_nodes</p>
+<dl class="simple">
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Optional[Dict]</span></dt><dd><p>模型参数字典 (model parameter dictionary)
+如果为None，使用默认参数 (use default parameters if None)</p>
+</dd>
+<dt>n_nodes<span class="classifier">int, optional</span></dt><dd><p>径向节点数量 (number of radial nodes)
+Default: 10</p>
+</dd>
+<dt>radius<span class="classifier">float, optional</span></dt><dd><p>燃料芯块半径 (fuel pellet radius) in meters
+Default: 0.003 m (3 mm)</p>
+</dd>
+<dt>geometry<span class="classifier">str, optional</span></dt><dd><p>几何类型 (geometry type)
+Options: ‘cylindrical’ (default) or ‘slab’</p>
+</dd>
+<dt>temperature_profile<span class="classifier">str, optional</span></dt><dd><p>温度分布类型 (temperature profile type)
+Options: None (uniform), ‘parabolic’, ‘user’</p>
+</dd>
+<dt>temperature_data<span class="classifier">np.ndarray, optional</span></dt><dd><p>用户指定的温度数组 (user-specified temperature array)
+形状 (shape): (n_nodes,)
+Required when temperature_profile=’user’</p>
+</dd>
+<dt>flux_depression<span class="classifier">bool, optional</span></dt><dd><p>是否考虑通量抑制效应 (whether to include flux depression)
+Default: False</p>
+</dd>
+<dt>params[‘radial_solver_mode’]<span class="classifier">str, optional</span></dt><dd><p>径向求解模式 (radial solve mode)
+- ‘decoupled’: 默认快速模式，逐节点调用0D后端
+- ‘coupled’: 原始完整耦合径向ODE系统</p>
+</dd>
+</dl>
+</dd>
+<dt>属性 (Attributes):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Dict</span></dt><dd><p>模型参数 (model parameters)</p>
+</dd>
+<dt>mesh<span class="classifier">RadialMesh</span></dt><dd><p>径向网格对象 (radial mesh object)</p>
+</dd>
+<dt>n_nodes<span class="classifier">int</span></dt><dd><p>径向节点数量 (number of radial nodes)</p>
+</dd>
+<dt>initial_state<span class="classifier">np.ndarray</span></dt><dd><p>初始状态向量 (initial state vector)</p>
+</dd>
+<dt>temperature<span class="classifier">np.ndarray</span></dt><dd><p>径向温度分布 (radial temperature profile)</p>
+</dd>
+<dt>fission_rate<span class="classifier">np.ndarray</span></dt><dd><p>径向裂变率分布 (radial fission rate profile)</p>
+</dd>
+<dt>debug_config<span class="classifier">DebugConfig</span></dt><dd><p>调试配置 (debug configuration)</p>
+</dd>
+<dt>debug_history<span class="classifier">DebugHistory</span></dt><dd><p>调试历史记录 (debug history)</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>params</strong> (<em>Dict</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>n_nodes</strong> (<em>int</em>)</p></li>
+<li><p><strong>radius</strong> (<em>float</em>)</p></li>
+<li><p><strong>geometry</strong> (<em>str</em>)</p></li>
+<li><p><strong>temperature_profile</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>temperature_data</strong> (<em>ndarray</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>flux_depression</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.003</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geometry</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cylindrical'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature_profile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flux_depression</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>初始化一维径向气体肿胀模型 (Initialize 1D radial gas swelling model)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>params<span class="classifier">Optional[Dict]</span></dt><dd><p>模型参数字典，如果为None则使用默认参数
+(model parameter dictionary, use default if None)</p>
+</dd>
+<dt>n_nodes<span class="classifier">int, optional</span></dt><dd><p>径向节点数量 (number of radial nodes)
+Default: 10</p>
+</dd>
+<dt>radius<span class="classifier">float, optional</span></dt><dd><p>燃料芯块半径 (fuel pellet radius) in meters
+Default: 0.003 m (3 mm)</p>
+</dd>
+<dt>geometry<span class="classifier">str, optional</span></dt><dd><p>几何类型 (geometry type)
+Options: ‘cylindrical’ (default) or ‘slab’</p>
+</dd>
+<dt>temperature_profile<span class="classifier">str, optional</span></dt><dd><p>温度分布类型 (temperature profile type)
+Options: None (uniform), ‘parabolic’, ‘user’
+Default: None (uniform temperature from params)
+Note: Use ‘user’ with temperature_data parameter</p>
+</dd>
+<dt>temperature_data<span class="classifier">np.ndarray, optional</span></dt><dd><p>用户指定的温度数组，形状为 (n_nodes,)
+(user-specified temperature array, shape (n_nodes,))
+Required when temperature_profile=’user’
+Units: Kelvin</p>
+</dd>
+<dt>flux_depression<span class="classifier">bool, optional</span></dt><dd><p>是否考虑通量抑制效应 (whether to include flux depression)
+Default: False</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">n_nodes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># User-specified temperature profile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T_profile</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">800</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>  <span class="c1"># Linear gradient</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">n_nodes</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<span class="gp">... </span>                               <span class="n">temperature_profile</span><span class="o">=</span><span class="s1">&#39;user&#39;</span><span class="p">,</span>
+<span class="gp">... </span>                               <span class="n">temperature_data</span><span class="o">=</span><span class="n">T_profile</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Enable the original fully coupled radial solve path</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;radial_solver_mode&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;coupled&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">coupled_model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">n_nodes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>params</strong> (<em>Dict</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>n_nodes</strong> (<em>int</em>)</p></li>
+<li><p><strong>radius</strong> (<em>float</em>)</p></li>
+<li><p><strong>geometry</strong> (<em>str</em>)</p></li>
+<li><p><strong>temperature_profile</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>temperature_data</strong> (<em>ndarray</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>flux_depression</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0,</span> <span class="pre">7200000)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LSODA'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.solve" title="Link to this definition">¶</a></dt>
+<dd><p>Solve the 1D radial gas swelling model.</p>
+<p>The execution path is selected from <code class="docutils literal notranslate"><span class="pre">params['radial_solver_mode']</span></code>:
+<code class="docutils literal notranslate"><span class="pre">'decoupled'</span></code> is the default fast mode, while <code class="docutils literal notranslate"><span class="pre">'coupled'</span></code> keeps the
+original fully coupled radial ODE system available.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em>) – Time span <code class="docutils literal notranslate"><span class="pre">(t_start,</span> <span class="pre">t_end)</span></code> in seconds.</p></li>
+<li><p><strong>t_eval</strong> (<em>ndarray</em><em> | </em><em>None</em>) – Optional output times. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, 100 points are generated.</p></li>
+<li><p><strong>method</strong> (<em>str</em>) – <code class="docutils literal notranslate"><span class="pre">solve_ivp</span></code> method name. <code class="docutils literal notranslate"><span class="pre">LSODA</span></code> is the default.</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Initial time step in seconds.</p></li>
+<li><p><strong>max_dt</strong> (<em>float</em>) – Maximum time step in seconds.</p></li>
+<li><p><strong>max_steps</strong> (<em>int</em>) – Maximum solver steps.</p></li>
+<li><p><strong>output_interval</strong> (<em>int</em>) – Debug output interval in steps.</p></li>
+<li><p><strong>debug_enabled</strong> (<em>bool</em>) – Whether to record debug output.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A result dictionary whose values are radial arrays with shape
+<code class="docutils literal notranslate"><span class="pre">(n_time,</span> <span class="pre">n_nodes)</span></code> for fields such as <code class="docutils literal notranslate"><span class="pre">swelling</span></code>, <code class="docutils literal notranslate"><span class="pre">Rcb</span></code>,
+<code class="docutils literal notranslate"><span class="pre">released_gas</span></code>, and the defect concentrations.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>RuntimeError</strong> – If the solver fails.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em></p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">time_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">time_points</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">final_swelling</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Centerline swelling: </span><span class="si">{</span><span class="n">final_swelling</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.set_temperature_profile">
+<span class="sig-name descname"><span class="pre">set_temperature_profile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">temperature_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reinitialize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.set_temperature_profile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.set_temperature_profile" title="Link to this definition">¶</a></dt>
+<dd><p>设置新的径向温度分布 (Set new radial temperature profile)</p>
+<p>Allows updating the temperature profile after model initialization.
+Useful for coupled thermal-mechanical simulations or time-dependent
+temperature boundary conditions.</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>temperature_data<span class="classifier">np.ndarray</span></dt><dd><p>新的温度数组，形状为 (n_nodes,)
+(new temperature array, shape (n_nodes,))
+Units: Kelvin</p>
+</dd>
+<dt>reinitialize<span class="classifier">bool, optional</span></dt><dd><p>是否重新初始化状态变量（重新计算热平衡浓度）
+(whether to reinitialize state variables with new thermal equilibrium)
+Default: True</p>
+</dd>
+</dl>
+</dd>
+<dt>异常 (Raises):</dt><dd><p>ValueError: 如果temperature_data长度与n_nodes不匹配</p>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">new_profile</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">900</span><span class="p">,</span> <span class="mi">700</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">set_temperature_profile</span><span class="p">(</span><span class="n">new_profile</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>temperature_data</strong> (<em>ndarray</em>)</p></li>
+<li><p><strong>reinitialize</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.get_temperature_profile">
+<span class="sig-name descname"><span class="pre">get_temperature_profile</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.get_temperature_profile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.get_temperature_profile" title="Link to this definition">¶</a></dt>
+<dd><p>获取当前径向温度分布 (Get current radial temperature profile)</p>
+<dl>
+<dt>返回 (Returns):</dt><dd><p>np.ndarray: 温度数组，形状 (n_nodes,)</p>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">temperature_profile</span><span class="o">=</span><span class="s1">&#39;parabolic&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_temperature_profile</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Center T: </span><span class="si">{</span><span class="n">T</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> K, Surface T: </span><span class="si">{</span><span class="n">T</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> K&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ndarray</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.get_gas_pressure">
+<span class="sig-name descname"><span class="pre">get_gas_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">R</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bulk'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.get_gas_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.get_gas_pressure" title="Link to this definition">¶</a></dt>
+<dd><p>计算气泡内的气体压力 (Calculate gas pressure inside bubble)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>R<span class="classifier">float</span></dt><dd><p>气泡半径，单位：米 (bubble radius in meters)</p>
+</dd>
+<dt>N<span class="classifier">float</span></dt><dd><p>气泡内气体原子数 (number of gas atoms in bubble)</p>
+</dd>
+<dt>location<span class="classifier">str</span></dt><dd><p>位置标识 (‘bulk’ 或 ‘boundary’)
+(location identifier: ‘bulk’ or ‘boundary’)
+默认值: ‘bulk’</p>
+</dd>
+</dl>
+</dd>
+<dt>返回 (Returns):</dt><dd><p>float: 气体压力，单位：帕斯卡 (gas pressure in Pascals)</p>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pressure</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_gas_pressure</span><span class="p">(</span><span class="mf">1e-8</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble pressure: </span><span class="si">{</span><span class="n">pressure</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> Pa&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>R</strong> (<em>float</em>)</p></li>
+<li><p><strong>N</strong> (<em>float</em>)</p></li>
+<li><p><strong>location</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.get_thermal_equilibrium_concentrations">
+<span class="sig-name descname"><span class="pre">get_thermal_equilibrium_concentrations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.get_thermal_equilibrium_concentrations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.get_thermal_equilibrium_concentrations" title="Link to this definition">¶</a></dt>
+<dd><p>计算指定节点的热平衡点缺陷浓度
+(Calculate thermal equilibrium point defect concentrations for a node)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>node_index<span class="classifier">int</span></dt><dd><p>节点索引 (node index)
+Default: 0 (centerline)</p>
+</dd>
+</dl>
+</dd>
+<dt>返回 (Returns):</dt><dd><dl class="simple">
+<dt>Tuple[float, float]: (cv0, ci0)</dt><dd><p>cv0 : 热平衡空位浓度 (thermal equilibrium vacancy concentration)
+ci0 : 热平衡间隙原子浓度 (thermal equilibrium interstitial concentration)</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cv0</span><span class="p">,</span> <span class="n">ci0</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_thermal_equilibrium_concentrations</span><span class="p">(</span><span class="n">node_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cv0 = </span><span class="si">{</span><span class="n">cv0</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">, ci0 = </span><span class="si">{</span><span class="n">ci0</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>node_index</strong> (<em>int</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Tuple</em>[float, float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.enable_debug">
+<span class="sig-name descname"><span class="pre">enable_debug</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_step_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'debug_radial_output.csv'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.enable_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.enable_debug" title="Link to this definition">¶</a></dt>
+<dd><p>启用调试模式 (Enable debug mode)</p>
+<dl>
+<dt>参数 (Parameters):</dt><dd><dl class="simple">
+<dt>time_step_interval<span class="classifier">int</span></dt><dd><p>调试输出间隔（步数）(debug output interval in steps)
+默认值: 1000</p>
+</dd>
+<dt>output_file<span class="classifier">str</span></dt><dd><p>调试输出文件路径 (debug output file path)
+默认值: ‘debug_radial_output.csv’</p>
+</dd>
+</dl>
+</dd>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">enable_debug</span><span class="p">(</span><span class="n">time_step_interval</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">debug_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time_step_interval</strong> (<em>int</em>)</p></li>
+<li><p><strong>output_file</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.models.radial_model.RadialGasSwellingModel.disable_debug">
+<span class="sig-name descname"><span class="pre">disable_debug</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/models/radial_model.html#RadialGasSwellingModel.disable_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.models.radial_model.RadialGasSwellingModel.disable_debug" title="Link to this definition">¶</a></dt>
+<dd><p>禁用调试模式 (Disable debug mode)</p>
+<dl>
+<dt>示例 (Example):</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">RadialGasSwellingModel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">disable_debug</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 <section id="parameter-classes">
 <h2>Parameter Classes<a class="headerlink" href="#parameter-classes" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.params.parameters.</span></span><span class="sig-name descname"><span class="pre">MaterialParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lattice_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.4808e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ATOMIC_VOLUME</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.09e-29</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">7800000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dv0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.74</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evf_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evfmuti</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.025</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dislocation_density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">70000000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydrastatic_pressure</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recombination_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Di0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.259e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eif_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kv_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.float64(8366600.265340756)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ki_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.float64(8470537.173048709)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xe_radii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.16e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_epsilon_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.86e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_mass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.131293</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Tc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_dc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1103.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Vc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.592e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_q_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/params/parameters.html#MaterialParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>材料参数（表1和表2中的参数）</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lattice_constant</strong> (<em>float</em>)</p></li>
+<li><p><strong>ATOMIC_VOLUME</strong> (<em>float</em>)</p></li>
+<li><p><strong>nu_constant</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dv0</strong> (<em>float</em>)</p></li>
+<li><p><strong>Evm</strong> (<em>float</em>)</p></li>
+<li><p><strong>Evf_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>Evfmuti</strong> (<em>float</em>)</p></li>
+<li><p><strong>Zv</strong> (<em>float</em>)</p></li>
+<li><p><strong>Zi</strong> (<em>float</em>)</p></li>
+<li><p><strong>dislocation_density</strong> (<em>float</em>)</p></li>
+<li><p><strong>surface_energy</strong> (<em>float</em>)</p></li>
+<li><p><strong>hydrastatic_pressure</strong> (<em>float</em>)</p></li>
+<li><p><strong>Fnb</strong> (<em>float</em>)</p></li>
+<li><p><strong>Fnf</strong> (<em>float</em>)</p></li>
+<li><p><strong>recombination_radius</strong> (<em>float</em>)</p></li>
+<li><p><strong>Di0</strong> (<em>float</em>)</p></li>
+<li><p><strong>Eim</strong> (<em>float</em>)</p></li>
+<li><p><strong>Eif_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>kv_param</strong> (<em>float</em>)</p></li>
+<li><p><strong>ki_param</strong> (<em>float</em>)</p></li>
+<li><p><strong>Xe_radii</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_epsilon_k</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_sigma</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_mass</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_Tc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_dc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_Vc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_q_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.lattice_constant">
+<span class="sig-name descname"><span class="pre">lattice_constant</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.4808e-10</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.lattice_constant" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.ATOMIC_VOLUME">
+<span class="sig-name descname"><span class="pre">ATOMIC_VOLUME</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4.09e-29</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.ATOMIC_VOLUME" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.nu_constant">
+<span class="sig-name descname"><span class="pre">nu_constant</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">7800000000000.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.nu_constant" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Dv0">
+<span class="sig-name descname"><span class="pre">Dv0</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-08</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Dv0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Evm">
+<span class="sig-name descname"><span class="pre">Evm</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.74</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Evm" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Evf_coeffs">
+<span class="sig-name descname"><span class="pre">Evf_coeffs</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Evf_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Evfmuti">
+<span class="sig-name descname"><span class="pre">Evfmuti</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Evfmuti" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Zv">
+<span class="sig-name descname"><span class="pre">Zv</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Zv" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Zi">
+<span class="sig-name descname"><span class="pre">Zi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.025</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Zi" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.dislocation_density">
+<span class="sig-name descname"><span class="pre">dislocation_density</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">70000000000000.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.dislocation_density" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.surface_energy">
+<span class="sig-name descname"><span class="pre">surface_energy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.surface_energy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.hydrastatic_pressure">
+<span class="sig-name descname"><span class="pre">hydrastatic_pressure</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.hydrastatic_pressure" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Fnb">
+<span class="sig-name descname"><span class="pre">Fnb</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-05</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Fnb" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Fnf">
+<span class="sig-name descname"><span class="pre">Fnf</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-05</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Fnf" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.recombination_radius">
+<span class="sig-name descname"><span class="pre">recombination_radius</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-10</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.recombination_radius" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Di0">
+<span class="sig-name descname"><span class="pre">Di0</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.259e-12</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Di0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Eim">
+<span class="sig-name descname"><span class="pre">Eim</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.18</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Eim" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Eif_coeffs">
+<span class="sig-name descname"><span class="pre">Eif_coeffs</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Eif_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.kv_param">
+<span class="sig-name descname"><span class="pre">kv_param</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">np.float64(8366600.265340756)</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.kv_param" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.ki_param">
+<span class="sig-name descname"><span class="pre">ki_param</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">np.float64(8470537.173048709)</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.ki_param" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.Xe_radii">
+<span class="sig-name descname"><span class="pre">Xe_radii</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.16e-10</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.Xe_radii" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_epsilon_k">
+<span class="sig-name descname"><span class="pre">xe_epsilon_k</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">290.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_epsilon_k" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_sigma">
+<span class="sig-name descname"><span class="pre">xe_sigma</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.86e-10</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_sigma" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_mass">
+<span class="sig-name descname"><span class="pre">xe_mass</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.131293</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_mass" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_Tc">
+<span class="sig-name descname"><span class="pre">xe_Tc</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">290.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_Tc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_dc">
+<span class="sig-name descname"><span class="pre">xe_dc</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1103.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_dc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_Vc">
+<span class="sig-name descname"><span class="pre">xe_Vc</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3.592e-05</span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_Vc" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.xe_q_coeffs">
+<span class="sig-name descname"><span class="pre">xe_q_coeffs</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.xe_q_coeffs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.MaterialParameters.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lattice_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.4808e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ATOMIC_VOLUME</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4.09e-29</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nu_constant</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">7800000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dv0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.74</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evf_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Evfmuti</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Zi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.025</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dislocation_density</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">70000000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hydrastatic_pressure</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Fnf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recombination_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Di0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.259e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.18</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Eif_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kv_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.float64(8366600.265340756)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ki_param</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np.float64(8470537.173048709)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Xe_radii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.16e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_epsilon_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_sigma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.86e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_mass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.131293</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Tc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">290.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_dc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1103.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_Vc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.592e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xe_q_coeffs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gas_swelling.params.parameters.MaterialParameters.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lattice_constant</strong> (<em>float</em>)</p></li>
+<li><p><strong>ATOMIC_VOLUME</strong> (<em>float</em>)</p></li>
+<li><p><strong>nu_constant</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dv0</strong> (<em>float</em>)</p></li>
+<li><p><strong>Evm</strong> (<em>float</em>)</p></li>
+<li><p><strong>Evf_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>Evfmuti</strong> (<em>float</em>)</p></li>
+<li><p><strong>Zv</strong> (<em>float</em>)</p></li>
+<li><p><strong>Zi</strong> (<em>float</em>)</p></li>
+<li><p><strong>dislocation_density</strong> (<em>float</em>)</p></li>
+<li><p><strong>surface_energy</strong> (<em>float</em>)</p></li>
+<li><p><strong>hydrastatic_pressure</strong> (<em>float</em>)</p></li>
+<li><p><strong>Fnb</strong> (<em>float</em>)</p></li>
+<li><p><strong>Fnf</strong> (<em>float</em>)</p></li>
+<li><p><strong>recombination_radius</strong> (<em>float</em>)</p></li>
+<li><p><strong>Di0</strong> (<em>float</em>)</p></li>
+<li><p><strong>Eim</strong> (<em>float</em>)</p></li>
+<li><p><strong>Eif_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>kv_param</strong> (<em>float</em>)</p></li>
+<li><p><strong>ki_param</strong> (<em>float</em>)</p></li>
+<li><p><strong>Xe_radii</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_epsilon_k</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_sigma</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_mass</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_Tc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_dc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_Vc</strong> (<em>float</em>)</p></li>
+<li><p><strong>xe_q_coeffs</strong> (<em>List</em><em>[</em><em>float</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.params.parameters.</span></span><span class="sig-name descname"><span class="pre">SimulationParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fission_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e+20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">displacement_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.8955078125e-25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_f</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gas_production_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grain_diameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8640000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive_stepping_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_progress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_prefactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_activation_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_fission_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.07e-31</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgf_multiplier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ideal'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/params/parameters.html#SimulationParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>模拟参数</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fission_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>displacement_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>sigma_f</strong> (<em>float</em>)</p></li>
+<li><p><strong>gas_production_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>resolution_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>grain_diameter</strong> (<em>float</em>)</p></li>
+<li><p><strong>temperature</strong> (<em>float</em>)</p></li>
+<li><p><strong>time_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_time_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_time</strong> (<em>float</em>)</p></li>
+<li><p><strong>adaptive_stepping_enabled</strong> (<em>bool</em>)</p></li>
+<li><p><strong>min_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>show_progress</strong> (<em>bool</em>)</p></li>
+<li><p><strong>progress_interval</strong> (<em>int</em>)</p></li>
+<li><p><strong>Dgb_prefactor</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgb_activation_energy</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgb_fission_term</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgf_multiplier</strong> (<em>float</em>)</p></li>
+<li><p><strong>eos_model</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.fission_rate">
+<span class="sig-name descname"><span class="pre">fission_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e+20</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.fission_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.displacement_rate">
+<span class="sig-name descname"><span class="pre">displacement_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.8955078125e-25</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.displacement_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.sigma_f">
+<span class="sig-name descname"><span class="pre">sigma_f</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">27200.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.sigma_f" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.gas_production_rate">
+<span class="sig-name descname"><span class="pre">gas_production_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.25</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.gas_production_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.resolution_rate">
+<span class="sig-name descname"><span class="pre">resolution_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2e-05</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.resolution_rate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.grain_diameter">
+<span class="sig-name descname"><span class="pre">grain_diameter</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5e-07</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.grain_diameter" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.temperature">
+<span class="sig-name descname"><span class="pre">temperature</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">600</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.temperature" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.time_step">
+<span class="sig-name descname"><span class="pre">time_step</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-09</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.time_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.max_time_step">
+<span class="sig-name descname"><span class="pre">max_time_step</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.max_time_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.max_time">
+<span class="sig-name descname"><span class="pre">max_time</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8640000</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.max_time" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.adaptive_stepping_enabled">
+<span class="sig-name descname"><span class="pre">adaptive_stepping_enabled</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.adaptive_stepping_enabled" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.min_step">
+<span class="sig-name descname"><span class="pre">min_step</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1e-09</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.min_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.max_step">
+<span class="sig-name descname"><span class="pre">max_step</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.max_step" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.show_progress">
+<span class="sig-name descname"><span class="pre">show_progress</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.show_progress" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.progress_interval">
+<span class="sig-name descname"><span class="pre">progress_interval</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.progress_interval" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.Dgb_prefactor">
+<span class="sig-name descname"><span class="pre">Dgb_prefactor</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.2e-07</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.Dgb_prefactor" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.Dgb_activation_energy">
+<span class="sig-name descname"><span class="pre">Dgb_activation_energy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.16</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.Dgb_activation_energy" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.Dgb_fission_term">
+<span class="sig-name descname"><span class="pre">Dgb_fission_term</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.07e-31</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.Dgb_fission_term" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.Dgf_multiplier">
+<span class="sig-name descname"><span class="pre">Dgf_multiplier</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">300.0</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.Dgf_multiplier" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.eos_model">
+<span class="sig-name descname"><span class="pre">eos_model</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ideal'</span></span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.eos_model" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.SimulationParameters.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fission_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e+20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">displacement_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.8955078125e-25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma_f</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gas_production_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grain_diameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temperature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">600</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8640000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive_stepping_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_progress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_prefactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.2e-07</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_activation_energy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgb_fission_term</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.07e-31</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dgf_multiplier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ideal'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gas_swelling.params.parameters.SimulationParameters.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fission_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>displacement_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>sigma_f</strong> (<em>float</em>)</p></li>
+<li><p><strong>gas_production_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>resolution_rate</strong> (<em>float</em>)</p></li>
+<li><p><strong>grain_diameter</strong> (<em>float</em>)</p></li>
+<li><p><strong>temperature</strong> (<em>float</em>)</p></li>
+<li><p><strong>time_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_time_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_time</strong> (<em>float</em>)</p></li>
+<li><p><strong>adaptive_stepping_enabled</strong> (<em>bool</em>)</p></li>
+<li><p><strong>min_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_step</strong> (<em>float</em>)</p></li>
+<li><p><strong>show_progress</strong> (<em>bool</em>)</p></li>
+<li><p><strong>progress_interval</strong> (<em>int</em>)</p></li>
+<li><p><strong>Dgb_prefactor</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgb_activation_energy</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgb_fission_term</strong> (<em>float</em>)</p></li>
+<li><p><strong>Dgf_multiplier</strong> (<em>float</em>)</p></li>
+<li><p><strong>eos_model</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="parameter-creation-functions">
 <h2>Parameter Creation Functions<a class="headerlink" href="#parameter-creation-functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="gas_swelling.params.parameters.create_default_parameters">
+<span class="sig-prename descclassname"><span class="pre">gas_swelling.params.parameters.</span></span><span class="sig-name descname"><span class="pre">create_default_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/params/parameters.html#create_default_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.params.parameters.create_default_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>创建默认参数集合</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Dict</em></p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="test-and-analysis-classes">
-<h2>Test and Analysis Classes<a class="headerlink" href="#test-and-analysis-classes" title="Link to this heading">¶</a></h2>
-<section id="study-classes">
-<h3>Study Classes<a class="headerlink" href="#study-classes" title="Link to this heading">¶</a></h3>
+<section id="solvers">
+<h2>Solvers<a class="headerlink" href="#solvers" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.solvers.rk23_solver.RK23Solver">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.solvers.rk23_solver.</span></span><span class="sig-name descname"><span class="pre">RK23Solver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LSODA'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/rk23_solver.html#RK23Solver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.rk23_solver.RK23Solver" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Flexible ODE Solver for Gas Swelling Equations
+灵活ODE求解器 (气体肿胀方程)</p>
+<p>This solver uses scipy’s solve_ivp with configurable method selection.
+It supports both explicit methods (RK23, RK45) for non-stiff problems
+and implicit methods (BDF, Radau, LSODA) for stiff systems.
+该求解器使用scipy的solve_ivp函数，可配置方法选择。支持显式方法（RK23、RK45）
+用于非刚性问题，以及隐式方法（BDF、Radau、LSODA）用于刚性系统。</p>
+<p><strong>Default method ‘LSODA’</strong> automatically detects stiffness and switches
+between Adams (non-stiff) and BDF (stiff) methods, providing optimal
+performance for both cases.
+<strong>默认方法’LSODA’</strong> 自动检测刚性并在Adams（非刚性）和BDF（刚性）
+方法之间切换，为两种情况提供最佳性能。</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>Function that computes derivatives dy/dt = f(t, y, params)
+Signature: rate_equations(t: float, y: np.ndarray, params: Dict) -&gt; np.ndarray</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Dictionary containing material and simulation parameters</p>
+</dd>
+<dt>method<span class="classifier">str, optional</span></dt><dd><p>Solver method to use (default: ‘LSODA’)
+Options: ‘RK23’, ‘RK45’, ‘LSODA’, ‘BDF’, ‘Radau’</p>
+</dd>
+</dl>
 </section>
-<section id="test-runner-functions">
-<h3>Test Runner Functions<a class="headerlink" href="#test-runner-functions" title="Link to this heading">¶</a></h3>
+<section id="attributes">
+<h3>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>The rate equations function</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Model parameters</p>
+</dd>
+<dt>method<span class="classifier">str</span></dt><dd><p>The solver method being used</p>
+</dd>
+<dt>success<span class="classifier">bool</span></dt><dd><p>Solver success status flag</p>
+</dd>
+</dl>
 </section>
-<section id="analysis-functions">
-<h3>Analysis Functions<a class="headerlink" href="#analysis-functions" title="Link to this heading">¶</a></h3>
+<section id="examples">
+<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h3>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.solvers</span><span class="w"> </span><span class="kn">import</span> <span class="n">RK23Solver</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.ode</span><span class="w"> </span><span class="kn">import</span> <span class="n">rate_equations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Setup solver</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span> <span class="o">=</span> <span class="n">RK23Solver</span><span class="p">(</span><span class="n">rate_equations</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define initial conditions and time span</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">17</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-6</span>  <span class="c1"># 17 state variables</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t_span</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>  <span class="c1"># 0 to 1000 seconds</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Solve</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.solvers.rk23_solver.RK23Solver.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LSODA'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/rk23_solver.html#RK23Solver.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.rk23_solver.RK23Solver.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize ODE solver with rate equations, parameters, and method.</p>
+<section id="id1">
+<h4>Parameters<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>Function that computes derivatives dy/dt = f(t, y, params)</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Dictionary containing model parameters</p>
+</dd>
+<dt>method<span class="classifier">str, optional</span></dt><dd><p>Solver method to use (default: ‘LSODA’)
+Options:
+- ‘RK23’: Explicit Runge-Kutta 2(3) - Fast for non-stiff
+- ‘RK45’: Explicit Runge-Kutta 4(5) - Accurate for non-stiff
+- ‘LSODA’: Adams/BDF with auto stiffness detection (RECOMMENDED)
+- ‘BDF’: Backward Differentiation Formula - For stiff systems
+- ‘Radau’: Implicit Runge-Kutta - For stiff systems</p>
+</dd>
+</dl>
 </section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rate_equations</strong> (<em>Callable</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em>)</p></li>
+<li><p><strong>method</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.solvers.rk23_solver.RK23Solver.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/rk23_solver.html#RK23Solver.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.rk23_solver.RK23Solver.solve" title="Link to this definition">¶</a></dt>
+<dd><p>Solve the ODE system using the specified method.</p>
+<section id="id2">
+<h4>Parameters<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>t_span<span class="classifier">Tuple[float, float]</span></dt><dd><p>Integration interval (t_start, t_end) in seconds</p>
+</dd>
+<dt>y0<span class="classifier">np.ndarray</span></dt><dd><p>Initial state vector (17 components for gas swelling model)</p>
+</dd>
+<dt>t_eval<span class="classifier">Optional[np.ndarray]</span></dt><dd><p>Time points at which to store solution. If None, uses 100 points.</p>
+</dd>
+<dt>dt<span class="classifier">float</span></dt><dd><p>Initial time step size (default: 1e-9 seconds)</p>
+</dd>
+<dt>max_dt<span class="classifier">float</span></dt><dd><p>Maximum time step size (default: 100.0 seconds)</p>
+</dd>
+<dt>rtol<span class="classifier">float</span></dt><dd><p>Relative tolerance for error control (default: 1e-4)</p>
+</dd>
+<dt>atol<span class="classifier">float</span></dt><dd><p>Absolute tolerance for error control (default: 1e-6)</p>
+</dd>
+<dt>max_steps<span class="classifier">int</span></dt><dd><p>Maximum number of internal steps (default: 1000000)</p>
+</dd>
+<dt>method<span class="classifier">Optional[str]</span></dt><dd><p>Solver method to use. If None, uses the method from __init__ (default: ‘LSODA’)
+Options: ‘RK23’, ‘RK45’, ‘LSODA’, ‘BDF’, ‘Radau’</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h4>Returns<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>Dict</dt><dd><p>Dictionary containing solution results:
+- ‘time’: array of time points
+- ‘success’: boolean indicating solver success
+- ‘message’: solver status message
+- ‘y’: array of solution vectors (shape: [n_vars, n_points])
+- State variables indexed by name (Cgb, Ccb, Ncb, etc.)</p>
+</dd>
+</dl>
+</section>
+<section id="raises">
+<h4>Raises<a class="headerlink" href="#raises" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If initial conditions y0 has incorrect dimension</p>
+</dd>
+<dt>RuntimeError</dt><dd><p>If solver fails and raises an exception</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>y0</strong> (<em>ndarray</em>)</p></li>
+<li><p><strong>t_eval</strong> (<em>ndarray</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>dt</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_dt</strong> (<em>float</em>)</p></li>
+<li><p><strong>rtol</strong> (<em>float</em>)</p></li>
+<li><p><strong>atol</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_steps</strong> (<em>int</em>)</p></li>
+<li><p><strong>method</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rate_equations</strong> (<em>Callable</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em>)</p></li>
+<li><p><strong>method</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.solvers.euler_solver.EulerSolver">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.solvers.euler_solver.</span></span><span class="sig-name descname"><span class="pre">EulerSolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/euler_solver.html#EulerSolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.euler_solver.EulerSolver" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Explicit Euler Method Solver for Gas Swelling Equations
+显式欧拉方法求解器 (气体肿胀方程)</p>
+<p>This solver implements the forward Euler method, a first-order numerical
+procedure for solving ODEs. Simple and computationally efficient per step,
+but requires small time steps for stability and accuracy.
+该求解器实现前向欧拉方法，一种用于求解ODE的一阶数值方法。
+每步计算简单高效，但需要小时间步长以保证稳定性和精度。</p>
+<section id="id3">
+<h3>Parameters<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>Function that computes derivatives dy/dt = f(t, y, params)
+Signature: rate_equations(t: float, y: np.ndarray, params: Dict) -&gt; np.ndarray</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Dictionary containing material and simulation parameters</p>
+</dd>
+</dl>
+</section>
+<section id="id4">
+<h3>Attributes<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>The rate equations function</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Model parameters</p>
+</dd>
+<dt>success<span class="classifier">bool</span></dt><dd><p>Solver success status flag</p>
+</dd>
+</dl>
+</section>
+<section id="id5">
+<h3>Examples<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.solvers</span><span class="w"> </span><span class="kn">import</span> <span class="n">EulerSolver</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.ode</span><span class="w"> </span><span class="kn">import</span> <span class="n">rate_equations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Setup solver</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">solver</span> <span class="o">=</span> <span class="n">EulerSolver</span><span class="p">(</span><span class="n">rate_equations</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define initial conditions and time span</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">17</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-6</span>  <span class="c1"># 17 state variables</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t_span</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>  <span class="c1"># 0 to 1000 seconds</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Solve with small time step for stability</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.solvers.euler_solver.EulerSolver.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rate_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/euler_solver.html#EulerSolver.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.euler_solver.EulerSolver.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize Euler solver with rate equations and parameters.</p>
+<section id="id6">
+<h4>Parameters<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>rate_equations<span class="classifier">Callable</span></dt><dd><p>Function that computes derivatives dy/dt = f(t, y, params)</p>
+</dd>
+<dt>params<span class="classifier">Dict</span></dt><dd><p>Dictionary containing model parameters</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rate_equations</strong> (<em>Callable</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.solvers.euler_solver.EulerSolver.solve">
+<span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_span</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/solvers/euler_solver.html#EulerSolver.solve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.solvers.euler_solver.EulerSolver.solve" title="Link to this definition">¶</a></dt>
+<dd><p>Solve the ODE system using explicit Euler method.</p>
+<section id="id7">
+<h4>Parameters<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>t_span<span class="classifier">Tuple[float, float]</span></dt><dd><p>Integration interval (t_start, t_end) in seconds</p>
+</dd>
+<dt>y0<span class="classifier">np.ndarray</span></dt><dd><p>Initial state vector (17 components for gas swelling model)</p>
+</dd>
+<dt>t_eval<span class="classifier">Optional[np.ndarray]</span></dt><dd><p>Time points at which to store solution. If None, uses 100 points.</p>
+</dd>
+<dt>dt<span class="classifier">float</span></dt><dd><p>Initial time step size (default: 0.1 seconds)</p>
+</dd>
+<dt>max_dt<span class="classifier">float</span></dt><dd><p>Maximum time step size for adaptive stepping (default: 100.0 seconds)</p>
+</dd>
+<dt>adaptive<span class="classifier">bool</span></dt><dd><p>Enable adaptive time stepping (default: True)</p>
+</dd>
+<dt>output_interval<span class="classifier">int</span></dt><dd><p>Store output every N steps (default: 1000)</p>
+</dd>
+</dl>
+</section>
+<section id="id8">
+<h4>Returns<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>Dict</dt><dd><p>Dictionary containing solution results:
+- ‘time’: array of time points
+- ‘success’: boolean indicating solver success
+- ‘message’: solver status message
+- ‘y’: array of solution vectors (shape: [n_vars, n_points])
+- State variables indexed by name (Cgb, Ccb, Ncb, etc.)
+- ‘n_steps’: total number of steps taken</p>
+</dd>
+</dl>
+</section>
+<section id="id9">
+<h4>Raises<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt>ValueError</dt><dd><p>If initial conditions y0 has incorrect dimension</p>
+</dd>
+</dl>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_span</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em>)</p></li>
+<li><p><strong>y0</strong> (<em>ndarray</em>)</p></li>
+<li><p><strong>t_eval</strong> (<em>ndarray</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>dt</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_dt</strong> (<em>float</em>)</p></li>
+<li><p><strong>adaptive</strong> (<em>bool</em>)</p></li>
+<li><p><strong>output_interval</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rate_equations</strong> (<em>Callable</em>)</p></li>
+<li><p><strong>params</strong> (<em>Dict</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="analysis">
+<h2>Analysis<a class="headerlink" href="#analysis" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">gas_swelling.analysis.sensitivity.</span></span><span class="sig-name descname"><span class="pre">SensitivityAnalyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_ranges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for sensitivity analysis of gas swelling model.</p>
+<p>Provides parameter range management and common utilities for
+local (OAT) and global (Morris, Sobol) sensitivity analysis methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>base_parameters</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>parameter_ranges</strong> (<em>List</em><em>[</em><em>ParameterRange</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>output_names</strong> (<em>List</em><em>[</em><em>str</em><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.base_parameters">
+<span class="sig-name descname"><span class="pre">base_parameters</span></span><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.base_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>Base model parameters dictionary</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.parameter_ranges">
+<span class="sig-name descname"><span class="pre">parameter_ranges</span></span><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.parameter_ranges" title="Link to this definition">¶</a></dt>
+<dd><p>List of ParameterRange objects defining parameter bounds</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.output_names">
+<span class="sig-name descname"><span class="pre">output_names</span></span><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.output_names" title="Link to this definition">¶</a></dt>
+<dd><p>List of model output names to analyze sensitivity for</p>
+</dd></dl>
+
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">SensitivityAnalyzer</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">analyzer</span> <span class="o">=</span> <span class="n">SensitivityAnalyzer</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">analyzer</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="go">SensitivityAnalyzer</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_ranges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the sensitivity analyzer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>base_parameters</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>) – Base model parameters (uses defaults if None)</p></li>
+<li><p><strong>parameter_ranges</strong> (<em>List</em><em>[</em><em>ParameterRange</em><em>] </em><em>| </em><em>None</em>) – List of ParameterRange objects</p></li>
+<li><p><strong>output_names</strong> (<em>List</em><em>[</em><em>str</em><em>] </em><em>| </em><em>None</em>) – Model output names to analyze (swelling, bubble_radius, etc.)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.add_parameter_range">
+<span class="sig-name descname"><span class="pre">add_parameter_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_range</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.add_parameter_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.add_parameter_range" title="Link to this definition">¶</a></dt>
+<dd><p>Add a parameter range to the analyzer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>param_range</strong> (<em>ParameterRange</em>) – ParameterRange object to add</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.remove_parameter_range">
+<span class="sig-name descname"><span class="pre">remove_parameter_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.remove_parameter_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.remove_parameter_range" title="Link to this definition">¶</a></dt>
+<dd><p>Remove a parameter range from the analyzer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>param_name</strong> (<em>str</em>) – Name of parameter to remove</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_parameter_range">
+<span class="sig-name descname"><span class="pre">get_parameter_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.get_parameter_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_parameter_range" title="Link to this definition">¶</a></dt>
+<dd><p>Get a parameter range by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>param_name</strong> (<em>str</em>) – Name of parameter to retrieve</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>ParameterRange object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ParameterRange</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_nominal_parameters">
+<span class="sig-name descname"><span class="pre">get_nominal_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.get_nominal_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_nominal_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>Get parameter dictionary with nominal values for all defined ranges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary with nominal parameter values</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em>[str, <em>Any</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.generate_parameter_samples">
+<span class="sig-name descname"><span class="pre">generate_parameter_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.generate_parameter_samples"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.generate_parameter_samples" title="Link to this definition">¶</a></dt>
+<dd><p>Generate parameter samples from all defined ranges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_samples</strong> (<em>int</em>) – Number of samples to generate</p></li>
+<li><p><strong>random_state</strong> (<em>int</em><em> | </em><em>None</em>) – Random seed for reproducibility</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Array of shape (n_samples, n_parameters) with parameter values</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ndarray</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.apply_parameters">
+<span class="sig-name descname"><span class="pre">apply_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.apply_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.apply_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>Apply parameter values to base parameter dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>base_params</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Base parameter dictionary</p></li>
+<li><p><strong>parameter_values</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>] </em><em>| </em><em>ndarray</em>) – Either a dict or array of parameter values</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated parameter dictionary</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Dict</em>[str, <em>Any</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.validate_parameter_ranges">
+<span class="sig-name descname"><span class="pre">validate_parameter_ranges</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.validate_parameter_ranges"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.validate_parameter_ranges" title="Link to this definition">¶</a></dt>
+<dd><p>Validate all parameter ranges against model parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of validation error messages (empty if all valid)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>List</em>[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_parameter_names">
+<span class="sig-name descname"><span class="pre">get_parameter_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.get_parameter_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_parameter_names" title="Link to this definition">¶</a></dt>
+<dd><p>Get list of parameter names under analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of parameter names</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>List</em>[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_n_parameters">
+<span class="sig-name descname"><span class="pre">get_n_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.get_n_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.get_n_parameters" title="Link to this definition">¶</a></dt>
+<dd><p>Get number of parameters under analysis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of parameters</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gas_swelling.analysis.sensitivity.SensitivityAnalyzer.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/gas_swelling/analysis/sensitivity.html#SensitivityAnalyzer.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gas_swelling.analysis.sensitivity.SensitivityAnalyzer.summary" title="Link to this definition">¶</a></dt>
+<dd><p>Get summary of analyzer configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary with analyzer summary</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Dict</em>[str, <em>Any</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="validation">
+<h2>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h2>
 </section>
 </section>
 
@@ -98,9 +1723,24 @@
 <li class="toctree-l2"><a class="reference internal" href="#model-classes">Model Classes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#parameter-classes">Parameter Classes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#parameter-creation-functions">Parameter Creation Functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#test-and-analysis-classes">Test and Analysis Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#solvers">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#analysis">Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#validation">Validation</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
 </ul>
 
 <div class="relations">
@@ -108,6 +1748,7 @@
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="index.html" title="previous chapter">Welcome to Gas Swelling Model’s documentation!</a></li>
+      <li>Next: <a href="1d_radial_model.html" title="next chapter">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
   </ul></li>
 </ul>
 </div>

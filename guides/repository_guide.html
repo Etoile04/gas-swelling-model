@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Repository Guide / 仓库结构与使用说明 &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Rate Theory Fundamentals: A Gentle Introduction" href="../tutorials/rate_theory_fundamentals.html" />
+    <link rel="prev" title="30-Minute Quickstart Tutorial" href="../tutorials/30minute_quickstart.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="repository-guide">
+<h1>Repository Guide / 仓库结构与使用说明<a class="headerlink" href="#repository-guide" title="Link to this heading">¶</a></h1>
+<p>This guide is the long-form companion to the short repository overview in the repo-root <code class="docutils literal notranslate"><span class="pre">README.md</span></code>.</p>
+<p>本指南是根目录 <code class="docutils literal notranslate"><span class="pre">README.md</span></code> 中“仓库导览”章节的完整版，适合第一次进入仓库、想快速定位功能入口，或准备参与开发的读者。</p>
+<section id="what-this-repo-contains">
+<h2>1. What This Repo Contains / 这个仓库包含什么<a class="headerlink" href="#what-this-repo-contains" title="Link to this heading">¶</a></h2>
+<section id="id1">
+<h3>中文<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>这个仓库是一个以 <a class="reference download internal" download="" href="../_downloads/24872f3d4485b6ac7fc6ef6375e0da04/__init__.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code></span></a> 包为核心的科学计算项目，用于模拟金属核燃料中裂变气体气泡演化与肿胀行为。</p>
+<p>当前主线是<strong>包化结构</strong>：</p>
+<ul class="simple">
+<li><p>运行入口以 <code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code> 包、<code class="docutils literal notranslate"><span class="pre">examples/</span></code>、<code class="docutils literal notranslate"><span class="pre">docs/</span></code> 和 <code class="docutils literal notranslate"><span class="pre">tests/</span></code> 为主</p></li>
+<li><p>根目录的历史脚本和论文材料仍可作为参考，但不应再被视为主要 API 或主要使用入口</p></li>
+</ul>
+</section>
+<section id="english">
+<h3>English<a class="headerlink" href="#english" title="Link to this heading">¶</a></h3>
+<p>This repository is a scientific computing project centered on the <a class="reference download internal" download="" href="../_downloads/24872f3d4485b6ac7fc6ef6375e0da04/__init__.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code></span></a> package for simulating fission gas bubble evolution and swelling behavior in metallic nuclear fuels.</p>
+<p>The current source of truth is the <strong>packaged codebase</strong>:</p>
+<ul class="simple">
+<li><p>primary entry points live in the <code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code> package, <code class="docutils literal notranslate"><span class="pre">examples/</span></code>, <code class="docutils literal notranslate"><span class="pre">docs/</span></code>, and <code class="docutils literal notranslate"><span class="pre">tests/</span></code></p></li>
+<li><p>legacy root-level scripts and paper notes remain useful as references, but they are no longer the main public API</p></li>
+</ul>
+</section>
+</section>
+<section id="repository-map">
+<h2>2. Repository Map / 仓库地图<a class="headerlink" href="#repository-map" title="Link to this heading">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>gas_swelling/
+├── models/         core model entry points and variants
+├── ode/            rate-equation systems
+├── physics/        reusable physics utilities
+├── solvers/        solver wrappers and numerical helpers
+├── visualization/  plotting and post-processing
+├── analysis/       sensitivity analysis and metrics
+├── validation/     datasets, metrics, reproduction scripts
+├── params/         parameter defaults and dataclasses
+└── io/             debug/history/output helpers
+
+examples/           runnable examples and tutorials
+tests/              pytest suite
+docs/               long-form documentation
+notebooks/          exploratory notebooks
+</pre></div>
+</div>
+<section id="id2">
+<h3>中文<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/models</span></code>: 模型入口与变体；重点看 <code class="docutils literal notranslate"><span class="pre">refactored_model.py</span></code>、<code class="docutils literal notranslate"><span class="pre">qssa_model.py</span></code>、<code class="docutils literal notranslate"><span class="pre">hybrid_qssa_model.py</span></code>、<code class="docutils literal notranslate"><span class="pre">radial_model.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/ode</span></code>: 速率方程实现；重点看 <code class="docutils literal notranslate"><span class="pre">rate_equations.py</span></code> 和 <code class="docutils literal notranslate"><span class="pre">qssa_rate_equations.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/physics</span></code>: 压力、输运、热平衡等基础物理计算</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/solvers</span></code>: 数值求解包装层，如 <code class="docutils literal notranslate"><span class="pre">rk23_solver.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/visualization</span></code>: 各类绘图与结果展示</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/analysis</span></code>: sensitivity analysis、指标和相关 CLI</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/validation</span></code>: 实验数据、验证指标、复现实验脚本</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/params</span></code>: <code class="docutils literal notranslate"><span class="pre">create_default_parameters()</span></code> 与 dataclass 参数定义</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">examples</span></code>: 最适合跟跑的脚本入口</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests</span></code>: 当前行为的可执行规范</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs</span></code>: 教程、参数说明、故障排查和专题指南</p></li>
+</ul>
+</section>
+<section id="id3">
+<h3>English<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/models</span></code>: model entry points and variants; start with <code class="docutils literal notranslate"><span class="pre">refactored_model.py</span></code>, <code class="docutils literal notranslate"><span class="pre">qssa_model.py</span></code>, <code class="docutils literal notranslate"><span class="pre">hybrid_qssa_model.py</span></code>, and <code class="docutils literal notranslate"><span class="pre">radial_model.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/ode</span></code>: rate-equation implementations; the main files are <code class="docutils literal notranslate"><span class="pre">rate_equations.py</span></code> and <code class="docutils literal notranslate"><span class="pre">qssa_rate_equations.py</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/physics</span></code>: reusable physics utilities such as pressure, transport, and thermal calculations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/solvers</span></code>: solver wrappers and numerical helpers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/visualization</span></code>: plotting and post-processing</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/analysis</span></code>: sensitivity analysis, metrics, and related CLI helpers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/validation</span></code>: experimental datasets, validation metrics, and reproduction scripts</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gas_swelling/params</span></code>: parameter defaults via <code class="docutils literal notranslate"><span class="pre">create_default_parameters()</span></code> plus dataclass definitions</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">examples</span></code>: the best place to start running the repo</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests</span></code>: the executable specification of current behavior</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">docs</span></code>: tutorials, references, troubleshooting, and specialized guides</p></li>
+</ul>
+</section>
+</section>
+<section id="how-to-use-the-repo">
+<h2>3. How to Use the Repo / 如何使用这个仓库<a class="headerlink" href="#how-to-use-the-repo" title="Link to this heading">¶</a></h2>
+<section id="id4">
+<h3>中文<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>按你的目标，推荐这样进入：</p>
+<ul class="simple">
+<li><p>只想快速跑模型</p>
+<ul>
+<li><p>先看 repo 根目录里的 <code class="docutils literal notranslate"><span class="pre">QUICKSTART.md</span></code></p></li>
+<li><p>也可以配合 <a class="reference internal" href="../tutorials/30minute_quickstart.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/tutorials/30minute_quickstart.md</span></code></span></a></p></li>
+<li><p>运行 <a class="reference download internal" download="" href="../_downloads/1d1ce34cce5afedec90a3ca1aea1cfd4/quickstart_simple.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/quickstart_simple.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>想改参数或做 sweep</p>
+<ul>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/4222ec91c59f1610f50f5af37de73ba9/parameters.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/params/parameters.py</span></code></span></a></p></li>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/e4dd6f9568c9fc1b9de6db87b0a8b05f/quickstart_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/quickstart_tutorial.py</span></code></span></a> 和 <a class="reference download internal" download="" href="../_downloads/db0bde5eb188d0cb78bc225b177e2e55/temperature_sweep_plotting.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/temperature_sweep_plotting.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>想看 QSSA / Hybrid QSSA</p>
+<ul>
+<li><p>看 <a class="reference internal" href="#../../gas_swelling/models/qssa_model.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/qssa_model.py</span></code></span></a></p></li>
+<li><p>看 <a class="reference internal" href="#../../gas_swelling/models/hybrid_qssa_model.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/hybrid_qssa_model.py</span></code></span></a></p></li>
+<li><p>看 <a class="reference internal" href="#../../examples/qssa_benchmark.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">examples/qssa_benchmark.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>想用 1D radial model</p>
+<ul>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/e0b5adb5b32d43cd5f3f48a7ce8d27ef/radial_model.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/radial_model.py</span></code></span></a></p></li>
+<li><p>看 <a class="reference internal" href="../1d_radial_model.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/1d_radial_model.md</span></code></span></a></p></li>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/e3c1cf8aabb79f27f0096c9d471e6594/radial_simulation_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/radial_simulation_tutorial.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>想做 sensitivity analysis</p>
+<ul>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/5794ca79f60cd2ad234953c7bfde7829/sensitivity.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/analysis/sensitivity.py</span></code></span></a></p></li>
+<li><p>看 <a class="reference internal" href="../sensitivity_analysis_guide.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/sensitivity_analysis_guide.md</span></code></span></a></p></li>
+<li><p>看 <a class="reference download internal" download="" href="../_downloads/eca985eb67480237466bf825b0062f25/sensitivity_analysis_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/sensitivity_analysis_tutorial.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>想复现实验验证图</p>
+<ul>
+<li><p>看 <code class="docutils literal notranslate"><span class="pre">gas_swelling/validation/scripts</span></code></p></li>
+<li><p>看 <a class="reference internal" href="../validation_guide.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/validation_guide.md</span></code></span></a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id5">
+<h3>English<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>Choose your entry point by intent:</p>
+<ul class="simple">
+<li><p>If you want to run the model quickly</p>
+<ul>
+<li><p>start with the repo-root <code class="docutils literal notranslate"><span class="pre">QUICKSTART.md</span></code></p></li>
+<li><p>optionally pair it with <a class="reference internal" href="../tutorials/30minute_quickstart.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/tutorials/30minute_quickstart.md</span></code></span></a></p></li>
+<li><p>run <a class="reference download internal" download="" href="../_downloads/1d1ce34cce5afedec90a3ca1aea1cfd4/quickstart_simple.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/quickstart_simple.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>If you want to edit parameters or run sweeps</p>
+<ul>
+<li><p>read <a class="reference download internal" download="" href="../_downloads/4222ec91c59f1610f50f5af37de73ba9/parameters.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/params/parameters.py</span></code></span></a></p></li>
+<li><p>use <a class="reference download internal" download="" href="../_downloads/e4dd6f9568c9fc1b9de6db87b0a8b05f/quickstart_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/quickstart_tutorial.py</span></code></span></a> and <a class="reference download internal" download="" href="../_downloads/db0bde5eb188d0cb78bc225b177e2e55/temperature_sweep_plotting.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/temperature_sweep_plotting.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>If you want to inspect QSSA / Hybrid QSSA</p>
+<ul>
+<li><p>read <a class="reference internal" href="#../../gas_swelling/models/qssa_model.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/qssa_model.py</span></code></span></a></p></li>
+<li><p>read <a class="reference internal" href="#../../gas_swelling/models/hybrid_qssa_model.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/hybrid_qssa_model.py</span></code></span></a></p></li>
+<li><p>run <a class="reference internal" href="#../../examples/qssa_benchmark.py"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">examples/qssa_benchmark.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>If you want the 1D radial model</p>
+<ul>
+<li><p>read <a class="reference download internal" download="" href="../_downloads/e0b5adb5b32d43cd5f3f48a7ce8d27ef/radial_model.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/models/radial_model.py</span></code></span></a></p></li>
+<li><p>read <a class="reference internal" href="../1d_radial_model.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/1d_radial_model.md</span></code></span></a></p></li>
+<li><p>run <a class="reference download internal" download="" href="../_downloads/e3c1cf8aabb79f27f0096c9d471e6594/radial_simulation_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/radial_simulation_tutorial.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>If you want sensitivity analysis</p>
+<ul>
+<li><p>read <a class="reference download internal" download="" href="../_downloads/5794ca79f60cd2ad234953c7bfde7829/sensitivity.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">gas_swelling/analysis/sensitivity.py</span></code></span></a></p></li>
+<li><p>read <a class="reference internal" href="../sensitivity_analysis_guide.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/sensitivity_analysis_guide.md</span></code></span></a></p></li>
+<li><p>run <a class="reference download internal" download="" href="../_downloads/eca985eb67480237466bf825b0062f25/sensitivity_analysis_tutorial.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">examples/sensitivity_analysis_tutorial.py</span></code></span></a></p></li>
+</ul>
+</li>
+<li><p>If you want validation / figure reproduction</p>
+<ul>
+<li><p>use <code class="docutils literal notranslate"><span class="pre">gas_swelling/validation/scripts</span></code></p></li>
+<li><p>read <a class="reference internal" href="../validation_guide.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">docs/validation_guide.md</span></code></span></a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="recommended-workflows">
+<h2>4. Recommended Workflows / 推荐工作流<a class="headerlink" href="#recommended-workflows" title="Link to this heading">¶</a></h2>
+<section id="general-user">
+<h3>普通用户 / General user<a class="headerlink" href="#general-user" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Use the repo virtualenv / 使用仓库虚拟环境</span>
+./.venv/bin/python<span class="w"> </span>examples/quickstart_simple.py
+
+<span class="c1"># 2. Try a guided example / 跑带讲解示例</span>
+./.venv/bin/python<span class="w"> </span>examples/quickstart_tutorial.py
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span><span class="p">,</span> <span class="n">create_default_parameters</span>
+
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Recommended flow:</p>
+<ol class="arabic simple">
+<li><p>create defaults with <code class="docutils literal notranslate"><span class="pre">create_default_parameters()</span></code></p></li>
+<li><p>modify a few keys in the returned dict</p></li>
+<li><p>run the model</p></li>
+<li><p>inspect result arrays or move to <code class="docutils literal notranslate"><span class="pre">examples/</span></code> and <code class="docutils literal notranslate"><span class="pre">visualization/</span></code></p></li>
+</ol>
+</section>
+<section id="developer">
+<h3>开发者 / Developer<a class="headerlink" href="#developer" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Focused test / 跑单文件</span>
+./scripts/test_safe.sh<span class="w"> </span>tests/test_import.py
+
+<span class="c1"># Related subset with matplotlib config / 相关子集</span>
+./.venv/bin/python<span class="w"> </span>scripts/test_safe.py<span class="w"> </span>--timeout<span class="w"> </span><span class="m">600</span><span class="w"> </span>--<span class="w"> </span>tests/test_distribution_plots.py<span class="w"> </span>tests/test_visualization_e2e.py
+
+<span class="c1"># Full suite / 全量测试</span>
+./scripts/test_safe.sh<span class="w"> </span>-q
+</pre></div>
+</div>
+<p>Recommended flow:</p>
+<ol class="arabic simple">
+<li><p>start from a failing or relevant test in <code class="docutils literal notranslate"><span class="pre">tests/</span></code></p></li>
+<li><p>trace imports back into <code class="docutils literal notranslate"><span class="pre">gas_swelling/</span></code></p></li>
+<li><p>run a targeted subset</p></li>
+<li><p>finish with the full suite when your change stabilizes</p></li>
+</ol>
+</section>
+<section id="documentation-build">
+<h3>文档构建 / Documentation build<a class="headerlink" href="#documentation-build" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install docs dependencies / 安装文档依赖</span>
+./.venv/bin/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>docs/requirements.txt
+
+<span class="c1"># Fast docs smoke / 文档快速检查</span>
+make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>dummy-offline
+
+<span class="c1"># Full HTML build / 生成 HTML</span>
+make<span class="w"> </span>-C<span class="w"> </span>docs<span class="w"> </span>html-offline
+</pre></div>
+</div>
+<p>Notes:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">html-offline</span></code> uses the repo virtualenv by default through <code class="docutils literal notranslate"><span class="pre">docs/Makefile</span></code></p></li>
+<li><p>offline mode disables external intersphinx fetches, which is useful in restricted environments</p></li>
+<li><p>generated HTML lands in <code class="docutils literal notranslate"><span class="pre">docs/_build/html/</span></code></p></li>
+</ol>
+</section>
+</section>
+<section id="current-model-variants">
+<h2>5. Current Model Variants / 当前模型变体<a class="headerlink" href="#current-model-variants" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>中文<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>0D 主入口通过 <a class="reference download internal" download="" href="../_downloads/24872f3d4485b6ac7fc6ef6375e0da04/__init__.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">GasSwellingModel</span></code></span></a> 暴露，底层支持：</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'full'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'qssa'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'hybrid_qssa'</span></code></p></li>
+</ul>
+</li>
+<li><p>1D radial model 通过 <a class="reference download internal" download="" href="../_downloads/e0b5adb5b32d43cd5f3f48a7ce8d27ef/radial_model.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">RadialGasSwellingModel</span></code></span></a> 提供：</p>
+<ul>
+<li><p>默认 <code class="docutils literal notranslate"><span class="pre">radial_solver_mode</span> <span class="pre">=</span> <span class="pre">'decoupled'</span></code>，适合日常使用和测试</p></li>
+<li><p>可选 <code class="docutils literal notranslate"><span class="pre">radial_solver_mode</span> <span class="pre">=</span> <span class="pre">'coupled'</span></code>，保留完整耦合径向 ODE 路径</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id7">
+<h3>English<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The 0D package entry point is exposed as <a class="reference download internal" download="" href="../_downloads/24872f3d4485b6ac7fc6ef6375e0da04/__init__.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">GasSwellingModel</span></code></span></a>, with:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'full'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'qssa'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_backend</span> <span class="pre">=</span> <span class="pre">'hybrid_qssa'</span></code></p></li>
+</ul>
+</li>
+<li><p>The 1D radial model is provided by <a class="reference download internal" download="" href="../_downloads/e0b5adb5b32d43cd5f3f48a7ce8d27ef/radial_model.py"><span class="xref download myst"><code class="docutils literal notranslate"><span class="pre">RadialGasSwellingModel</span></code></span></a>:</p>
+<ul>
+<li><p>default <code class="docutils literal notranslate"><span class="pre">radial_solver_mode</span> <span class="pre">=</span> <span class="pre">'decoupled'</span></code> for practical turnaround and testing</p></li>
+<li><p>optional <code class="docutils literal notranslate"><span class="pre">radial_solver_mode</span> <span class="pre">=</span> <span class="pre">'coupled'</span></code> to keep the original coupled radial ODE path available</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="testing-guide">
+<h2>6. Testing Guide / 测试说明<a class="headerlink" href="#testing-guide" title="Link to this heading">¶</a></h2>
+<section id="id8">
+<h3>中文<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<p>当前推荐命令：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 单文件</span>
+./scripts/test_safe.sh<span class="w"> </span>tests/test_import.py
+
+<span class="c1"># 相关子集</span>
+./scripts/test_safe.sh<span class="w"> </span>tests/test_docstring_examples.py
+
+<span class="c1"># 全量</span>
+./scripts/test_safe.sh<span class="w"> </span>-q
+</pre></div>
+</div>
+<p>最近一次已确认的本地全量结果是：<strong>987 passed, 2 skipped</strong>。如果你在此之后继续修改代码，请重新运行 <code class="docutils literal notranslate"><span class="pre">./scripts/test_safe.sh</span> <span class="pre">-q</span></code> 以刷新最新汇总。</p>
+</section>
+<section id="id9">
+<h3>English<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<p>Recommended commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Single file</span>
+./scripts/test_safe.sh<span class="w"> </span>tests/test_import.py
+
+<span class="c1"># Related subset</span>
+./scripts/test_safe.sh<span class="w"> </span>tests/test_docstring_examples.py
+
+<span class="c1"># Full suite</span>
+./scripts/test_safe.sh<span class="w"> </span>-q
+</pre></div>
+</div>
+<p>The latest confirmed local full-suite result is <strong>987 passed, 2 skipped</strong>. If you make further code changes, rerun <code class="docutils literal notranslate"><span class="pre">./scripts/test_safe.sh</span> <span class="pre">-q</span></code> to refresh that summary in your own environment.</p>
+</section>
+</section>
+<section id="important-notes">
+<h2>7. Important Notes / 重要说明<a class="headerlink" href="#important-notes" title="Link to this heading">¶</a></h2>
+<section id="id10">
+<h3>中文<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>仓库里仍然有一些旧文档会提到 “10-variable model” 或旧版流程；这通常是<strong>理论原始表述</strong>，不一定等于当前包实现</p></li>
+<li><p>当前代码里很多地方已经采用 17 状态表示、QSSA / Hybrid QSSA 变体，以及默认 <code class="docutils literal notranslate"><span class="pre">decoupled</span></code> 的 radial 路径</p></li>
+<li><p>遇到文档冲突时，以 <code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code> 包代码和 <code class="docutils literal notranslate"><span class="pre">tests/</span></code> 为准</p></li>
+</ul>
+</section>
+<section id="id11">
+<h3>English<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Some older documents still refer to a “10-variable model” or legacy workflows; those are often descriptions of the original theory, not the exact current package implementation</p></li>
+<li><p>The current codebase includes a 17-state packaged representation, QSSA / Hybrid QSSA variants, and a default <code class="docutils literal notranslate"><span class="pre">decoupled</span></code> radial execution path</p></li>
+<li><p>When documentation conflicts, prefer the <code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code> package code and the <code class="docutils literal notranslate"><span class="pre">tests/</span></code> directory as the source of truth</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Repository Guide / 仓库结构与使用说明</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-this-repo-contains">1. What This Repo Contains / 这个仓库包含什么</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#repository-map">2. Repository Map / 仓库地图</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-use-the-repo">3. How to Use the Repo / 如何使用这个仓库</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#recommended-workflows">4. Recommended Workflows / 推荐工作流</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#current-model-variants">5. Current Model Variants / 当前模型变体</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#testing-guide">6. Testing Guide / 测试说明</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#important-notes">7. Important Notes / 重要说明</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../tutorials/30minute_quickstart.html" title="previous chapter">30-Minute Quickstart Tutorial</a></li>
+      <li>Next: <a href="../tutorials/rate_theory_fundamentals.html" title="next chapter">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/guides/repository_guide.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

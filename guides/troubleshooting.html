@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Troubleshooting Guide &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parameter Reference Guide" href="../parameter_reference.html" />
+    <link rel="prev" title="Plot Gallery: Code Snippets &amp; Examples" href="plot_gallery.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="troubleshooting-guide">
+<h1>Troubleshooting Guide<a class="headerlink" href="#troubleshooting-guide" title="Link to this heading">¶</a></h1>
+<p><strong>Target Audience:</strong> Users encountering issues with the Gas Swelling Model
+<strong>Reading Time:</strong> ~25 minutes
+<strong>Prerequisites:</strong> Basic familiarity with running simulations</p>
+<hr class="docutils" />
+<section id="learning-objectives">
+<h2>Learning Objectives<a class="headerlink" href="#learning-objectives" title="Link to this heading">¶</a></h2>
+<p>After reading this guide, you will be able to:</p>
+<ul class="simple">
+<li><p>✓ Diagnose and fix common installation issues</p></li>
+<li><p>✓ Resolve runtime errors and warnings</p></li>
+<li><p>✓ Troubleshoot solver convergence problems</p></li>
+<li><p>✓ Optimize simulation performance</p></li>
+<li><p>✓ Identify and correct unrealistic results</p></li>
+<li><p>✓ Debug parameter-related issues</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#installation-issues">Installation Issues</a></p></li>
+<li><p><a class="reference internal" href="#import-and-module-errors">Import and Module Errors</a></p></li>
+<li><p><a class="reference internal" href="#parameter-issues">Parameter Issues</a></p></li>
+<li><p><a class="reference internal" href="#solver-convergence-problems">Solver Convergence Problems</a></p></li>
+<li><p><a class="reference internal" href="#performance-issues">Performance Issues</a></p></li>
+<li><p><a class="reference internal" href="#unrealistic-results">Unrealistic Results</a></p></li>
+<li><p><a class="reference internal" href="#numerical-instability">Numerical Instability</a></p></li>
+<li><p><a class="reference internal" href="#gas-release-issues">Gas Release Issues</a></p></li>
+<li><p><a class="reference internal" href="#temperature-related-problems">Temperature-Related Problems</a></p></li>
+<li><p><a class="reference internal" href="#experimental-validation-mismatches">Experimental Validation Mismatches</a></p></li>
+<li><p><a class="reference internal" href="#plotting-and-visualization-issues">Plotting and Visualization Issues</a></p></li>
+<li><p><a class="reference internal" href="#memory-and-resource-issues">Memory and Resource Issues</a></p></li>
+<li><p><a class="reference internal" href="#getting-additional-help">Getting Additional Help</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="installation-issues">
+<h2>Installation Issues<a class="headerlink" href="#installation-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-python-version-not-supported">
+<h3>Problem: Python Version Not Supported<a class="headerlink" href="#problem-python-version-not-supported" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">SyntaxError</span><span class="p">:</span> <span class="n">future</span> <span class="n">feature</span> <span class="n">annotations</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">available</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ERROR</span><span class="p">:</span> <span class="n">Package</span> <span class="s1">&#39;gas-swelling-model&#39;</span> <span class="n">requires</span> <span class="n">a</span> <span class="n">different</span> <span class="n">Python</span> <span class="n">version</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+The model requires Python 3.8 or later. You’re running an older version.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check your Python version</span>
+python<span class="w"> </span>--version
+
+<span class="c1"># If using conda, create a new environment with Python 3.11</span>
+conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>gas-swelling<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
+conda<span class="w"> </span>activate<span class="w"> </span>gas-swelling
+
+<span class="c1"># If using venv</span>
+python3.11<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>gas-swelling-env
+<span class="nb">source</span><span class="w"> </span>gas-swelling-env/bin/activate<span class="w">  </span><span class="c1"># On Windows: gas-swelling-env\Scripts\activate</span>
+</pre></div>
+</div>
+<p><strong>Prevention:</strong>
+Always use Python 3.8+. Python 3.10 or 3.11 is recommended.</p>
+</section>
+<hr class="docutils" />
+<section id="problem-numpy-scipy-import-errors">
+<h3>Problem: numpy/scipy Import Errors<a class="headerlink" href="#problem-numpy-scipy-import-errors" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">ImportError</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">multiarray</span> <span class="n">failed</span> <span class="n">to</span> <span class="kn">import</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">ImportError</span><span class="p">:</span> <span class="n">cannot</span> <span class="kn">import</span><span class="w"> </span><span class="nn">name</span> <span class="s1">&#39;solve_ivp&#39;</span> <span class="kn">from</span><span class="w"> </span><span class="s1">&#39;scipy.integrate&#39;</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Incompatible or missing numpy/scipy versions.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Uninstall existing versions</span>
+pip<span class="w"> </span>uninstall<span class="w"> </span>numpy<span class="w"> </span>scipy<span class="w"> </span>-y
+
+<span class="c1"># Install compatible versions</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;numpy&gt;=1.20.0,&lt;2.0.0&quot;</span><span class="w"> </span><span class="s2">&quot;scipy&gt;=1.7.0&quot;</span>
+
+<span class="c1"># Or use conda for better compatibility</span>
+conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>numpy<span class="w"> </span>scipy
+</pre></div>
+</div>
+<p><strong>Version Requirements:</strong></p>
+<ul class="simple">
+<li><p>numpy: &gt;= 1.20.0</p></li>
+<li><p>scipy: &gt;= 1.7.0</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-permission-denied-during-installation">
+<h3>Problem: Permission Denied During Installation<a class="headerlink" href="#problem-permission-denied-during-installation" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">Errno</span> <span class="mi">13</span><span class="p">]</span> <span class="n">Permission</span> <span class="n">denied</span><span class="p">:</span> <span class="s1">&#39;/usr/local/lib/python3.x/site-packages&#39;</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Trying to install system-wide without admin privileges.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Use user installation</span>
+pip<span class="w"> </span>install<span class="w"> </span>--user<span class="w"> </span>gas-swelling-model
+
+<span class="c1"># Option 2: Use virtual environment (RECOMMENDED)</span>
+python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>gas-swelling-env
+<span class="nb">source</span><span class="w"> </span>gas-swelling-env/bin/activate
+pip<span class="w"> </span>install<span class="w"> </span>gas-swelling-model
+
+<span class="c1"># Option 3: Use conda environment</span>
+conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>gas-swelling<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.11
+conda<span class="w"> </span>activate<span class="w"> </span>gas-swelling
+pip<span class="w"> </span>install<span class="w"> </span>gas-swelling-model
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="import-and-module-errors">
+<h2>Import and Module Errors<a class="headerlink" href="#import-and-module-errors" title="Link to this heading">¶</a></h2>
+<section id="problem-modulenotfounderror">
+<h3>Problem: ModuleNotFoundError<a class="headerlink" href="#problem-modulenotfounderror" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">ModuleNotFoundError</span><span class="p">:</span> <span class="n">No</span> <span class="n">module</span> <span class="n">named</span> <span class="s1">&#39;gas_swelling&#39;</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Package not installed or Python can’t find it.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check if package is installed</span>
+pip<span class="w"> </span>list<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>gas-swelling
+
+<span class="c1"># If not installed, install it</span>
+pip<span class="w"> </span>install<span class="w"> </span>gas-swelling-model
+
+<span class="c1"># If installed but not found, check Python path</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sys; print(sys.path)&quot;</span>
+
+<span class="c1"># Reinstall if needed</span>
+pip<span class="w"> </span>install<span class="w"> </span>--force-reinstall<span class="w"> </span>gas-swelling-model
+</pre></div>
+</div>
+<p><strong>Common Causes:</strong></p>
+<ol class="arabic simple">
+<li><p>Package not installed</p></li>
+<li><p>Virtual environment not activated</p></li>
+<li><p>Installing in one Python but running with another</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="problem-importerror-cannot-import-specific-function">
+<h3>Problem: ImportError: Cannot Import Specific Function<a class="headerlink" href="#problem-importerror-cannot-import-specific-function" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">ImportError</span><span class="p">:</span> <span class="n">cannot</span> <span class="kn">import</span><span class="w"> </span><span class="nn">name</span> <span class="s1">&#39;GasSwellingModel&#39;</span> <span class="kn">from</span><span class="w"> </span><span class="s1">&#39;gas_swelling&#39;</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Incorrect import path or using outdated API.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># CORRECT imports for the refactored model</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.models.refactored_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefactoredGasSwellingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># Create model</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># For backward compatibility with old code</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span>  <span class="c1"># May be deprecated</span>
+</pre></div>
+</div>
+<p><strong>API Changes:</strong>
+The refactored model uses modular components. Use <code class="docutils literal notranslate"><span class="pre">RefactoredGasSwellingModel</span></code> for new code.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="parameter-issues">
+<h2>Parameter Issues<a class="headerlink" href="#parameter-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-temperature-below-minimum">
+<h3>Problem: Temperature Below Minimum<a class="headerlink" href="#problem-temperature-below-minimum" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ValueError: Temperature must be &gt;= 273.15 K (0°C)
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Temperature specified in Celsius instead of Kelvin, or value too low.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># WRONG: Temperature in Celsius</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500</span>  <span class="c1"># This is 500°C, not 500 K</span>
+
+<span class="c1"># CORRECT: Convert Celsius to Kelvin</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500</span> <span class="o">+</span> <span class="mf">273.15</span>  <span class="c1"># 773.15 K</span>
+
+<span class="c1"># Or specify in Kelvin directly</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>  <span class="c1"># 500°C in Kelvin</span>
+</pre></div>
+</div>
+<p><strong>Temperature Range:</strong></p>
+<ul class="simple">
+<li><p>Minimum: 273.15 K (0°C)</p></li>
+<li><p>Maximum: ~1200 K (fuel melting point)</p></li>
+<li><p>Typical: 600-900 K</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-negative-or-zero-fission-rate">
+<h3>Problem: Negative or Zero Fission Rate<a class="headerlink" href="#problem-negative-or-zero-fission-rate" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+No swelling or gas production occurs.</p>
+<p><strong>Diagnosis:</strong>
+Fission rate set to zero or negative value.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check fission rate</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fission rate: </span><span class="si">{</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> fissions/m³/s&quot;</span><span class="p">)</span>
+
+<span class="c1"># Set appropriate fission rate</span>
+<span class="c1"># Typical range: 1e19 to 1e21 fissions/m³/s</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2e20</span>  <span class="c1"># Standard value</span>
+
+<span class="c1"># Verify in results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gas produced: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;released_gas&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> atoms/m³&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Typical Values:</strong></p>
+<ul class="simple">
+<li><p>Low power: 1e19 fissions/m³/s</p></li>
+<li><p>Normal: 2e20 fissions/m³/s</p></li>
+<li><p>High power: 5e20+ fissions/m³/s</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-invalid-nucleation-factors">
+<h3>Problem: Invalid Nucleation Factors<a class="headerlink" href="#problem-invalid-nucleation-factors" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+No bubbles form, or bubble count explodes.</p>
+<p><strong>Diagnosis:</strong>
+Nucleation factors (Fnb, Fnf) set incorrectly.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check nucleation factors</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bulk nucleation (Fnb): </span><span class="si">{</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary nucleation (Fnf): </span><span class="si">{</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnf&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Typical range: 1e-6 to 1e-4</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Bulk nucleation</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Boundary nucleation</span>
+
+<span class="c1"># Too high: causes unrealistic bubble nucleation</span>
+<span class="c1"># Too low: no bubbles form</span>
+</pre></div>
+</div>
+<p><strong>Nucleation Factor Guide:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 1e-7</p></td>
+<td><p>Very few bubbles form</p></td>
+</tr>
+<tr class="row-odd"><td><p>1e-6 - 1e-5</p></td>
+<td><p>Normal range</p></td>
+</tr>
+<tr class="row-even"><td><p>&gt; 1e-4</p></td>
+<td><p>Excessive nucleation</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="solver-convergence-problems">
+<h2>Solver Convergence Problems<a class="headerlink" href="#solver-convergence-problems" title="Link to this heading">¶</a></h2>
+<section id="problem-solver-failed-to-converge">
+<h3>Problem: Solver Failed to Converge<a class="headerlink" href="#problem-solver-failed-to-converge" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">OdeintWarning</span><span class="p">:</span> <span class="n">Excess</span> <span class="n">work</span> <span class="n">done</span> <span class="n">on</span> <span class="n">this</span> <span class="n">call</span> <span class="p">(</span><span class="n">perhaps</span> <span class="n">wrong</span> <span class="n">Dfun</span> <span class="nb">type</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">solve_ivp</span> <span class="n">terminated</span><span class="p">:</span> <span class="n">solver</span> <span class="n">failed</span> <span class="k">with</span> <span class="n">status</span> <span class="o">-</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+ODE system is too stiff or solver can’t handle the dynamics.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Reduce time span and check intermediate results</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># Try shorter simulation first</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># 1 day instead of 100</span>
+
+<span class="c1"># Option 2: Use smaller initial time step</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span>  <span class="c1"># Reduce from 1e-9</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e1</span>  <span class="c1"># Reduce from 1e2</span>
+
+<span class="c1"># Option 3: Enable adaptive stepping (if available)</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="c1"># Option 4: Try different solver method</span>
+<span class="c1"># The refactored model uses RK23; consider if BDF (stiff solver) is needed</span>
+</pre></div>
+</div>
+<p><strong>When This Happens:</strong></p>
+<ul class="simple">
+<li><p>Very high fission rates (&gt; 1e21)</p></li>
+<li><p>Very low temperatures (&lt; 400 K)</p></li>
+<li><p>Extreme nucleation factors</p></li>
+<li><p>Long simulation times without checkpoints</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-simulation-stops-prematurely">
+<h3>Problem: Simulation Stops Prematurely<a class="headerlink" href="#problem-simulation-stops-prematurely" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Simulation ends before reaching max_time.</p>
+<p><strong>Diagnosis:</strong>
+Solver encountered numerical issues or reached maximum iterations.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check solver status</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time&#39;</span><span class="p">]),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;success&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solver failed at t = </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> s&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Status: </span><span class="si">{</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Unknown error&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Reduce max_time and run in segments</span>
+<span class="n">segment_time</span> <span class="o">=</span> <span class="mi">864000</span>  <span class="c1"># 10 days per segment</span>
+<span class="n">all_results</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">current_state</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">initial_state</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>  <span class="c1"># 10 segments = 100 days</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+        <span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">segment_time</span><span class="p">),</span>
+        <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y0</span><span class="o">=</span><span class="n">current_state</span>
+    <span class="p">)</span>
+    <span class="c1"># Concatenate results...</span>
+    <span class="n">current_state</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="performance-issues">
+<h2>Performance Issues<a class="headerlink" href="#performance-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-simulation-takes-too-long">
+<h3>Problem: Simulation Takes Too Long<a class="headerlink" href="#problem-simulation-takes-too-long" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Simulation running for hours without completion.</p>
+<p><strong>Diagnosis:</strong>
+Too many time points, small time steps, or debugging enabled.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Reduce number of output time points</span>
+<span class="c1"># WRONG: Too many points</span>
+<span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">)</span>  <span class="c1"># 100k points - SLOW!</span>
+
+<span class="c1"># CORRECT: Fewer points for output</span>
+<span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>  <span class="c1"># 100 points - FAST!</span>
+
+<span class="c1"># Option 2: Disable debug output</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;debug_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Make sure this is False</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="c1"># Option 3: Use adaptive solver (let it choose points)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># None = adaptive</span>
+
+<span class="c1"># Option 4: Check if you&#39;re running unnecessary simulations</span>
+<span class="c1"># Use parameter sweeps efficiently (see notebook 02)</span>
+</pre></div>
+</div>
+<p><strong>Performance Tips:</strong></p>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">t_eval=None</span></code> for adaptive output</p></li>
+<li><p>Disable debug mode for production runs</p></li>
+<li><p>Use parameter sweeps for studies, not sequential runs</p></li>
+<li><p>Consider parallel execution for multiple simulations</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-memory-usage-too-high">
+<h3>Problem: Memory Usage Too High<a class="headerlink" href="#problem-memory-usage-too-high" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">MemoryError</span><span class="p">:</span> <span class="n">Unable</span> <span class="n">to</span> <span class="n">allocate</span> <span class="n">array</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Storing too much data from multiple simulations or too many time points.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Process results in batches</span>
+<span class="k">for</span> <span class="n">temp</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">700</span><span class="p">,</span> <span class="mi">800</span><span class="p">,</span> <span class="mi">900</span><span class="p">]:</span>
+    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">temp</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="c1"># Process and save results immediately</span>
+    <span class="n">save_results</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;results_T</span><span class="si">{</span><span class="n">temp</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">)</span>
+    <span class="k">del</span> <span class="n">results</span>  <span class="c1"># Free memory</span>
+
+<span class="c1"># Option 2: Reduce time points</span>
+<span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>  <span class="c1"># Not 10000</span>
+
+<span class="c1"># Option 3: Save to disk instead of keeping in memory</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="s1">&#39;simulation_results.npz&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">results</span><span class="p">)</span>
+
+<span class="c1"># Option 4: Use float32 instead of float64 (if precision allows)</span>
+<span class="n">results_float32</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="unrealistic-results">
+<h2>Unrealistic Results<a class="headerlink" href="#unrealistic-results" title="Link to this heading">¶</a></h2>
+<section id="problem-swelling-is-zero-or-very-low">
+<h3>Problem: Swelling Is Zero or Very Low<a class="headerlink" href="#problem-swelling-is-zero-or-very-low" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+<code class="docutils literal notranslate"><span class="pre">results['swelling']</span></code> shows 0% or &lt; 0.01%.</p>
+<p><strong>Diagnosis:</strong>
+No gas production, no bubbles forming, or time too short.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check 1: Verify gas production</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2e20</span>  <span class="c1"># Ensure non-zero</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;gas_production_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.25</span>  <span class="c1"># Standard value</span>
+
+<span class="c1"># Check 2: Verify nucleation is enabled</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Bulk nucleation</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Boundary nucleation</span>
+
+<span class="c1"># Check 3: Check simulation time</span>
+<span class="c1"># Swelling takes time to develop!</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="o">*</span><span class="mi">10</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># 1000 days</span>
+
+<span class="c1"># Check 4: Verify temperature is in appropriate range</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>  <span class="c1"># 500°C in Kelvin</span>
+
+<span class="c1"># Diagnostic: Check state variables</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bulk bubbles: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> cavities/m³&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble radius: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gas in bubbles: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ncb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> atoms/bubble&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Expected Swelling:</strong></p>
+<ul class="simple">
+<li><p>U-10Zr at 500°C: ~5% after 100 days</p></li>
+<li><p>High-purity U at 400°C: ~0.5% after 100 days</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-swelling-is-too-high-50">
+<h3>Problem: Swelling Is Too High (&gt; 50%)<a class="headerlink" href="#problem-swelling-is-too-high-50" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+<code class="docutils literal notranslate"><span class="pre">results['swelling']</span></code> shows unrealistic values &gt; 50%.</p>
+<p><strong>Diagnosis:</strong>
+Bubble radius calculation error or pressure equation issue.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check 1: Verify EOS model</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;eos_model&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;ideal&#39;</span>  <span class="c1"># Try ideal instead of ronchi</span>
+
+<span class="c1"># Check 2: Check surface energy</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;surface_energy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span>  <span class="c1"># J/m², standard value</span>
+<span class="c1"># Too low -&gt; bubbles grow too large</span>
+
+<span class="c1"># Check 3: Verify gas production rate</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;gas_production_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.25</span>  <span class="c1"># Should be ~0.25 (25% of fission products)</span>
+
+<span class="c1"># Check 4: Check nucleation factors</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Not too high</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>
+
+<span class="c1"># Diagnostic: Check individual components</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">V_bubbles</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble volume fraction: </span><span class="si">{</span><span class="n">V_bubbles</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected: &lt; 0.10 for 10% swelling&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="problem-negative-concentrations">
+<h3>Problem: Negative Concentrations<a class="headerlink" href="#problem-negative-concentrations" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+State variables become negative during simulation.</p>
+<p><strong>Diagnosis:</strong>
+Numerical instability from large time steps or extreme parameters.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Reduce time step</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span>  <span class="c1"># Smaller initial step</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e1</span>  <span class="c1"># Smaller max step</span>
+
+<span class="c1"># Option 2: Check parameter values</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>  <span class="c1"># Reasonable temperature</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2e20</span>  <span class="c1"># Reasonable fission rate</span>
+
+<span class="c1"># Option 3: Enable debug output to see when it becomes negative</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="mi">100</span>
+
+<span class="c1"># Run and inspect debug history</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="c1"># Look for first negative value in debug output</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="numerical-instability">
+<h2>Numerical Instability<a class="headerlink" href="#numerical-instability" title="Link to this heading">¶</a></h2>
+<section id="problem-oscillating-results">
+<h3>Problem: Oscillating Results<a class="headerlink" href="#problem-oscillating-results" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Variables oscillate wildly instead of changing smoothly.</p>
+<p><strong>Diagnosis:</strong>
+Solver time step too large for the dynamics.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reduce maximum time step</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Reduce from 1e2</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span>  <span class="c1"># Reduce initial step</span>
+
+<span class="c1"># Check stiffness indicators</span>
+<span class="c1"># High temperature + low dislocation density = stiff</span>
+<span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">900</span> <span class="ow">and</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;dislocation_density&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1e13</span><span class="p">:</span>
+    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.1</span>  <span class="c1"># Need smaller steps</span>
+
+<span class="c1"># Enable adaptive stepping</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="problem-results-change-with-different-time-steps">
+<h3>Problem: Results Change with Different Time Steps<a class="headerlink" href="#problem-results-change-with-different-time-steps" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Running with different <code class="docutils literal notranslate"><span class="pre">t_eval</span></code> gives different answers.</p>
+<p><strong>Diagnosis:</strong>
+Solver tolerance not tight enough.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># The solver should give consistent results regardless of t_eval</span>
+<span class="c1"># t_eval only affects output, not internal solver steps</span>
+
+<span class="c1"># If results differ significantly, check solver tolerances</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span>
+    <span class="n">fun</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">_equations</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span>
+    <span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span>
+    <span class="n">y0</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">initial_state</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s1">&#39;RK23&#39;</span><span class="p">,</span>
+    <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>  <span class="c1"># Reduce tolerance</span>
+    <span class="n">atol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span>
+    <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="gas-release-issues">
+<h2>Gas Release Issues<a class="headerlink" href="#gas-release-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-no-gas-release">
+<h3>Problem: No Gas Release<a class="headerlink" href="#problem-no-gas-release" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+<code class="docutils literal notranslate"><span class="pre">results['released_gas']</span></code> is zero or constant.</p>
+<p><strong>Diagnosis:</strong>
+Bubble interconnectivity threshold not reached.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check 1: Verify simulation is long enough</span>
+<span class="c1"># Gas release typically starts after significant swelling</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="o">*</span><span class="mi">10</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># Longer time</span>
+
+<span class="c1"># Check 2: Check temperature effect</span>
+<span class="c1"># Higher temperatures promote gas release</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">873.15</span>  <span class="c1"># Try 600°C instead of 300°C</span>
+
+<span class="c1"># Check 3: Check gas production rate</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;gas_production_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.25</span>  <span class="c1"># Ensure gas is being produced</span>
+
+<span class="c1"># Check 4: Examine bubble distribution</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary bubble concentration: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary bubble radius: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> m&quot;</span><span class="p">)</span>
+<span class="c1"># Gas release requires large, interconnected boundary bubbles</span>
+</pre></div>
+</div>
+<p><strong>Gas Release Threshold:</strong></p>
+<ul class="simple">
+<li><p>Typically requires &gt; 3-5% swelling</p></li>
+<li><p>More likely at higher temperatures (&gt; 600°C)</p></li>
+<li><p>Depends on boundary bubble interconnectivity</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-all-gas-released-immediately">
+<h3>Problem: All Gas Released Immediately<a class="headerlink" href="#problem-all-gas-released-immediately" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+100% gas release at very early times.</p>
+<p><strong>Diagnosis:</strong>
+Nucleation or growth parameters causing unrealistic behavior.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check nucleation factors</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Reduce if too high</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-5</span>  <span class="c1"># Reduce if too high</span>
+
+<span class="c1"># Check resolution rate (recoil resolution)</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;resolution_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2e-5</span>  <span class="c1"># Standard value</span>
+<span class="c1"># Too high -&gt; gas keeps getting knocked out of bubbles</span>
+
+<span class="c1"># Check temperature</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>  <span class="c1"># Ensure reasonable</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="temperature-related-problems">
+<h2>Temperature-Related Problems<a class="headerlink" href="#temperature-related-problems" title="Link to this heading">¶</a></h2>
+<section id="problem-no-temperature-dependence">
+<h3>Problem: No Temperature Dependence<a class="headerlink" href="#problem-no-temperature-dependence" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Results look the same at 300°C and 600°C.</p>
+<p><strong>Diagnosis:</strong>
+Temperature in wrong units or not being applied.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># MUST use Kelvin, not Celsius</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">500</span> <span class="o">+</span> <span class="mf">273.15</span>  <span class="c1"># 500°C to Kelvin</span>
+
+<span class="c1"># Verify temperature is being used</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Simulation temperature: </span><span class="si">{</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> K&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check diffusion coefficients</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.physics.thermal</span><span class="w"> </span><span class="kn">import</span> <span class="n">calculate_diffusion_coefficient</span>
+<span class="n">Dgb</span> <span class="o">=</span> <span class="n">calculate_diffusion_coefficient</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bulk diffusion coefficient: </span><span class="si">{</span><span class="n">Dgb</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> m²/s&quot;</span><span class="p">)</span>
+<span class="c1"># Should vary significantly with temperature</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="problem-bell-shaped-swelling-curve-missing">
+<h3>Problem: Bell-Shaped Swelling Curve Missing<a class="headerlink" href="#problem-bell-shaped-swelling-curve-missing" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Swelling increases monotonically with temperature (no peak).</p>
+<p><strong>Diagnosis:</strong>
+Parameters outside range where bell curve appears.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># The bell curve appears around 700-800 K</span>
+<span class="c1"># Run a proper temperature sweep</span>
+
+<span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>  <span class="c1"># K</span>
+<span class="n">final_swelling</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="n">temperatures</span><span class="p">:</span>
+    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">T</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">final_swelling</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># Plot to see if peak appears</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">final_swelling</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Temperature (K)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Final Swelling (%)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="c1"># Peak typically at 700-800 K for U-10Zr</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="experimental-validation-mismatches">
+<h2>Experimental Validation Mismatches<a class="headerlink" href="#experimental-validation-mismatches" title="Link to this heading">¶</a></h2>
+<section id="problem-model-predicts-much-higher-swelling-than-experiments">
+<h3>Problem: Model Predicts Much Higher Swelling Than Experiments<a class="headerlink" href="#problem-model-predicts-much-higher-swelling-than-experiments" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Model shows 10% swelling, experiments show 2%.</p>
+<p><strong>Diagnosis:</strong>
+Parameters not matched to experimental conditions.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check 1: Match fuel composition</span>
+<span class="c1"># U-10Zr vs U-19Pu-10Zr vs pure U have different parameters</span>
+<span class="c1"># See notebook 05: Custom Material Composition</span>
+
+<span class="c1"># Check 2: Adjust dislocation density</span>
+<span class="c1"># Higher dislocation density -&gt; more defect annihilation -&gt; less swelling</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;dislocation_density&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e14</span>  <span class="c1"># Try higher value</span>
+
+<span class="c1"># Check 3: Adjust nucleation factors</span>
+<span class="c1"># More nucleation -&gt; more smaller bubbles -&gt; different swelling</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Fnb&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-4</span>  <span class="c1"># Higher nucleation</span>
+
+<span class="c1"># Check 4: Check temperature gradient</span>
+<span class="c1"># Experiments may have temperature variations</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">673.15</span>  <span class="c1"># Match experimental temperature</span>
+
+<span class="c1"># Check 5: Verify simulation time matches experiment</span>
+<span class="c1"># 100 days simulation vs 1 year experiment?</span>
+</pre></div>
+</div>
+<p><strong>Common Adjustments for Validation:</strong></p>
+<ul class="simple">
+<li><p>Dislocation density: 1e13 to 1e15 m⁻²</p></li>
+<li><p>Nucleation factors: 1e-6 to 1e-4</p></li>
+<li><p>Surface energy: 0.3 to 0.7 J/m²</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="problem-peak-temperature-shifted">
+<h3>Problem: Peak Temperature Shifted<a class="headerlink" href="#problem-peak-temperature-shifted" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Model peaks at 800 K, experiments peak at 700 K.</p>
+<p><strong>Diagnosis:</strong>
+Activation energies or diffusion parameters need adjustment.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># This is advanced - usually means material parameters differ</span>
+<span class="c1"># Consider using composition-specific parameters</span>
+
+<span class="c1"># For U-Zr alloys with different Zr content:</span>
+<span class="c1"># See notebook 05 for composition-dependent parameters</span>
+
+<span class="c1"># Quick adjustments (use with caution):</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb_activation_energy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.16</span>  <span class="c1"># eV</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evm&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.74</span>  <span class="c1"># eV, vacancy migration energy</span>
+
+<span class="c1"># Note: These are material-specific and shouldn&#39;t be changed arbitrarily</span>
+<span class="c1"># Use validated values from literature for your specific alloy</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="plotting-and-visualization-issues">
+<h2>Plotting and Visualization Issues<a class="headerlink" href="#plotting-and-visualization-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-plots-are-empty-or-show-wrong-data">
+<h3>Problem: Plots Are Empty or Show Wrong Data<a class="headerlink" href="#problem-plots-are-empty-or-show-wrong-data" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Matplotlib figure appears blank or shows unexpected values.</p>
+<p><strong>Diagnosis:</strong>
+Data not being passed correctly to plotting function.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check 1: Verify results contain expected data</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Keys in results: </span><span class="si">{</span><span class="n">results</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Swelling shape: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check 2: Convert time to appropriate units</span>
+<span class="n">time_days</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>  <span class="c1"># Seconds to days</span>
+
+<span class="c1"># Check 3: Check for NaN or Inf values</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Contains NaN: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Contains Inf: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check 4: Verify plot commands</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">time_days</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Time (days)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Swelling (%)&#39;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Gas Swelling vs Time&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="c1"># If still empty, try basic plot</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="problem-saving-figures-fails">
+<h3>Problem: Saving Figures Fails<a class="headerlink" href="#problem-saving-figures-fails" title="Link to this heading">¶</a></h3>
+<p><strong>Error Message:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">FileNotFoundError</span><span class="p">:</span> <span class="p">[</span><span class="n">Errno</span> <span class="mi">2</span><span class="p">]</span> <span class="n">No</span> <span class="n">such</span> <span class="n">file</span> <span class="ow">or</span> <span class="n">directory</span><span class="p">:</span> <span class="s1">&#39;output/swelling.png&#39;</span>
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong>
+Output directory doesn’t exist.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="c1"># Create output directory if it doesn&#39;t exist</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="s1">&#39;output&#39;</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Now save figure</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s1">&#39;swelling.png&#39;</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+
+<span class="c1"># Or use absolute path</span>
+<span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="s1">&#39;output/swelling.png&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="memory-and-resource-issues">
+<h2>Memory and Resource Issues<a class="headerlink" href="#memory-and-resource-issues" title="Link to this heading">¶</a></h2>
+<section id="problem-out-of-memory-during-parameter-sweep">
+<h3>Problem: Out of Memory During Parameter Sweep<a class="headerlink" href="#problem-out-of-memory-during-parameter-sweep" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+System crashes or becomes unresponsive during large parameter studies.</p>
+<p><strong>Diagnosis:</strong>
+Trying to run too many simulations or storing too much data.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Process one parameter at a time</span>
+<span class="n">temperatures</span> <span class="o">=</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">700</span><span class="p">,</span> <span class="mi">800</span><span class="p">,</span> <span class="mi">900</span><span class="p">]</span>
+<span class="n">results_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="n">temperatures</span><span class="p">:</span>
+    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">T</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># Extract only what you need</span>
+    <span class="n">summary</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;temperature&#39;</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
+        <span class="s1">&#39;final_swelling&#39;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s1">&#39;max_bubble_radius&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">])</span>
+    <span class="p">}</span>
+    <span class="n">results_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
+
+    <span class="c1"># Clear memory</span>
+    <span class="k">del</span> <span class="n">result</span>
+
+<span class="c1"># Option 2: Save results incrementally</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">T</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">temperatures</span><span class="p">):</span>
+    <span class="c1"># ... run simulation ...</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;results_T</span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s1">.json&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="problem-cpu-usage-100-but-no-progress">
+<h3>Problem: CPU Usage 100% but No Progress<a class="headerlink" href="#problem-cpu-usage-100-but-no-progress" title="Link to this heading">¶</a></h3>
+<p><strong>Symptom:</strong>
+Simulation appears stuck with high CPU usage.</p>
+<p><strong>Diagnosis:</strong>
+Solver in infinite loop or experiencing stiffness.</p>
+<p><strong>Solution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Add timeout or progress monitoring</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">timeout</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># 5 minutes</span>
+
+<span class="c1"># Enable progress output</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;show_progress&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;progress_interval&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span>
+
+<span class="c1"># Run with monitoring</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Simulation completed in </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Simulation interrupted after </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_time</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+
+<span class="c1"># If consistently slow, reduce problem size</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;max_time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">864000</span>  <span class="c1"># Try 10 days instead of 100</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="getting-additional-help">
+<h2>Getting Additional Help<a class="headerlink" href="#getting-additional-help" title="Link to this heading">¶</a></h2>
+<section id="debug-mode">
+<h3>Debug Mode<a class="headerlink" href="#debug-mode" title="Link to this heading">¶</a></h3>
+<p>Enable debug output to see what’s happening internally:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Enable debug configuration</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">save_to_file</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">model</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">output_file</span> <span class="o">=</span> <span class="s1">&#39;debug_output.txt&#39;</span>
+
+<span class="c1"># Run simulation</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Check debug history</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of debug entries: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">debug_history</span><span class="o">.</span><span class="n">time</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Analyze problematic time points</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">debug_history</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
+                                     <span class="n">model</span><span class="o">.</span><span class="n">debug_history</span><span class="o">.</span><span class="n">state</span><span class="p">)):</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">state</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Negative value at step </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, t=</span><span class="si">{</span><span class="n">t</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;State: </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">break</span>
+</pre></div>
+</div>
+</section>
+<section id="verification-checklist">
+<h3>Verification Checklist<a class="headerlink" href="#verification-checklist" title="Link to this heading">¶</a></h3>
+<p>Before seeking help, verify:</p>
+<ul class="simple">
+<li><p>[ ] Python version is 3.8+</p></li>
+<li><p>[ ] All dependencies installed (numpy, scipy, matplotlib)</p></li>
+<li><p>[ ] Temperature is in Kelvin</p></li>
+<li><p>[ ] Fission rate is non-zero</p></li>
+<li><p>[ ] Simulation time is sufficient (days to months)</p></li>
+<li><p>[ ] Error message is documented</p></li>
+<li><p>[ ] Minimal reproducible example created</p></li>
+</ul>
+</section>
+<section id="where-to-get-help">
+<h3>Where to Get Help<a class="headerlink" href="#where-to-get-help" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Documentation</strong>: Check the tutorial and guide pages under <code class="docutils literal notranslate"><span class="pre">docs/tutorials/</span></code> and <code class="docutils literal notranslate"><span class="pre">docs/guides/</span></code></p></li>
+<li><p><strong>Examples</strong>: Review the repo <code class="docutils literal notranslate"><span class="pre">notebooks/</span></code> directory for working examples</p></li>
+<li><p><strong>GitHub Issues</strong>: Search existing issues or create new one</p></li>
+<li><p><strong>Discussion Forum</strong>: Ask questions in GitHub Discussions</p></li>
+</ol>
+</section>
+<section id="creating-a-minimal-reproducible-example">
+<h3>Creating a Minimal Reproducible Example<a class="headerlink" href="#creating-a-minimal-reproducible-example" title="Link to this heading">¶</a></h3>
+<p>When reporting issues, include:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Minimal example to reproduce the issue</span>
+
+<span class="sd">Expected behavior: [describe what should happen]</span>
+<span class="sd">Actual behavior: [describe what actually happens]</span>
+<span class="sd">Error message: [paste full error traceback]</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.models.refactored_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefactoredGasSwellingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># Minimal parameters showing issue</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">773.15</span>  <span class="c1"># Only changed this</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2e20</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8640000</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># What goes wrong:</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Swelling: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Expected: ~5%, Got: 0</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="quick-reference-error-messages">
+<h2>Quick Reference: Error Messages<a class="headerlink" href="#quick-reference-error-messages" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Error Message</p></th>
+<th class="head"><p>Most Likely Cause</p></th>
+<th class="head"><p>Quick Fix</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code></p></td>
+<td><p>Package not installed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">gas-swelling-model</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ValueError:</span> <span class="pre">Temperature</span> <span class="pre">must</span> <span class="pre">be</span> <span class="pre">&gt;=</span> <span class="pre">273.15</span></code></p></td>
+<td><p>Temperature in Celsius</p></td>
+<td><p>Add 273.15 to convert to Kelvin</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">OdeintWarning:</span> <span class="pre">Excess</span> <span class="pre">work</span></code></p></td>
+<td><p>System too stiff</p></td>
+<td><p>Reduce time step or simulation time</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">MemoryError</span></code></p></td>
+<td><p>Too many time points</p></td>
+<td><p>Use <code class="docutils literal notranslate"><span class="pre">t_eval=None</span></code> or reduce points</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ImportError:</span> <span class="pre">cannot</span> <span class="pre">import</span> <span class="pre">name</span></code></p></td>
+<td><p>Wrong import path</p></td>
+<td><p>Use <code class="docutils literal notranslate"><span class="pre">RefactoredGasSwellingModel</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ZeroDivisionError</span></code></p></td>
+<td><p>Zero parameter value</p></td>
+<td><p>Check fission_rate, nucleation factors</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="prevention-best-practices">
+<h2>Prevention Best Practices<a class="headerlink" href="#prevention-best-practices" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Always</strong> use virtual environments</p></li>
+<li><p><strong>Always</strong> specify temperature in Kelvin</p></li>
+<li><p><strong>Always</strong> check parameter values before running</p></li>
+<li><p><strong>Always</strong> start with shorter simulations to verify behavior</p></li>
+<li><p><strong>Always</strong> use <code class="docutils literal notranslate"><span class="pre">t_eval=None</span></code> for adaptive time stepping</p></li>
+<li><p><strong>Always</strong> verify units when comparing to experiments</p></li>
+<li><p><strong>Always</strong> save intermediate results for long simulations</p></li>
+<li><p><strong>Always</strong> document parameter choices for reproducibility</p></li>
+</ol>
+<hr class="docutils" />
+<p>For more information, see:</p>
+<ul class="simple">
+<li><p>Installation guide: repo-root <code class="docutils literal notranslate"><span class="pre">INSTALL.md</span></code></p></li>
+<li><p><a class="reference internal" href="../tutorials/30minute_quickstart.html"><span class="std std-doc">30-Minute Quickstart</span></a></p></li>
+<li><p><a class="reference internal" href="interpreting_results.html"><span class="std std-doc">Interpreting Results</span></a></p></li>
+<li><p><a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation-issues">Installation Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#import-and-module-errors">Import and Module Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parameter-issues">Parameter Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#solver-convergence-problems">Solver Convergence Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-issues">Performance Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#unrealistic-results">Unrealistic Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#numerical-instability">Numerical Instability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gas-release-issues">Gas Release Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#temperature-related-problems">Temperature-Related Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#experimental-validation-mismatches">Experimental Validation Mismatches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plotting-and-visualization-issues">Plotting and Visualization Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#memory-and-resource-issues">Memory and Resource Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-additional-help">Getting Additional Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-reference-error-messages">Quick Reference: Error Messages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prevention-best-practices">Prevention Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="plot_gallery.html" title="previous chapter">Plot Gallery: Code Snippets &amp; Examples</a></li>
+      <li>Next: <a href="../parameter_reference.html" title="next chapter">Parameter Reference Guide</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/guides/troubleshooting.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

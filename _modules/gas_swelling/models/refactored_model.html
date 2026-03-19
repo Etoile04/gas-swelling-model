@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gas_swelling.models.refactored_model &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for gas_swelling.models.refactored_model</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Refactored Gas Swelling Model (重构的气体肿胀模型)</span>
+
+<span class="sd">This module provides a refactored implementation of the gas swelling model</span>
+<span class="sd">that uses modular components for better maintainability and testability.</span>
+
+<span class="sd">模块结构 (Module Structure):</span>
+<span class="sd">- Uses physics module for pressure, transport, and thermal calculations</span>
+<span class="sd">- Uses ode module for rate equation system</span>
+<span class="sd">- Uses solvers module for numerical integration</span>
+<span class="sd">- Uses io module for debug output and visualization</span>
+
+<span class="sd">主要类 (Main Classes):</span>
+<span class="sd">- RefactoredGasSwellingModel: 重构的气体肿胀模型类</span>
+
+<span class="sd">使用示例 (Usage Example):</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.models.refactored_model import RefactoredGasSwellingModel</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.params.parameters import create_default_parameters</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Create model with custom parameters</span>
+<span class="sd">    &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">    &gt;&gt;&gt; params[&#39;temperature&#39;] = 773.15  # 500°C in Kelvin</span>
+<span class="sd">    &gt;&gt;&gt; model = RefactoredGasSwellingModel(params)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Solve simulation</span>
+<span class="sd">    &gt;&gt;&gt; results = model.solve(t_span=(0, 8640000), t_eval=time_points)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Access results</span>
+<span class="sd">    &gt;&gt;&gt; swelling = results[&#39;swelling&#39;]</span>
+<span class="sd">    &gt;&gt;&gt; bubble_radius = results[&#39;Rcb&#39;]</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..params.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..physics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">calculate_gas_pressure</span><span class="p">,</span>
+    <span class="n">calculate_ideal_gas_pressure</span><span class="p">,</span>
+    <span class="n">calculate_modified_vdw_pressure</span><span class="p">,</span>
+    <span class="n">calculate_virial_eos_pressure</span><span class="p">,</span>
+    <span class="n">calculate_ronchi_pressure</span><span class="p">,</span>
+    <span class="n">calculate_gas_influx</span><span class="p">,</span>
+    <span class="n">calculate_gas_release_rate</span><span class="p">,</span>
+    <span class="n">calculate_cv0</span><span class="p">,</span>
+    <span class="n">calculate_ci0</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..ode</span><span class="w"> </span><span class="kn">import</span> <span class="n">swelling_ode_system</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..solvers</span><span class="w"> </span><span class="kn">import</span> <span class="n">RK23Solver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..io</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DebugConfig</span><span class="p">,</span>
+    <span class="n">DebugHistory</span><span class="p">,</span>
+    <span class="n">update_debug_history</span><span class="p">,</span>
+    <span class="n">print_simulation_summary</span>
+<span class="p">)</span>
+
+<span class="c1"># Physical constants (物理常数)</span>
+<span class="n">BOLTZMANN_CONSTANT_J</span> <span class="o">=</span> <span class="mf">1.380649e-23</span>  <span class="c1"># J/K (玻尔兹曼常数)</span>
+<span class="n">VALID_MODEL_BACKENDS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;full&#39;</span><span class="p">,</span> <span class="s1">&#39;qssa&#39;</span><span class="p">,</span> <span class="s1">&#39;hybrid_qssa&#39;</span><span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SimulationResult</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Dict-like solver result that keeps scalar metadata accessible by key while</span>
+<span class="sd">    iterating only over time-series data for legacy tests.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">time_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">time_len</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;solver_success&#39;</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">time_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">time_len</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="n">time_len</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">key</span>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RefactoredGasSwellingModel</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    重构的气体肿胀模型类 (Refactored Gas Swelling Model Class)</span>
+
+<span class="sd">    This class provides a modular implementation of the gas swelling model</span>
+<span class="sd">    for nuclear fuel materials. It uses separated physics calculations,</span>
+<span class="sd">    ODE system, numerical solvers, and I/O utilities.</span>
+
+<span class="sd">    模型功能 (Model Features):</span>
+<span class="sd">    - 求解17个状态变量的常微分方程组 (solves 17-state-variable ODE system)</span>
+<span class="sd">    - 计算气体气泡演化 (calculates gas bubble evolution)</span>
+<span class="sd">    - 计算肿胀率 (calculates swelling rate)</span>
+<span class="sd">    - 支持多种气体状态方程 (supports multiple gas EOS models)</span>
+<span class="sd">    - 提供调试输出和可视化 (provides debug output and visualization)</span>
+
+<span class="sd">    状态变量 (State Variables - 17 total):</span>
+<span class="sd">    0-7: Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf (gas and cavity variables)</span>
+<span class="sd">    8-11: cvb, cib, cvf, cif (point defect concentrations)</span>
+<span class="sd">    12: released_gas (cumulative gas release)</span>
+<span class="sd">    13-16: kvb, kib, kvf, kif (point defect sink strengths)</span>
+
+<span class="sd">    参数 (Parameters):</span>
+<span class="sd">        params : Optional[Dict]</span>
+<span class="sd">            模型参数字典 (model parameter dictionary)</span>
+<span class="sd">            如果为None，使用默认参数 (use default parameters if None)</span>
+
+<span class="sd">    属性 (Attributes):</span>
+<span class="sd">        params : Dict</span>
+<span class="sd">            模型参数 (model parameters)</span>
+<span class="sd">        initial_state : np.ndarray</span>
+<span class="sd">            初始状态向量 (initial state vector)</span>
+<span class="sd">        debug_config : DebugConfig</span>
+<span class="sd">            调试配置 (debug configuration)</span>
+<span class="sd">        debug_history : DebugHistory</span>
+<span class="sd">            调试历史记录 (debug history)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.__init__">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化重构的气体肿胀模型 (Initialize refactored gas swelling model)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            params : Optional[Dict]</span>
+<span class="sd">                模型参数字典，如果为None则使用默认参数</span>
+<span class="sd">                (model parameter dictionary, use default if None)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">            &gt;&gt;&gt; params[&#39;temperature&#39;] = 773.15</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel(params)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 设置模型参数 (set model parameters)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span> <span class="k">if</span> <span class="n">params</span> <span class="k">else</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># 设置默认值（如果未提供）(set defaults if not provided)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;Zvc&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Cavity bias for vacancy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;Zic&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Cavity bias for interstitial</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;model_backend&#39;</span><span class="p">,</span> <span class="s1">&#39;full&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;hybrid_dynamic_pair&#39;</span><span class="p">,</span> <span class="s1">&#39;auto&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;hybrid_relaxation_factor&#39;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;hybrid_min_relaxation_time&#39;</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;hybrid_max_relaxation_time&#39;</span><span class="p">,</span> <span class="mf">1e4</span><span class="p">)</span>
+
+        <span class="c1"># 初始化状态向量 (initialize state vector)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_state</span><span class="p">()</span>
+
+        <span class="c1"># 初始化调试系统 (initialize debug system)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span> <span class="o">=</span> <span class="n">DebugConfig</span><span class="p">(</span>
+            <span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">time_step_interval</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+            <span class="n">save_to_file</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">output_file</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_history</span> <span class="o">=</span> <span class="n">DebugHistory</span><span class="p">()</span>
+
+        <span class="c1"># 求解器状态标志 (solver status flags)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_solver_metadata</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">is</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configure_optional_backend</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_configure_optional_backend</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Configure an optional reduced-order backend selected via parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">backend_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;model_backend&#39;</span><span class="p">,</span> <span class="s1">&#39;full&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">backend_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">VALID_MODEL_BACKENDS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid model_backend &#39;</span><span class="si">{</span><span class="n">backend_name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Valid options: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">VALID_MODEL_BACKENDS</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s1">&#39;qssa&#39;</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.qssa_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">QSSAGasSwellingModel</span>
+            <span class="n">backend_model</span> <span class="o">=</span> <span class="n">QSSAGasSwellingModel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.hybrid_qssa_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">HybridQSSAGasSwellingModel</span>
+            <span class="n">backend_model</span> <span class="o">=</span> <span class="n">HybridQSSAGasSwellingModel</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span>
+                <span class="n">dynamic_pair</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;hybrid_dynamic_pair&#39;</span><span class="p">,</span> <span class="s1">&#39;auto&#39;</span><span class="p">),</span>
+                <span class="n">relaxation_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;hybrid_relaxation_factor&#39;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+                <span class="n">min_relaxation_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;hybrid_min_relaxation_time&#39;</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">),</span>
+                <span class="n">max_relaxation_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;hybrid_max_relaxation_time&#39;</span><span class="p">,</span> <span class="mf">1e4</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span> <span class="o">=</span> <span class="n">backend_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="n">backend_model</span><span class="o">.</span><span class="n">initial_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span> <span class="o">=</span> <span class="n">backend_model</span><span class="o">.</span><span class="n">debug_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_history</span> <span class="o">=</span> <span class="n">backend_model</span><span class="o">.</span><span class="n">debug_history</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        ODE方程方法别名 (ODE equations method alias)</span>
+
+<span class="sd">        This is an alias for _equations_wrapper to maintain backward compatibility</span>
+<span class="sd">        with existing tests.</span>
+
+<span class="sd">        这是_equations_wrapper的别名，用于保持与现有测试的向后兼容性。</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+<span class="sd">            state : np.ndarray</span>
+<span class="sd">                状态向量 (state vector)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 状态导数向量 (state derivative vector)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化状态变量 (Initialize state variables)</span>
+
+<span class="sd">        返回包含17个元素的初始状态向量 (Returns initial state vector with 17 elements):</span>
+<span class="sd">        - 气体浓度 (gas concentrations): Cgb, Cgf</span>
+<span class="sd">        - 空腔浓度 (cavity concentrations): Ccb, Ccf</span>
+<span class="sd">        - 每个空腔气体原子数 (atoms per cavity): Ncb, Ncf</span>
+<span class="sd">        - 空腔半径 (cavity radii): Rcb, Rcf</span>
+<span class="sd">        - 点缺陷浓度 (point defect concentrations): cvb, cib, cvf, cif</span>
+<span class="sd">        - 点缺陷汇聚强度 (point defect sink strengths): kvb, kib, kvf, kif</span>
+<span class="sd">        - 累积释放气体 (cumulative released gas): released_gas</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 17个元素的初始状态向量 (17-element initial state vector)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; state = model.initial_state</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Initial bulk gas concentration: {state[0]}&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 初始气泡参数 (initial bubble parameters)</span>
+        <span class="n">Nc_init</span> <span class="o">=</span> <span class="mf">5.0</span>      <span class="c1"># 初始气泡内气体数 (initial atoms per bubble)</span>
+        <span class="n">Cg_init</span> <span class="o">=</span> <span class="mf">0.0</span>      <span class="c1"># 初始气体浓度 (initial gas concentration, atoms/m³)</span>
+        <span class="n">Cc_init</span> <span class="o">=</span> <span class="mf">0.0</span>      <span class="c1"># 初始气腔浓度 (initial cavity concentration, cavities/m³)</span>
+        <span class="n">R_init</span> <span class="o">=</span> <span class="mf">1e-8</span>      <span class="c1"># 初始半径 (initial radius, 10 nm)</span>
+
+        <span class="c1"># 计算热平衡点缺陷浓度 (calculate thermal equilibrium defect concentrations)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">cv0</span> <span class="o">=</span> <span class="n">calculate_cv0</span><span class="p">(</span>
+                <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+                <span class="n">Evf_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evf_coeffs&#39;</span><span class="p">],</span>
+                <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">],</span>
+                <span class="n">Evfmuti</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Evfmuti&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OverflowError</span><span class="p">,</span> <span class="ne">FloatingPointError</span><span class="p">):</span>
+            <span class="n">cv0</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ci0</span> <span class="o">=</span> <span class="n">calculate_ci0</span><span class="p">(</span>
+                <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+                <span class="n">Eif_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Eif_coeffs&#39;</span><span class="p">],</span>
+                <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OverflowError</span><span class="p">,</span> <span class="ne">FloatingPointError</span><span class="p">):</span>
+            <span class="n">ci0</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="c1"># 初始汇聚强度参数 (initial sink strength parameters)</span>
+        <span class="n">kv_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]</span>
+        <span class="n">ki_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 构建状态向量 (construct state vector)</span>
+        <span class="c1"># State vector: [Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf,</span>
+        <span class="c1">#                 cvb, cib, cvf, cif, released_gas, kvb, kib, kvf, kif]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="n">Cg_init</span><span class="p">,</span>     <span class="c1"># 0: Cgb - 基体气体浓度 (bulk gas concentration)</span>
+            <span class="n">Cc_init</span><span class="p">,</span>     <span class="c1"># 1: Ccb - 基体气腔浓度 (bulk cavity concentration)</span>
+            <span class="n">Nc_init</span><span class="p">,</span>     <span class="c1"># 2: Ncb - 基体每个气腔气体原子数 (atoms per bulk cavity)</span>
+            <span class="n">R_init</span><span class="p">,</span>      <span class="c1"># 3: Rcb - 基体气腔半径 (bulk cavity radius)</span>
+            <span class="n">Cg_init</span><span class="p">,</span>     <span class="c1"># 4: Cgf - 晶界气体浓度 (grain boundary gas concentration)</span>
+            <span class="n">Cc_init</span><span class="p">,</span>     <span class="c1"># 5: Ccf - 晶界气腔浓度 (grain boundary cavity concentration)</span>
+            <span class="n">Nc_init</span><span class="p">,</span>     <span class="c1"># 6: Ncf - 晶界每个气腔气体原子数 (atoms per boundary cavity)</span>
+            <span class="n">R_init</span><span class="p">,</span>      <span class="c1"># 7: Rcf - 晶界气腔半径 (boundary cavity radius)</span>
+            <span class="n">cv0</span><span class="p">,</span>         <span class="c1"># 8: cvb - 基体空位浓度 (bulk vacancy concentration)</span>
+            <span class="n">ci0</span><span class="p">,</span>         <span class="c1"># 9: cib - 基体间隙原子浓度 (bulk interstitial concentration)</span>
+            <span class="n">cv0</span><span class="p">,</span>         <span class="c1"># 10: cvf - 晶界空位浓度 (boundary vacancy concentration)</span>
+            <span class="n">ci0</span><span class="p">,</span>         <span class="c1"># 11: cif - 晶界间隙原子浓度 (boundary interstitial concentration)</span>
+            <span class="mf">0.0</span><span class="p">,</span>         <span class="c1"># 12: released_gas - 累积释放气体 (cumulative gas release)</span>
+            <span class="n">kv_param</span><span class="p">,</span>    <span class="c1"># 13: kvb - 基体空位汇聚强度 (bulk vacancy sink strength)</span>
+            <span class="n">ki_param</span><span class="p">,</span>    <span class="c1"># 14: kib - 基体间隙原子汇聚强度 (bulk interstitial sink strength)</span>
+            <span class="n">kv_param</span><span class="p">,</span>    <span class="c1"># 15: kvf - 晶界空位汇聚强度 (boundary vacancy sink strength)</span>
+            <span class="n">ki_param</span>     <span class="c1"># 16: kif - 晶界间隙原子汇聚强度 (boundary interstitial sink strength)</span>
+        <span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_idealgas_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Legacy wrapper for ideal-gas pressure calculation.</span>
+
+<span class="sd">        Kept for backward compatibility with historical tests and scripts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_ideal_gas_pressure</span><span class="p">(</span>
+            <span class="n">Rc</span><span class="o">=</span><span class="n">Rc</span><span class="p">,</span>
+            <span class="n">Nc</span><span class="o">=</span><span class="n">Nc</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">kB</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_modified_vdw_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate pressure using the modified van der Waals EOS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_modified_vdw_pressure</span><span class="p">(</span>
+            <span class="n">Rc</span><span class="o">=</span><span class="n">Rc</span><span class="p">,</span>
+            <span class="n">Nc</span><span class="o">=</span><span class="n">Nc</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">kB</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_modifiedvongas_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Backward-compatible alias with historical typo in the method name.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_modified_vdw_pressure</span><span class="p">(</span><span class="n">Rc</span><span class="p">,</span> <span class="n">Nc</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_virial_eos_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate pressure using the Virial EOS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_virial_eos_pressure</span><span class="p">(</span>
+            <span class="n">Rc</span><span class="o">=</span><span class="n">Rc</span><span class="p">,</span>
+            <span class="n">Nc</span><span class="o">=</span><span class="n">Nc</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_VirialEOSgas_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Backward-compatible alias for Virial EOS pressure method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_virial_eos_pressure</span><span class="p">(</span><span class="n">Rc</span><span class="p">,</span> <span class="n">Nc</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_ronchi_pressure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Rc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">Nc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">temperature</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate pressure using the Ronchi hard-sphere EOS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_ronchi_pressure</span><span class="p">(</span>
+            <span class="n">Rc</span><span class="o">=</span><span class="n">Rc</span><span class="p">,</span>
+            <span class="n">Nc</span><span class="o">=</span><span class="n">Nc</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="n">temperature</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">temperature</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_cv0</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Backward-compatible wrapper for thermal vacancy concentration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_cv0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">Evf_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evf_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">],</span>
+            <span class="n">Evfmuti</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Evfmuti&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_ci0</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Backward-compatible wrapper for thermal interstitial concentration.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">calculate_ci0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">Eif_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Eif_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gas_influx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Cgb</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Backward-compatible wrapper for gas influx calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_gas_influx</span><span class="p">(</span><span class="n">Cgb</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_gas_release_rate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">Cgf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">Ccf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">Rcf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">Ncf</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Backward-compatible wrapper for gas release rate calculation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_gas_release_rate</span><span class="p">(</span><span class="n">Cgf</span><span class="p">,</span> <span class="n">Ccf</span><span class="p">,</span> <span class="n">Rcf</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_equations_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        ODE方程包装器 (ODE equations wrapper)</span>
+
+<span class="sd">        将内部状态向量转换为模块化ODE系统所需的格式</span>
+<span class="sd">        (Converts internal state vector to format required by modular ODE system)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+<span class="sd">            state : np.ndarray</span>
+<span class="sd">                当前状态向量 (current state vector)</span>
+<span class="sd">            params : Dict, optional</span>
+<span class="sd">                参数字典（用于兼容RK23Solver接口）</span>
+<span class="sd">                (parameter dictionary for RK23Solver compatibility)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 状态导数向量 (state derivative vector)</span>
+
+<span class="sd">        注意 (Note):</span>
+<span class="sd">            此方法作为适配器，连接模型的内部状态表示与模块化ODE系统</span>
+<span class="sd">            (This method serves as an adapter, connecting model&#39;s internal state</span>
+<span class="sd">             representation with the modular ODE system)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 更新当前时间 (update current time)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="n">t</span>
+
+        <span class="c1"># 使用模型参数（忽略传入的params参数）</span>
+        <span class="c1"># (use model parameters, ignore passed params argument)</span>
+        <span class="n">model_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span>
+
+        <span class="c1"># 调用模块化ODE系统 (call modular ODE system)</span>
+        <span class="n">derivatives</span> <span class="o">=</span> <span class="n">swelling_ode_system</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">model_params</span><span class="p">)</span>
+
+        <span class="c1"># 如果启用调试，记录调试信息 (record debug info if enabled)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_record_debug_info</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">derivatives</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">derivatives</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_record_debug_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">derivatives</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        记录调试信息 (Record debug information)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+<span class="sd">            state : np.ndarray</span>
+<span class="sd">                当前状态向量 (current state vector)</span>
+<span class="sd">            derivatives : np.ndarray</span>
+<span class="sd">                状态导数向量 (state derivative vector)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 解包状态变量 (unpack state variables)</span>
+        <span class="n">Cgb</span><span class="p">,</span> <span class="n">Ccb</span><span class="p">,</span> <span class="n">Ncb</span><span class="p">,</span> <span class="n">Rcb</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">,</span> <span class="n">Ccf</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">,</span> <span class="n">Rcf</span><span class="p">,</span> <span class="n">cvb</span><span class="p">,</span> <span class="n">cib</span><span class="p">,</span> <span class="n">kvb</span><span class="p">,</span> <span class="n">kib</span><span class="p">,</span> <span class="n">cvf</span><span class="p">,</span> <span class="n">cif</span><span class="p">,</span> <span class="n">kvf</span><span class="p">,</span> <span class="n">kif</span><span class="p">,</span> <span class="n">released_gas</span> <span class="o">=</span> <span class="n">state</span>
+
+        <span class="c1"># 计算气体压力 (calculate gas pressures)</span>
+        <span class="n">eos_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eos_model&#39;</span><span class="p">,</span> <span class="s1">&#39;virial&#39;</span><span class="p">)</span>
+        <span class="n">Pg_b</span> <span class="o">=</span> <span class="n">calculate_gas_pressure</span><span class="p">(</span><span class="n">Rcb</span><span class="p">,</span> <span class="n">Ncb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span> <span class="n">eos_model</span><span class="p">)</span>
+        <span class="n">Pg_f</span> <span class="o">=</span> <span class="n">calculate_gas_pressure</span><span class="p">(</span><span class="n">Rcf</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span> <span class="n">eos_model</span><span class="p">)</span>
+
+        <span class="c1"># 计算肿胀率 (calculate swelling)</span>
+        <span class="n">V_bubble_b</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcb</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccb</span>
+        <span class="n">V_bubble_f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcf</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccf</span>
+        <span class="n">swelling</span> <span class="o">=</span> <span class="p">(</span><span class="n">V_bubble_b</span> <span class="o">+</span> <span class="n">V_bubble_f</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>  <span class="c1"># 百分比 (percentage)</span>
+
+        <span class="c1"># 更新调试历史 (update debug history)</span>
+        <span class="n">update_debug_history</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">debug_history</span><span class="p">,</span>
+            <span class="n">time</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
+            <span class="n">Rcb</span><span class="o">=</span><span class="n">Rcb</span><span class="p">,</span>
+            <span class="n">Rcf</span><span class="o">=</span><span class="n">Rcf</span><span class="p">,</span>
+            <span class="n">Ncb</span><span class="o">=</span><span class="n">Ncb</span><span class="p">,</span>
+            <span class="n">Ncf</span><span class="o">=</span><span class="n">Ncf</span><span class="p">,</span>
+            <span class="n">Pg_b</span><span class="o">=</span><span class="n">Pg_b</span><span class="p">,</span>
+            <span class="n">Pg_f</span><span class="o">=</span><span class="n">Pg_f</span><span class="p">,</span>
+            <span class="n">swelling</span><span class="o">=</span><span class="n">swelling</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_failure_results</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">nfev</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">njev</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">nlu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SimulationResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a shape-consistent failure payload without raising.&quot;&quot;&quot;</span>
+        <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span> <span class="k">if</span> <span class="n">time</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">empty</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">SimulationResult</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">time</span><span class="p">,</span>
+                <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s1">&#39;solver_success&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
+                <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span> <span class="k">if</span> <span class="n">solution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">solution</span><span class="p">,</span>
+                <span class="s1">&#39;nfev&#39;</span><span class="p">:</span> <span class="n">nfev</span><span class="p">,</span>
+                <span class="s1">&#39;njev&#39;</span><span class="p">:</span> <span class="n">njev</span><span class="p">,</span>
+                <span class="s1">&#39;nlu&#39;</span><span class="p">:</span> <span class="n">nlu</span><span class="p">,</span>
+                <span class="s1">&#39;n_steps&#39;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="s1">&#39;n_accepted&#39;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">time</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="s1">&#39;n_rejected&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;Cgb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Ccb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Ncb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Rcb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Cgf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Ccf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Ncf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;Rcf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;cvb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;cib&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;kvb&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;kib&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;cvf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;cif&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;kvf&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;kif&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;released_gas&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+                <span class="s1">&#39;swelling&#39;</span><span class="p">:</span> <span class="n">empty</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_solver_metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
+            <span class="s1">&#39;nfev&#39;</span><span class="p">:</span> <span class="n">nfev</span><span class="p">,</span>
+            <span class="s1">&#39;njev&#39;</span><span class="p">:</span> <span class="n">njev</span><span class="p">,</span>
+            <span class="s1">&#39;nlu&#39;</span><span class="p">:</span> <span class="n">nlu</span><span class="p">,</span>
+            <span class="s1">&#39;n_steps&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;n_accepted&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;n_rejected&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wrap_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SimulationResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap solver output in a dict subclass that is friendly to legacy tests.&quot;&quot;&quot;</span>
+        <span class="n">wrapped</span> <span class="o">=</span> <span class="n">SimulationResult</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="n">wrapped</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;solver_success&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_solver_metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">wrapped</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;success&#39;</span><span class="p">,</span> <span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="s1">&#39;nfev&#39;</span><span class="p">,</span> <span class="s1">&#39;njev&#39;</span><span class="p">,</span> <span class="s1">&#39;nlu&#39;</span><span class="p">,</span> <span class="s1">&#39;n_steps&#39;</span><span class="p">,</span> <span class="s1">&#39;n_accepted&#39;</span><span class="p">,</span> <span class="s1">&#39;n_rejected&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">wrapped</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">wrapped</span>
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.solve">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7200000</span><span class="p">),</span>
+              <span class="n">t_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;LSODA&#39;</span><span class="p">,</span>
+              <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-9</span><span class="p">,</span>
+              <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">100.0</span><span class="p">,</span>
+              <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000000</span><span class="p">,</span>
+              <span class="n">output_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+              <span class="n">debug_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve the 0D gas swelling model.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_span: Time span ``(t_start, t_end)`` in seconds.</span>
+<span class="sd">            t_eval: Optional output times. If ``None``, 100 points are generated.</span>
+<span class="sd">            method: ``solve_ivp`` method name. ``LSODA`` is the default.</span>
+<span class="sd">            dt: Initial time step in seconds.</span>
+<span class="sd">            max_dt: Maximum time step in seconds.</span>
+<span class="sd">            max_steps: Maximum solver steps.</span>
+<span class="sd">            output_interval: Debug output interval in steps.</span>
+<span class="sd">            debug_enabled: Whether to record debug output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A result dictionary containing time-series arrays such as ``time``,</span>
+<span class="sd">            ``Cgb``, ``Ccb``, ``Rcb``, ``released_gas``, and ``swelling``.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If the solver fails.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; time_points = np.linspace(0, 8640000, 100)</span>
+<span class="sd">            &gt;&gt;&gt; results = model.solve(t_span=(0, 8640000), t_eval=time_points)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Final swelling: {results[&#39;swelling&#39;][-1]:.2f}%&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+                <span class="n">t_span</span><span class="o">=</span><span class="n">t_span</span><span class="p">,</span>
+                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
+                <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">max_dt</span><span class="o">=</span><span class="n">max_dt</span><span class="p">,</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span><span class="p">,</span>
+                <span class="n">output_interval</span><span class="o">=</span><span class="n">output_interval</span><span class="p">,</span>
+                <span class="n">debug_enabled</span><span class="o">=</span><span class="n">debug_enabled</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="o">.</span><span class="n">solver_success</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="o">.</span><span class="n">current_time</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="o">.</span><span class="n">step_count</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="o">.</span><span class="n">initial_state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_solver_metadata</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="p">,</span> <span class="s1">&#39;last_solver_metadata&#39;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">return</span> <span class="n">results</span>
+
+        <span class="c1"># 配置调试 (configure debug)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="n">debug_enabled</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="n">output_interval</span>
+
+        <span class="c1"># 如果未指定输出时间点，创建默认的时间点 (create default time points if not specified)</span>
+        <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_failure_results</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Invalid t_span: end time must be greater than or equal to start time.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">adaptive_enabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">solver_method</span> <span class="o">=</span> <span class="n">method</span>
+
+            <span class="n">solver</span> <span class="o">=</span> <span class="n">RK23Solver</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">solver_method</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+                <span class="n">t_span</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span><span class="p">,</span>
+                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">max_dt</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;max_step&#39;</span><span class="p">,</span> <span class="n">max_dt</span><span class="p">)</span> <span class="k">if</span> <span class="n">adaptive_enabled</span> <span class="k">else</span> <span class="n">max_dt</span><span class="p">,</span>
+                <span class="n">rtol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rtol&#39;</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">),</span>
+                <span class="n">atol</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;atol&#39;</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">),</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;success&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_failure_results</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+        <span class="c1"># Check if solver succeeded before accessing results</span>
+        <span class="c1"># 检查求解器是否成功再访问结果</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;success&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_failure_results</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span> <span class="s1">&#39;Unknown error&#39;</span><span class="p">),</span>
+                <span class="n">time</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">),</span>
+                <span class="n">solution</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">),</span>
+                <span class="n">nfev</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;nfev&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">njev</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;njev&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">nlu</span><span class="o">=</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;nlu&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 计算并添加肿胀率 (calculate and add swelling percentage)</span>
+        <span class="n">Rcb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>
+        <span class="n">Rcf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">]</span>
+        <span class="n">Ccb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">]</span>
+        <span class="n">Ccf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">]</span>
+        <span class="n">V_bubble_b</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcb</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccb</span>
+        <span class="n">V_bubble_f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcf</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccf</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">V_bubble_b</span> <span class="o">+</span> <span class="n">V_bubble_f</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">inferred_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;nfev&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;n_steps&#39;</span><span class="p">,</span> <span class="n">inferred_steps</span><span class="p">)</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">])</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step_count</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 如果启用调试，打印摘要 (print summary if debug enabled)</span>
+        <span class="k">if</span> <span class="n">debug_enabled</span><span class="p">:</span>
+            <span class="n">print_simulation_summary</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.get_gas_pressure">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.get_gas_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_gas_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">R</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;bulk&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算气泡内的气体压力 (Calculate gas pressure inside bubble)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            R : float</span>
+<span class="sd">                气泡半径，单位：米 (bubble radius in meters)</span>
+<span class="sd">            N : float</span>
+<span class="sd">                气泡内气体原子数 (number of gas atoms in bubble)</span>
+<span class="sd">            location : str</span>
+<span class="sd">                位置标识 (&#39;bulk&#39; 或 &#39;boundary&#39;)</span>
+<span class="sd">                (location identifier: &#39;bulk&#39; or &#39;boundary&#39;)</span>
+<span class="sd">                默认值: &#39;bulk&#39;</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            float: 气体压力，单位：帕斯卡 (gas pressure in Pascals)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; pressure = model.get_gas_pressure(1e-8, 100)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Bubble pressure: {pressure:.2e} Pa&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eos_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eos_model&#39;</span><span class="p">,</span> <span class="s1">&#39;virial&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">calculate_gas_pressure</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span> <span class="n">eos_model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.get_gas_influx">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.get_gas_influx">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_gas_influx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Cgb</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算从基体到相界面的气体原子通量</span>
+<span class="sd">        (Calculate gas atom flux from bulk to phase boundary)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            Cgb : float</span>
+<span class="sd">                基体气体浓度，单位：原子/立方米</span>
+<span class="sd">                (bulk gas concentration in atoms/m³)</span>
+<span class="sd">            Cgf : float</span>
+<span class="sd">                相界面气体浓度，单位：原子/立方米</span>
+<span class="sd">                (phase boundary gas concentration in atoms/m³)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            float: 气体通量，单位：原子/(立方米·秒)</span>
+<span class="sd">                   (gas flux in atoms/(m³·s))</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; influx = model.get_gas_influx(1e20, 1e19)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Gas influx: {influx:.2e} atoms/(m³·s)&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">grain_diameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;grain_diameter&#39;</span><span class="p">]</span>
+        <span class="n">Dgb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">calculate_gas_influx</span><span class="p">(</span><span class="n">Cgb</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">,</span> <span class="n">grain_diameter</span><span class="p">,</span> <span class="n">Dgb</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.get_gas_release_rate">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.get_gas_release_rate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_gas_release_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Ccf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                            <span class="n">Rcf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算气体释放率 (Calculate gas release rate)</span>
+
+<span class="sd">        基于气泡互连模型计算气体释放到晶界和自由表面的速率</span>
+<span class="sd">        (Calculates gas release rate based on bubble interconnection model)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            Cgf : float</span>
+<span class="sd">                晶界气体浓度，单位：原子/立方米</span>
+<span class="sd">                (grain boundary gas concentration in atoms/m³)</span>
+<span class="sd">            Ccf : float</span>
+<span class="sd">                晶界气腔浓度，单位：气腔/立方米</span>
+<span class="sd">                (grain boundary cavity concentration in cavities/m³)</span>
+<span class="sd">            Rcf : float</span>
+<span class="sd">                晶界气腔半径，单位：米 (grain boundary cavity radius in meters)</span>
+<span class="sd">            Ncf : float</span>
+<span class="sd">                晶界每个气腔气体原子数 (atoms per grain boundary cavity)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            float: 气体释放率，单位：1/秒 (gas release rate in 1/s)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; release_rate = model.get_gas_release_rate(1e20, 1e15, 1e-7, 50)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Gas release rate: {release_rate:.2e} /s&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">grain_diameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;grain_diameter&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">calculate_gas_release_rate</span><span class="p">(</span><span class="n">Cgf</span><span class="p">,</span> <span class="n">Ccf</span><span class="p">,</span> <span class="n">Rcf</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">,</span> <span class="n">grain_diameter</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.get_thermal_equilibrium_concentrations">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.get_thermal_equilibrium_concentrations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_thermal_equilibrium_concentrations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算热平衡点缺陷浓度</span>
+<span class="sd">        (Calculate thermal equilibrium point defect concentrations)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            Tuple[float, float]: (cv0, ci0)</span>
+<span class="sd">                cv0 : 热平衡空位浓度 (thermal equilibrium vacancy concentration)</span>
+<span class="sd">                ci0 : 热平衡间隙原子浓度 (thermal equilibrium interstitial concentration)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; cv0, ci0 = model.get_thermal_equilibrium_concentrations()</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;cv0 = {cv0:.2e}, ci0 = {ci0:.2e}&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cv0</span> <span class="o">=</span> <span class="n">calculate_cv0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">Evf_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evf_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">],</span>
+            <span class="n">Evfmuti</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Evfmuti&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ci0</span> <span class="o">=</span> <span class="n">calculate_ci0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span>
+            <span class="n">Eif_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Eif_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv0</span><span class="p">,</span> <span class="n">ci0</span></div>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.enable_debug">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.enable_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enable_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_step_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">output_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;debug_output.csv&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        启用调试模式 (Enable debug mode)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            time_step_interval : int</span>
+<span class="sd">                调试输出间隔（步数）(debug output interval in steps)</span>
+<span class="sd">                默认值: 1000</span>
+<span class="sd">            output_file : str</span>
+<span class="sd">                调试输出文件路径 (debug output file path)</span>
+<span class="sd">                默认值: &#39;debug_output.csv&#39;</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; model.enable_debug(time_step_interval=500)</span>
+<span class="sd">            &gt;&gt;&gt; results = model.solve(debug_enabled=True)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="n">time_step_interval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">save_to_file</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">output_file</span> <span class="o">=</span> <span class="n">output_file</span></div>
+
+
+<div class="viewcode-block" id="RefactoredGasSwellingModel.disable_debug">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.modelrk23.RefactoredGasSwellingModel.disable_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disable_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        禁用调试模式 (Disable debug mode)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RefactoredGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; model.disable_debug()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        模型的字符串表示 (String representation of the model)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            str: 模型描述字符串 (model description string)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_backend_model</span><span class="p">)</span>
+
+        <span class="n">temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">fission_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">eos_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eos_model&#39;</span><span class="p">,</span> <span class="s1">&#39;virial&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RefactoredGasSwellingModel(temperature=</span><span class="si">{</span><span class="n">temp</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> K, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;fission_rate=</span><span class="si">{</span><span class="n">fission_rate</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> /m³/s, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;eos_model=&#39;</span><span class="si">{</span><span class="n">eos_model</span><span class="si">}</span><span class="s2">&#39;)&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

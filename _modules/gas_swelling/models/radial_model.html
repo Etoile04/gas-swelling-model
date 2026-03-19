@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gas_swelling.models.radial_model &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for gas_swelling.models.radial_model</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Radial Gas Swelling Model (一维径向气体肿胀模型)</span>
+
+<span class="sd">This module provides a 1D radial implementation of the gas swelling model</span>
+<span class="sd">that extends the 0D model to capture spatial variations across the fuel pellet</span>
+<span class="sd">radius.</span>
+
+<span class="sd">By default, ``RadialGasSwellingModel`` uses a fast node-wise solve path</span>
+<span class="sd">(``radial_solver_mode=&#39;decoupled&#39;``) that reuses the validated 0D backend at</span>
+<span class="sd">each radial node and reconstructs radial profiles efficiently. The original</span>
+<span class="sd">fully coupled radial ODE solve remains available via</span>
+<span class="sd">``radial_solver_mode=&#39;coupled&#39;`` when explicit radial coupling fidelity is</span>
+<span class="sd">more important than turnaround time.</span>
+
+<span class="sd">模块结构 (Module Structure):</span>
+<span class="sd">- Uses RadialMesh for 1D spatial discretization</span>
+<span class="sd">- Uses physics module for pressure, transport, and thermal calculations</span>
+<span class="sd">- Uses ode module for rate equation system</span>
+<span class="sd">- Uses solvers module for numerical integration</span>
+<span class="sd">- Supports both cylindrical and slab geometries</span>
+
+<span class="sd">主要类 (Main Classes):</span>
+<span class="sd">- RadialGasSwellingModel: 一维径向气体肿胀模型类</span>
+
+<span class="sd">使用示例 (Usage Example):</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.models.radial_model import RadialGasSwellingModel</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.params.parameters import create_default_parameters</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Create model with 10 radial nodes</span>
+<span class="sd">    &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">    &gt;&gt;&gt; params[&#39;temperature&#39;] = 773.15  # 500°C in Kelvin</span>
+<span class="sd">    &gt;&gt;&gt; model = RadialGasSwellingModel(params, n_nodes=10)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Solve simulation</span>
+<span class="sd">    &gt;&gt;&gt; results = model.solve(t_span=(0, 8640000), t_eval=time_points)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Access radial profiles</span>
+<span class="sd">    &gt;&gt;&gt; swelling_profile = results[&#39;swelling&#39;]  # shape: (n_time_points, n_nodes)</span>
+<span class="sd">    &gt;&gt;&gt; radius = model.mesh.nodes  # radial positions</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">lil_matrix</span><span class="p">,</span> <span class="n">csr_matrix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.radial_mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">RadialMesh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..params.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..physics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">calculate_gas_pressure</span><span class="p">,</span>
+    <span class="n">calculate_gas_influx</span><span class="p">,</span>
+    <span class="n">calculate_gas_release_rate</span><span class="p">,</span>
+    <span class="n">calculate_cv0</span><span class="p">,</span>
+    <span class="n">calculate_ci0</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..physics.radial_transport</span><span class="w"> </span><span class="kn">import</span> <span class="n">calculate_radial_transport_terms</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..ode</span><span class="w"> </span><span class="kn">import</span> <span class="n">swelling_ode_system</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..io</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DebugConfig</span><span class="p">,</span>
+    <span class="n">DebugHistory</span><span class="p">,</span>
+    <span class="n">update_debug_history</span><span class="p">,</span>
+    <span class="n">print_simulation_summary</span>
+<span class="p">)</span>
+
+<span class="c1"># Physical constants (物理常数)</span>
+<span class="n">BOLTZMANN_CONSTANT_J</span> <span class="o">=</span> <span class="mf">1.380649e-23</span>  <span class="c1"># J/K (玻尔兹曼常数)</span>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RadialGasSwellingModel</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    一维径向气体肿胀模型类 (1D Radial Gas Swelling Model Class)</span>
+
+<span class="sd">    This class provides a 1D radial implementation of the gas swelling model</span>
+<span class="sd">    for nuclear fuel materials. It extends the 0D model to capture spatial</span>
+<span class="sd">    variations in temperature, fission rate, and swelling across the fuel</span>
+<span class="sd">    pellet radius.</span>
+
+<span class="sd">    模型功能 (Model Features):</span>
+<span class="sd">    - 一维径向网格离散化 (1D radial mesh discretization)</span>
+<span class="sd">    - 默认使用逐节点快路径求解 (fast node-wise solve path by default)</span>
+<span class="sd">    - 可选完整耦合径向ODE求解 (optional fully coupled radial ODE solve)</span>
+<span class="sd">    - 支持圆柱和平板几何 (supports cylindrical and slab geometries)</span>
+<span class="sd">    - 计算径向肿胀分布 (calculates radial swelling distribution)</span>
+<span class="sd">    - 支持径向温度分布 (supports radial temperature profiles)</span>
+<span class="sd">    - 提供调试输出和可视化 (provides debug output and visualization)</span>
+
+<span class="sd">    每节点状态变量 (State Variables Per Node - 17 total):</span>
+<span class="sd">    0-7: Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf (gas and cavity variables)</span>
+<span class="sd">    8-15: cvb, cib, kvb, kib, cvf, cif, kvf, kif (point defect variables)</span>
+<span class="sd">    16: released_gas (cumulative gas release)</span>
+
+<span class="sd">    总状态变量数 (Total State Variables): 17 × n_nodes</span>
+
+<span class="sd">    参数 (Parameters):</span>
+<span class="sd">        params : Optional[Dict]</span>
+<span class="sd">            模型参数字典 (model parameter dictionary)</span>
+<span class="sd">            如果为None，使用默认参数 (use default parameters if None)</span>
+
+<span class="sd">        n_nodes : int, optional</span>
+<span class="sd">            径向节点数量 (number of radial nodes)</span>
+<span class="sd">            Default: 10</span>
+
+<span class="sd">        radius : float, optional</span>
+<span class="sd">            燃料芯块半径 (fuel pellet radius) in meters</span>
+<span class="sd">            Default: 0.003 m (3 mm)</span>
+
+<span class="sd">        geometry : str, optional</span>
+<span class="sd">            几何类型 (geometry type)</span>
+<span class="sd">            Options: &#39;cylindrical&#39; (default) or &#39;slab&#39;</span>
+
+<span class="sd">        temperature_profile : str, optional</span>
+<span class="sd">            温度分布类型 (temperature profile type)</span>
+<span class="sd">            Options: None (uniform), &#39;parabolic&#39;, &#39;user&#39;</span>
+
+<span class="sd">        temperature_data : np.ndarray, optional</span>
+<span class="sd">            用户指定的温度数组 (user-specified temperature array)</span>
+<span class="sd">            形状 (shape): (n_nodes,)</span>
+<span class="sd">            Required when temperature_profile=&#39;user&#39;</span>
+
+<span class="sd">        flux_depression : bool, optional</span>
+<span class="sd">            是否考虑通量抑制效应 (whether to include flux depression)</span>
+<span class="sd">            Default: False</span>
+
+<span class="sd">        params[&#39;radial_solver_mode&#39;] : str, optional</span>
+<span class="sd">            径向求解模式 (radial solve mode)</span>
+<span class="sd">            - &#39;decoupled&#39;: 默认快速模式，逐节点调用0D后端</span>
+<span class="sd">            - &#39;coupled&#39;: 原始完整耦合径向ODE系统</span>
+
+<span class="sd">    属性 (Attributes):</span>
+<span class="sd">        params : Dict</span>
+<span class="sd">            模型参数 (model parameters)</span>
+<span class="sd">        mesh : RadialMesh</span>
+<span class="sd">            径向网格对象 (radial mesh object)</span>
+<span class="sd">        n_nodes : int</span>
+<span class="sd">            径向节点数量 (number of radial nodes)</span>
+<span class="sd">        initial_state : np.ndarray</span>
+<span class="sd">            初始状态向量 (initial state vector)</span>
+<span class="sd">        temperature : np.ndarray</span>
+<span class="sd">            径向温度分布 (radial temperature profile)</span>
+<span class="sd">        fission_rate : np.ndarray</span>
+<span class="sd">            径向裂变率分布 (radial fission rate profile)</span>
+<span class="sd">        debug_config : DebugConfig</span>
+<span class="sd">            调试配置 (debug configuration)</span>
+<span class="sd">        debug_history : DebugHistory</span>
+<span class="sd">            调试历史记录 (debug history)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RadialGasSwellingModel.__init__">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">n_nodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.003</span><span class="p">,</span>
+        <span class="n">geometry</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="n">temperature_profile</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">temperature_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">flux_depression</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化一维径向气体肿胀模型 (Initialize 1D radial gas swelling model)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            params : Optional[Dict]</span>
+<span class="sd">                模型参数字典，如果为None则使用默认参数</span>
+<span class="sd">                (model parameter dictionary, use default if None)</span>
+
+<span class="sd">            n_nodes : int, optional</span>
+<span class="sd">                径向节点数量 (number of radial nodes)</span>
+<span class="sd">                Default: 10</span>
+
+<span class="sd">            radius : float, optional</span>
+<span class="sd">                燃料芯块半径 (fuel pellet radius) in meters</span>
+<span class="sd">                Default: 0.003 m (3 mm)</span>
+
+<span class="sd">            geometry : str, optional</span>
+<span class="sd">                几何类型 (geometry type)</span>
+<span class="sd">                Options: &#39;cylindrical&#39; (default) or &#39;slab&#39;</span>
+
+<span class="sd">            temperature_profile : str, optional</span>
+<span class="sd">                温度分布类型 (temperature profile type)</span>
+<span class="sd">                Options: None (uniform), &#39;parabolic&#39;, &#39;user&#39;</span>
+<span class="sd">                Default: None (uniform temperature from params)</span>
+<span class="sd">                Note: Use &#39;user&#39; with temperature_data parameter</span>
+
+<span class="sd">            temperature_data : np.ndarray, optional</span>
+<span class="sd">                用户指定的温度数组，形状为 (n_nodes,)</span>
+<span class="sd">                (user-specified temperature array, shape (n_nodes,))</span>
+<span class="sd">                Required when temperature_profile=&#39;user&#39;</span>
+<span class="sd">                Units: Kelvin</span>
+
+<span class="sd">            flux_depression : bool, optional</span>
+<span class="sd">                是否考虑通量抑制效应 (whether to include flux depression)</span>
+<span class="sd">                Default: False</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">            &gt;&gt;&gt; params[&#39;temperature&#39;] = 773.15</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(params, n_nodes=10)</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # User-specified temperature profile</span>
+<span class="sd">            &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">            &gt;&gt;&gt; T_profile = np.linspace(800, 600, 10)  # Linear gradient</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(params, n_nodes=10,</span>
+<span class="sd">            ...                                temperature_profile=&#39;user&#39;,</span>
+<span class="sd">            ...                                temperature_data=T_profile)</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # Enable the original fully coupled radial solve path</span>
+<span class="sd">            &gt;&gt;&gt; params[&#39;radial_solver_mode&#39;] = &#39;coupled&#39;</span>
+<span class="sd">            &gt;&gt;&gt; coupled_model = RadialGasSwellingModel(params, n_nodes=5)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 设置模型参数 (set model parameters)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span> <span class="k">if</span> <span class="n">params</span> <span class="k">else</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+
+        <span class="c1"># 设置默认值（如果未提供）(set defaults if not provided)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;Zvc&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Cavity bias for vacancy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;Zic&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Cavity bias for interstitial</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;radial_solver_mode&#39;</span><span class="p">,</span> <span class="s1">&#39;decoupled&#39;</span><span class="p">)</span>
+
+        <span class="c1"># 创建径向网格 (create radial mesh)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">RadialMesh</span><span class="p">(</span>
+            <span class="n">n_nodes</span><span class="o">=</span><span class="n">n_nodes</span><span class="p">,</span>
+            <span class="n">radius</span><span class="o">=</span><span class="n">radius</span><span class="p">,</span>
+            <span class="n">geometry</span><span class="o">=</span><span class="n">geometry</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">n_nodes</span>
+
+        <span class="c1"># 设置温度分布 (set temperature profile)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">=</span> <span class="n">temperature_profile</span> <span class="k">if</span> <span class="n">temperature_profile</span> <span class="k">else</span> <span class="s1">&#39;uniform&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span> <span class="o">=</span> <span class="n">temperature_data</span>  <span class="c1"># Store user-provided data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_temperature_profile</span><span class="p">()</span>
+
+        <span class="c1"># 设置裂变率分布（通量抑制）(set fission rate profile with flux depression)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_flux_depression</span> <span class="o">=</span> <span class="n">flux_depression</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fission_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_fission_rate_profile</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_node_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_node_parameters</span><span class="p">()</span>
+
+        <span class="c1"># 初始化状态向量 (initialize state vector)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_state</span><span class="p">()</span>
+
+        <span class="c1"># 初始化调试系统 (initialize debug system)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span> <span class="o">=</span> <span class="n">DebugConfig</span><span class="p">(</span>
+            <span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">time_step_interval</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+            <span class="n">save_to_file</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">output_file</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_history</span> <span class="o">=</span> <span class="n">DebugHistory</span><span class="p">()</span>
+
+        <span class="c1"># 求解器状态标志 (solver status flags)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_jacobian_sparsity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_jacobian_sparsity</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_temperature_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化径向温度分布 (Initialize radial temperature profile)</span>
+
+<span class="sd">        根据temperature_profile类型设置温度分布：</span>
+<span class="sd">        - &#39;uniform&#39;: 所有节点使用相同温度（来自params）</span>
+<span class="sd">        - &#39;parabolic&#39;: 抛物线分布，中心温度最高</span>
+<span class="sd">        - &#39;user&#39;: 用户自定义（通过temperature_data参数提供）</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 温度数组，形状 (n_nodes,)</span>
+
+<span class="sd">        异常 (Raises):</span>
+<span class="sd">            ValueError: 如果temperature_profile=&#39;user&#39;但未提供temperature_data</span>
+<span class="sd">            ValueError: 如果temperature_data长度与n_nodes不匹配</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">T_base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;uniform&#39;</span><span class="p">:</span>
+            <span class="c1"># 均匀温度分布</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="n">T_base</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;parabolic&#39;</span><span class="p">:</span>
+            <span class="c1"># 抛物线温度分布：T(r) = T_center - (T_center - T_surface) * (r/R)^2</span>
+            <span class="c1"># 中心温度比表面温度高20%</span>
+            <span class="n">T_center</span> <span class="o">=</span> <span class="n">T_base</span> <span class="o">*</span> <span class="mf">1.2</span>
+            <span class="n">T_surface</span> <span class="o">=</span> <span class="n">T_base</span> <span class="o">*</span> <span class="mf">0.9</span>
+            <span class="n">r_normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">radius</span>
+            <span class="k">return</span> <span class="n">T_center</span> <span class="o">-</span> <span class="p">(</span><span class="n">T_center</span> <span class="o">-</span> <span class="n">T_surface</span><span class="p">)</span> <span class="o">*</span> <span class="n">r_normalized</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;user&#39;</span><span class="p">:</span>
+            <span class="c1"># 用户指定的温度分布</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;temperature_data must be provided when temperature_profile=&#39;user&#39;. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Expected array of shape (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="si">}</span><span class="s2">,)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;temperature_data length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span><span class="p">)</span><span class="si">}</span><span class="s2">) must match &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;n_nodes (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 默认均匀分布</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="n">T_base</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_fission_rate_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化径向裂变率分布 (Initialize radial fission rate profile)</span>
+
+<span class="sd">        考虑通量抑制效应：中心区域裂变率较低，边缘较高</span>
+<span class="sd">        (Flux depression: lower fission rate at center, higher at edge)</span>
+
+<span class="sd">        对于圆柱形燃料，通量抑制通常由以下因素引起：</span>
+<span class="sd">        - 燃料自屏蔽效应 (self-shielding effect)</span>
+<span class="sd">        - 钚积累在中心区域导致的中子吸收不均 (Pu buildup)</span>
+
+<span class="sd">        使用贝塞尔函数近似：F(r) 随径向位置变化</span>
+<span class="sd">        中心(r=0)处通量最低，表面(r=R)处通量最高</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 裂变率数组，形状 (n_nodes,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">F_base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_flux_depression</span><span class="p">:</span>
+            <span class="c1"># 无通量抑制，均匀分布 (no flux depression, uniform distribution)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="n">F_base</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 通量抑制模型：使用贝塞尔函数近似</span>
+            <span class="c1"># Flux depression model using Bessel function approximation</span>
+            <span class="c1"># J0(0) = 1, J0(2.405) ≈ 0</span>
+            <span class="c1"># 反转曲线使得中心通量被抑制: F(r) ~ 1 - J0(2.405*r/R)</span>
+            <span class="c1"># Invert curve to depress center flux: F(r) ~ 1 - J0(2.405*r/R)</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">j0</span>
+            <span class="n">r_normalized</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">radius</span>
+
+            <span class="c1"># 计算抑制因子 (calculate depression factor)</span>
+            <span class="c1"># j0 在中心为1，表面为0</span>
+            <span class="c1"># 1 - j0 在中心为0，表面为1</span>
+            <span class="n">j0_factor</span> <span class="o">=</span> <span class="n">j0</span><span class="p">(</span><span class="mf">2.405</span> <span class="o">*</span> <span class="n">r_normalized</span><span class="p">)</span>
+
+            <span class="c1"># 创建通量抑制分布：中心低，表面高</span>
+            <span class="c1"># Center: 1 - 1 = 0 (most depressed)</span>
+            <span class="c1"># Surface: 1 - 0 = 1 (least depressed)</span>
+            <span class="c1"># 然后缩放确保中心约为基值的70-80%</span>
+            <span class="n">depression_factor</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">j0_factor</span><span class="p">)</span>
+
+            <span class="c1"># 归一化使得平均值等于基值 (normalize to maintain average = base value)</span>
+            <span class="n">avg_factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">depression_factor</span><span class="p">)</span>
+            <span class="n">depression_factor</span> <span class="o">=</span> <span class="n">depression_factor</span> <span class="o">/</span> <span class="n">avg_factor</span>
+
+            <span class="k">return</span> <span class="n">F_base</span> <span class="o">*</span> <span class="n">depression_factor</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        初始化状态变量 (Initialize state variables)</span>
+
+<span class="sd">        为每个径向节点创建独立的17状态变量向量</span>
+<span class="sd">        (Creates independent 17-state-variable vector for each radial node)</span>
+
+<span class="sd">        返回包含17×n_nodes个元素的初始状态向量 (Returns initial state vector with 17×n_nodes elements):</span>
+<span class="sd">        - 每个节点包含 (Each node contains):</span>
+<span class="sd">          * 气体浓度 (gas concentrations): Cgb, Cgf</span>
+<span class="sd">          * 空腔浓度 (cavity concentrations): Ccb, Ccf</span>
+<span class="sd">          * 每个空腔气体原子数 (atoms per cavity): Ncb, Ncf</span>
+<span class="sd">          * 空腔半径 (cavity radii): Rcb, Rcf</span>
+<span class="sd">          * 点缺陷浓度 (point defect concentrations): cvb, cib, cvf, cif</span>
+<span class="sd">          * 点缺陷汇聚强度 (point defect sink strengths): kvb, kib, kvf, kif</span>
+<span class="sd">          * 累积释放气体 (cumulative released gas): released_gas</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 17×n_nodes个元素的初始状态向量 (17×n_nodes-element initial state vector)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(n_nodes=5)</span>
+<span class="sd">            &gt;&gt;&gt; state = model.initial_state</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;State vector size: {len(state)}&quot;)  # 85</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 初始气泡参数 (initial bubble parameters)</span>
+        <span class="n">Nc_init</span> <span class="o">=</span> <span class="mf">5.0</span>      <span class="c1"># 初始气泡内气体数 (initial atoms per bubble)</span>
+        <span class="n">Cg_init</span> <span class="o">=</span> <span class="mf">0.0</span>      <span class="c1"># 初始气体浓度 (initial gas concentration, atoms/m³)</span>
+        <span class="n">Cc_init</span> <span class="o">=</span> <span class="mf">0.0</span>      <span class="c1"># 初始气腔浓度 (initial cavity concentration, cavities/m³)</span>
+        <span class="n">R_init</span> <span class="o">=</span> <span class="mf">1e-8</span>      <span class="c1"># 初始半径 (initial radius, 10 nm)</span>
+
+        <span class="c1"># 初始汇聚强度参数 (initial sink strength parameters)</span>
+        <span class="n">kv_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]</span>
+        <span class="n">ki_param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 为每个节点构建状态向量 (build state vector for each node)</span>
+        <span class="n">state_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="c1"># 计算该节点的热平衡点缺陷浓度</span>
+            <span class="c1"># (calculate thermal equilibrium defect concentrations for this node)</span>
+            <span class="n">T_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">cv0</span> <span class="o">=</span> <span class="n">calculate_cv0</span><span class="p">(</span>
+                <span class="n">temperature</span><span class="o">=</span><span class="n">T_i</span><span class="p">,</span>
+                <span class="n">Evf_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evf_coeffs&#39;</span><span class="p">],</span>
+                <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">],</span>
+                <span class="n">Evfmuti</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Evfmuti&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">ci0</span> <span class="o">=</span> <span class="n">calculate_ci0</span><span class="p">(</span>
+                <span class="n">temperature</span><span class="o">=</span><span class="n">T_i</span><span class="p">,</span>
+                <span class="n">Eif_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Eif_coeffs&#39;</span><span class="p">],</span>
+                <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+            <span class="p">)</span>
+
+            <span class="c1"># 构建该节点的状态向量 (build state vector for this node)</span>
+            <span class="c1"># State vector per node: [Cgb, Ccb, Ncb, Rcb, Cgf, Ccf, Ncf, Rcf,</span>
+            <span class="c1">#                         cvb, cib, cvf, cif, released_gas, kvb, kib, kvf, kif]</span>
+            <span class="n">node_state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+                <span class="n">Cg_init</span><span class="p">,</span>     <span class="c1"># 0: Cgb - 基体气体浓度 (bulk gas concentration)</span>
+                <span class="n">Cc_init</span><span class="p">,</span>     <span class="c1"># 1: Ccb - 基体气腔浓度 (bulk cavity concentration)</span>
+                <span class="n">Nc_init</span><span class="p">,</span>     <span class="c1"># 2: Ncb - 基体每个气腔气体原子数 (atoms per bulk cavity)</span>
+                <span class="n">R_init</span><span class="p">,</span>      <span class="c1"># 3: Rcb - 基体气腔半径 (bulk cavity radius)</span>
+                <span class="n">Cg_init</span><span class="p">,</span>     <span class="c1"># 4: Cgf - 晶界气体浓度 (grain boundary gas concentration)</span>
+                <span class="n">Cc_init</span><span class="p">,</span>     <span class="c1"># 5: Ccf - 晶界气腔浓度 (grain boundary cavity concentration)</span>
+                <span class="n">Nc_init</span><span class="p">,</span>     <span class="c1"># 6: Ncf - 晶界每个气腔气体原子数 (atoms per boundary cavity)</span>
+                <span class="n">R_init</span><span class="p">,</span>      <span class="c1"># 7: Rcf - 晶界气腔半径 (boundary cavity radius)</span>
+                <span class="n">cv0</span><span class="p">,</span>         <span class="c1"># 8: cvb - 基体空位浓度 (bulk vacancy concentration)</span>
+                <span class="n">ci0</span><span class="p">,</span>         <span class="c1"># 9: cib - 基体间隙原子浓度 (bulk interstitial concentration)</span>
+                <span class="n">cv0</span><span class="p">,</span>         <span class="c1"># 10: cvf - 晶界空位浓度 (boundary vacancy concentration)</span>
+                <span class="n">ci0</span><span class="p">,</span>         <span class="c1"># 11: cif - 晶界间隙原子浓度 (boundary interstitial concentration)</span>
+                <span class="mf">0.0</span><span class="p">,</span>         <span class="c1"># 12: released_gas - 累积释放气体 (cumulative gas release)</span>
+                <span class="n">kv_param</span><span class="p">,</span>    <span class="c1"># 13: kvb - 基体空位汇聚强度 (bulk vacancy sink strength)</span>
+                <span class="n">ki_param</span><span class="p">,</span>    <span class="c1"># 14: kib - 基体间隙原子汇聚强度 (bulk interstitial sink strength)</span>
+                <span class="n">kv_param</span><span class="p">,</span>    <span class="c1"># 15: kvf - 晶界空位汇聚强度 (boundary vacancy sink strength)</span>
+                <span class="n">ki_param</span>     <span class="c1"># 16: kif - 晶界间隙原子汇聚强度 (boundary interstitial sink strength)</span>
+            <span class="p">])</span>
+
+            <span class="n">state_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node_state</span><span class="p">)</span>
+
+        <span class="c1"># 合并所有节点的状态向量 (concatenate all node state vectors)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">state_list</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_node_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Cache per-node parameter dictionaries for reuse during RHS evaluation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">node_params</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="n">params_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">params_i</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">params_i</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fission_rate</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">node_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params_i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">node_params</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_jacobian_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Approximate Jacobian sparsity for the reduced multi-node radial system.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n_state</span> <span class="o">=</span> <span class="mi">13</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="n">lil_matrix</span><span class="p">((</span><span class="n">n_state</span><span class="p">,</span> <span class="n">n_state</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+        <span class="n">base_dependencies</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
+            <span class="mi">7</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+            <span class="mi">8</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>
+            <span class="mi">9</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>
+            <span class="mi">10</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+            <span class="mi">11</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+            <span class="mi">12</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">node_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="mi">13</span> <span class="o">*</span> <span class="n">node_idx</span>
+            <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">base_dependencies</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+                    <span class="n">pattern</span><span class="p">[</span><span class="n">offset</span> <span class="o">+</span> <span class="n">row</span><span class="p">,</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="k">for</span> <span class="n">neighbor_idx</span> <span class="ow">in</span> <span class="p">(</span><span class="n">node_idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">node_idx</span><span class="p">,</span> <span class="n">node_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">neighbor_idx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">:</span>
+                    <span class="n">neighbor_offset</span> <span class="o">=</span> <span class="mi">13</span> <span class="o">*</span> <span class="n">neighbor_idx</span>
+                    <span class="n">pattern</span><span class="p">[</span><span class="n">offset</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span> <span class="n">neighbor_offset</span> <span class="o">+</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">pattern</span><span class="p">[</span><span class="n">offset</span> <span class="o">+</span> <span class="mi">4</span><span class="p">,</span> <span class="n">neighbor_offset</span> <span class="o">+</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="n">pattern</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compress_solver_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Drop constant sink-strength fields before time integration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">full_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">full_state</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">17</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">full_matrix</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">13</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_expand_solver_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">compact_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reinsert constant sink-strength fields into a compact solver state.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">compact_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">compact_state</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+        <span class="n">full_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">full_matrix</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">13</span><span class="p">]</span> <span class="o">=</span> <span class="n">compact_matrix</span>
+        <span class="n">full_matrix</span><span class="p">[:,</span> <span class="mi">13</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]</span>
+        <span class="n">full_matrix</span><span class="p">[:,</span> <span class="mi">14</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]</span>
+        <span class="n">full_matrix</span><span class="p">[:,</span> <span class="mi">15</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]</span>
+        <span class="n">full_matrix</span><span class="p">[:,</span> <span class="mi">16</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">full_matrix</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        ODE方程方法别名 (ODE equations method alias)</span>
+
+<span class="sd">        This is an alias for _equations_wrapper to maintain compatibility</span>
+<span class="sd">        with existing solver interface.</span>
+
+<span class="sd">        这是_equations_wrapper的别名，用于保持与求解器接口的兼容性。</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+<span class="sd">            state : np.ndarray</span>
+<span class="sd">                状态向量 (state vector)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 状态导数向量 (state derivative vector)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_equations_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        ODE方程包装器 (ODE equations wrapper)</span>
+
+<span class="sd">        将全局状态向量分解为各节点的ODE系统，并添加节点间的径向输运耦合</span>
+<span class="sd">        (Decomposes global state vector into ODE systems for each node with spatial coupling)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+<span class="sd">            state : np.ndarray</span>
+<span class="sd">                当前全局状态向量 (current global state vector)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 全局状态导数向量 (global state derivative vector)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 更新当前时间 (update current time)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="n">t</span>
+
+        <span class="n">use_full_state</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">17</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span>
+        <span class="k">if</span> <span class="n">use_full_state</span><span class="p">:</span>
+            <span class="n">state_full</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">17</span><span class="p">))</span>
+            <span class="n">state_dynamic</span> <span class="o">=</span> <span class="n">state_full</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">13</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">state_dynamic</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+            <span class="n">state_full</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expand_solver_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">17</span><span class="p">))</span>
+
+        <span class="c1"># 初始化导数数组 (initialize derivatives array)</span>
+        <span class="n">derivatives</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">state_full</span> <span class="k">if</span> <span class="n">use_full_state</span> <span class="k">else</span> <span class="n">state_dynamic</span><span class="p">)</span>
+
+        <span class="c1"># 首先计算每个节点的独立ODE (first calculate independent ODE for each node)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="c1"># 获取该节点的状态 (get state for this node)</span>
+            <span class="n">node_state</span> <span class="o">=</span> <span class="n">state_full</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+            <span class="c1"># 调用ODE系统 (call ODE system)</span>
+            <span class="n">node_derivatives</span> <span class="o">=</span> <span class="n">swelling_ode_system</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">node_state</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_params</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">derivatives</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_derivatives</span> <span class="k">if</span> <span class="n">use_full_state</span> <span class="k">else</span> <span class="n">node_derivatives</span><span class="p">[:</span><span class="mi">13</span><span class="p">]</span>
+
+        <span class="c1"># 添加径向输运耦合 (add radial transport coupling)</span>
+        <span class="c1"># 计算气体浓度的径向输运项 (calculate radial transport terms for gas concentrations)</span>
+        <span class="n">transport_terms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_radial_coupling</span><span class="p">(</span><span class="n">state_dynamic</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+        <span class="c1"># 将输运项添加到导数 (add transport terms to derivatives)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="c1"># Cgb (基体气体浓度, bulk gas concentration, index 0)</span>
+            <span class="n">derivatives</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">transport_terms</span><span class="p">[</span><span class="s1">&#39;dCgb_radial&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="c1"># Cgf (晶界气体浓度, grain boundary gas concentration, index 4)</span>
+            <span class="n">derivatives</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">+=</span> <span class="n">transport_terms</span><span class="p">[</span><span class="s1">&#39;dCgf_radial&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="c1"># 重塑回全局状态向量 (reshape back to global state vector)</span>
+        <span class="k">return</span> <span class="n">derivatives</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_radial_coupling</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_reshaped</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算节点间的径向输运耦合 (Calculate radial transport coupling between nodes)</span>
+
+<span class="sd">        计算由于径向浓度梯度引起的气体输运项</span>
+<span class="sd">        (Calculate gas transport terms due to radial concentration gradients)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            state_reshaped : np.ndarray</span>
+<span class="sd">                重塑后的状态向量，形状 (n_nodes, 17)</span>
+<span class="sd">                (reshaped state vector, shape (n_nodes, 17))</span>
+<span class="sd">            t : float</span>
+<span class="sd">                当前时间 (current time)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            Dict[str, np.ndarray]: 径向输运项字典 (radial transport terms dictionary)</span>
+<span class="sd">                - &#39;dCgb_radial&#39;: 基体气体浓度的径向输运项 (n_nodes,)</span>
+<span class="sd">                - &#39;dCgf_radial&#39;: 晶界气体浓度的径向输运项 (n_nodes,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 提取气体浓度 (extract gas concentrations)</span>
+        <span class="n">Cgb</span> <span class="o">=</span> <span class="n">state_reshaped</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># 基体气体浓度 (bulk gas concentration)</span>
+        <span class="n">Cgf</span> <span class="o">=</span> <span class="n">state_reshaped</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">]</span>  <span class="c1"># 晶界气体浓度 (grain boundary gas concentration)</span>
+
+        <span class="c1"># 获取基线温度用于计算扩散系数 (get baseline temperature for diffusivity calculation)</span>
+        <span class="n">T_base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span>
+        <span class="n">kB_ev</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 计算气体扩散系数 (calculate gas diffusivities)</span>
+        <span class="c1"># 基体气体扩散系数 (bulk gas diffusivity)</span>
+        <span class="n">Dgb</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb_prefactor&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb_activation_energy&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">kB_ev</span> <span class="o">*</span> <span class="n">T_base</span><span class="p">))</span> <span class="o">+</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgb_fission_term&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">])</span>
+
+        <span class="c1"># 晶界气体扩散系数 (grain boundary gas diffusivity)</span>
+        <span class="n">Dgf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Dgf_multiplier&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">Dgb</span>
+
+        <span class="c1"># 获取几何因子 (get geometry factor)</span>
+        <span class="n">geometry_factor</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span> <span class="o">==</span> <span class="s1">&#39;cylindrical&#39;</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="c1"># 计算径向输运项 (calculate radial transport terms)</span>
+        <span class="c1"># 使用径向输运模块计算通量散度 (use radial transport module to calculate flux divergence)</span>
+        <span class="n">Cgb_transport</span> <span class="o">=</span> <span class="n">calculate_radial_transport_terms</span><span class="p">(</span>
+            <span class="n">Cgb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">Dgb</span><span class="p">,</span> <span class="n">geometry_factor</span><span class="p">,</span> <span class="n">surface_flux</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">Cgf_transport</span> <span class="o">=</span> <span class="n">calculate_radial_transport_terms</span><span class="p">(</span>
+            <span class="n">Cgf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span> <span class="n">Dgf</span><span class="p">,</span> <span class="n">geometry_factor</span><span class="p">,</span> <span class="n">surface_flux</span><span class="o">=</span><span class="kc">None</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 通量散度是浓度变化率 (flux divergence is the concentration rate of change)</span>
+        <span class="c1"># dC/dt = -div_flux (负号因为通量流出导致浓度降低)</span>
+        <span class="c1"># (negative sign because flux out reduces concentration)</span>
+        <span class="n">dCgb_radial</span> <span class="o">=</span> <span class="o">-</span><span class="n">Cgb_transport</span><span class="p">[</span><span class="s1">&#39;div_flux&#39;</span><span class="p">]</span>
+        <span class="n">dCgf_radial</span> <span class="o">=</span> <span class="o">-</span><span class="n">Cgf_transport</span><span class="p">[</span><span class="s1">&#39;div_flux&#39;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;dCgb_radial&#39;</span><span class="p">:</span> <span class="n">dCgb_radial</span><span class="p">,</span>
+            <span class="s1">&#39;dCgf_radial&#39;</span><span class="p">:</span> <span class="n">dCgf_radial</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_solve_decoupled</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">t_eval</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">output_interval</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fast node-wise solve path that reuses the validated 0D model per radial node.</span>
+
+<span class="sd">        This is the default execution mode because the fully coupled 1D ODE system is</span>
+<span class="sd">        numerically very stiff and can be prohibitively slow for test and workflow usage.</span>
+<span class="sd">        The original coupled solver remains available via `radial_solver_mode=&#39;coupled&#39;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.refactored_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">RefactoredGasSwellingModel</span>
+
+        <span class="n">node_initial_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">17</span><span class="p">))</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)}</span>
+
+        <span class="n">result_keys</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;Cgb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncb&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;Cgf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncf&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcf&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;cvb&#39;</span><span class="p">,</span> <span class="s1">&#39;cib&#39;</span><span class="p">,</span> <span class="s1">&#39;kvb&#39;</span><span class="p">,</span> <span class="s1">&#39;kib&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;cvf&#39;</span><span class="p">,</span> <span class="s1">&#39;cif&#39;</span><span class="p">,</span> <span class="s1">&#39;kvf&#39;</span><span class="p">,</span> <span class="s1">&#39;kif&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;released_gas&#39;</span><span class="p">,</span> <span class="s1">&#39;swelling&#39;</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">result_keys</span><span class="p">:</span>
+            <span class="n">results</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">node_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="n">node_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_params</span><span class="p">[</span><span class="n">node_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">node_model</span> <span class="o">=</span> <span class="n">RefactoredGasSwellingModel</span><span class="p">(</span><span class="n">node_params</span><span class="p">)</span>
+            <span class="n">node_initial_state</span> <span class="o">=</span> <span class="n">node_initial_states</span><span class="p">[</span><span class="n">node_idx</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">node_model</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="n">node_initial_state</span>
+            <span class="n">node_method</span> <span class="o">=</span> <span class="s1">&#39;LSODA&#39;</span> <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;RK23&#39;</span><span class="p">,</span> <span class="s1">&#39;RK45&#39;</span><span class="p">}</span> <span class="k">else</span> <span class="n">method</span>
+
+            <span class="n">backend_model</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node_model</span><span class="p">,</span> <span class="s1">&#39;_backend_model&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">backend_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">backend_model</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="n">node_initial_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+            <span class="n">node_result</span> <span class="o">=</span> <span class="n">node_model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+                <span class="n">t_span</span><span class="o">=</span><span class="n">t_span</span><span class="p">,</span>
+                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
+                <span class="n">method</span><span class="o">=</span><span class="n">node_method</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">max_dt</span><span class="o">=</span><span class="n">max_dt</span><span class="p">,</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span><span class="p">,</span>
+                <span class="n">output_interval</span><span class="o">=</span><span class="n">output_interval</span><span class="p">,</span>
+                <span class="n">debug_enabled</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">result_keys</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">node_result</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">node_result</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;kvb&#39;</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">),</span> <span class="n">node_initial_state</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;kib&#39;</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">),</span> <span class="n">node_initial_state</span><span class="p">[</span><span class="mi">14</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;kvf&#39;</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">),</span> <span class="n">node_initial_state</span><span class="p">[</span><span class="mi">15</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;kif&#39;</span><span class="p">:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">),</span> <span class="n">node_initial_state</span><span class="p">[</span><span class="mi">16</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing key &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; in node solve results&quot;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;cvb&#39;</span><span class="p">,</span> <span class="s1">&#39;cib&#39;</span><span class="p">,</span> <span class="s1">&#39;cvf&#39;</span><span class="p">,</span> <span class="s1">&#39;cif&#39;</span><span class="p">}:</span>
+                    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">)</span>
+
+                <span class="n">results</span><span class="p">[</span><span class="n">key</span><span class="p">][:,</span> <span class="n">node_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_time</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+<div class="viewcode-block" id="RadialGasSwellingModel.solve">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+              <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7200000</span><span class="p">),</span>
+              <span class="n">t_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;LSODA&#39;</span><span class="p">,</span>
+              <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-9</span><span class="p">,</span>
+              <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
+              <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000000</span><span class="p">,</span>
+              <span class="n">output_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+              <span class="n">debug_enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve the 1D radial gas swelling model.</span>
+
+<span class="sd">        The execution path is selected from ``params[&#39;radial_solver_mode&#39;]``:</span>
+<span class="sd">        ``&#39;decoupled&#39;`` is the default fast mode, while ``&#39;coupled&#39;`` keeps the</span>
+<span class="sd">        original fully coupled radial ODE system available.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_span: Time span ``(t_start, t_end)`` in seconds.</span>
+<span class="sd">            t_eval: Optional output times. If ``None``, 100 points are generated.</span>
+<span class="sd">            method: ``solve_ivp`` method name. ``LSODA`` is the default.</span>
+<span class="sd">            dt: Initial time step in seconds.</span>
+<span class="sd">            max_dt: Maximum time step in seconds.</span>
+<span class="sd">            max_steps: Maximum solver steps.</span>
+<span class="sd">            output_interval: Debug output interval in steps.</span>
+<span class="sd">            debug_enabled: Whether to record debug output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A result dictionary whose values are radial arrays with shape</span>
+<span class="sd">            ``(n_time, n_nodes)`` for fields such as ``swelling``, ``Rcb``,</span>
+<span class="sd">            ``released_gas``, and the defect concentrations.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If the solver fails.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(n_nodes=5)</span>
+<span class="sd">            &gt;&gt;&gt; time_points = np.linspace(0, 8640000, 100)</span>
+<span class="sd">            &gt;&gt;&gt; results = model.solve(t_span=(0, 8640000), t_eval=time_points)</span>
+<span class="sd">            &gt;&gt;&gt; final_swelling = results[&#39;swelling&#39;][-1, :]</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Centerline swelling: {final_swelling[0]:.2f}%&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 配置调试 (configure debug)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="n">debug_enabled</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="n">output_interval</span>
+
+        <span class="c1"># 如果未指定输出时间点，创建默认的时间点</span>
+        <span class="c1"># (create default time points if not specified)</span>
+        <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
+
+        <span class="n">radial_solver_mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;radial_solver_mode&#39;</span><span class="p">,</span> <span class="s1">&#39;decoupled&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">radial_solver_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;decoupled&#39;</span><span class="p">,</span> <span class="s1">&#39;coupled&#39;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;radial_solver_mode must be &#39;decoupled&#39; or &#39;coupled&#39;, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">radial_solver_mode</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">radial_solver_mode</span> <span class="o">!=</span> <span class="s1">&#39;coupled&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_solve_decoupled</span><span class="p">(</span>
+                <span class="n">t_span</span><span class="o">=</span><span class="n">t_span</span><span class="p">,</span>
+                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
+                <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">max_dt</span><span class="o">=</span><span class="n">max_dt</span><span class="p">,</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span><span class="p">,</span>
+                <span class="n">output_interval</span><span class="o">=</span><span class="n">output_interval</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 映射方法名称到scipy方法 (map method name to scipy method)</span>
+        <span class="n">scipy_method</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;RK23&#39;</span><span class="p">:</span> <span class="s1">&#39;RK23&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;RK45&#39;</span><span class="p">:</span> <span class="s1">&#39;RK45&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;BDF&#39;</span><span class="p">:</span> <span class="s1">&#39;BDF&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;Radau&#39;</span><span class="p">:</span> <span class="s1">&#39;Radau&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;LSODA&#39;</span><span class="p">:</span> <span class="s1">&#39;LSODA&#39;</span>
+        <span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="s1">&#39;LSODA&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Let implicit solvers estimate a reasonable first step for stiff systems.</span>
+        <span class="n">total_time</span> <span class="o">=</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">first_step</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">dt</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dt</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">scipy_method</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;RK23&#39;</span><span class="p">,</span> <span class="s1">&#39;RK45&#39;</span><span class="p">}:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">)</span> <span class="ow">and</span> <span class="n">total_time</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">):</span>
+                <span class="n">first_step</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">total_time</span><span class="p">)</span>
+
+        <span class="n">solve_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">,</span>
+            <span class="s1">&#39;t_span&#39;</span><span class="p">:</span> <span class="n">t_span</span><span class="p">,</span>
+            <span class="s1">&#39;y0&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compress_solver_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span><span class="p">),</span>
+            <span class="s1">&#39;t_eval&#39;</span><span class="p">:</span> <span class="n">t_eval</span><span class="p">,</span>
+            <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">scipy_method</span><span class="p">,</span>
+            <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="n">max_dt</span><span class="p">,</span>
+            <span class="s1">&#39;vectorized&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+            <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">first_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">solve_kwargs</span><span class="p">[</span><span class="s1">&#39;first_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">first_step</span>
+        <span class="k">if</span> <span class="n">scipy_method</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;BDF&#39;</span><span class="p">,</span> <span class="s1">&#39;Radau&#39;</span><span class="p">}:</span>
+            <span class="n">solve_kwargs</span><span class="p">[</span><span class="s1">&#39;jac_sparsity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_jacobian_sparsity</span>
+
+        <span class="c1"># 使用scipy的solve_ivp求解 (solve using scipy&#39;s solve_ivp)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="o">**</span><span class="n">solve_kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver_success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solver failed: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solver failed: </span><span class="si">{</span><span class="n">sol</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 重构结果：将全局状态向量分解为各节点的结果</span>
+        <span class="c1"># (restructure results: decompose global state vector into per-node results)</span>
+        <span class="n">n_time_points</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span>
+        <span class="p">}</span>
+
+        <span class="c1"># 重塑状态变量 (reshape state variables)</span>
+        <span class="c1"># sol.y的形状是 (13*n_nodes, n_time_points)</span>
+        <span class="c1"># 我们需要将其转换为 (n_time_points, n_nodes) 的每个动态变量</span>
+        <span class="n">state_time_series</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># shape: (n_time, 13*n_nodes)</span>
+
+        <span class="c1"># 为每个状态变量创建时间序列 (create time series for each state variable)</span>
+        <span class="n">state_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;Cgb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncb&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;Cgf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncf&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcf&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;cvb&#39;</span><span class="p">,</span> <span class="s1">&#39;cib&#39;</span><span class="p">,</span> <span class="s1">&#39;cvf&#39;</span><span class="p">,</span> <span class="s1">&#39;cif&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;released_gas&#39;</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">var_idx</span><span class="p">,</span> <span class="n">var_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state_names</span><span class="p">):</span>
+            <span class="c1"># 提取该变量在所有节点、所有时间点的值</span>
+            <span class="c1"># (extract values for this variable at all nodes and all time points)</span>
+            <span class="n">var_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_time_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">t_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_time_points</span><span class="p">):</span>
+                <span class="c1"># 重塑该时间点的状态向量</span>
+                <span class="n">state_at_t</span> <span class="o">=</span> <span class="n">state_time_series</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+                <span class="n">var_data</span><span class="p">[</span><span class="n">t_idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">state_at_t</span><span class="p">[:,</span> <span class="n">var_idx</span><span class="p">]</span>
+
+            <span class="n">results</span><span class="p">[</span><span class="n">var_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">var_data</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="p">(</span><span class="s1">&#39;kvb&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]),</span>
+            <span class="p">(</span><span class="s1">&#39;kib&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]),</span>
+            <span class="p">(</span><span class="s1">&#39;kvf&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kv_param&#39;</span><span class="p">]),</span>
+            <span class="p">(</span><span class="s1">&#39;kif&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;ki_param&#39;</span><span class="p">]),</span>
+        <span class="p">):</span>
+            <span class="n">results</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_time_points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">),</span> <span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="c1"># 计算肿胀率百分比 (calculate swelling percentage)</span>
+        <span class="n">Rcb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>  <span class="c1"># (n_time, n_nodes)</span>
+        <span class="n">Rcf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">]</span>
+        <span class="n">Ccb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">]</span>
+        <span class="n">Ccf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">]</span>
+        <span class="n">V_bubble_b</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcb</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccb</span>
+        <span class="n">V_bubble_f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcf</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccf</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">V_bubble_b</span> <span class="o">+</span> <span class="n">V_bubble_f</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+
+        <span class="c1"># 如果启用调试，打印摘要 (print summary if debug enabled)</span>
+        <span class="k">if</span> <span class="n">debug_enabled</span><span class="p">:</span>
+            <span class="n">print_simulation_summary</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.set_temperature_profile">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.set_temperature_profile">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_temperature_profile</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">temperature_data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">reinitialize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        设置新的径向温度分布 (Set new radial temperature profile)</span>
+
+<span class="sd">        Allows updating the temperature profile after model initialization.</span>
+<span class="sd">        Useful for coupled thermal-mechanical simulations or time-dependent</span>
+<span class="sd">        temperature boundary conditions.</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            temperature_data : np.ndarray</span>
+<span class="sd">                新的温度数组，形状为 (n_nodes,)</span>
+<span class="sd">                (new temperature array, shape (n_nodes,))</span>
+<span class="sd">                Units: Kelvin</span>
+<span class="sd">            reinitialize : bool, optional</span>
+<span class="sd">                是否重新初始化状态变量（重新计算热平衡浓度）</span>
+<span class="sd">                (whether to reinitialize state variables with new thermal equilibrium)</span>
+<span class="sd">                Default: True</span>
+
+<span class="sd">        异常 (Raises):</span>
+<span class="sd">            ValueError: 如果temperature_data长度与n_nodes不匹配</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(n_nodes=10)</span>
+<span class="sd">            &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">            &gt;&gt;&gt; new_profile = np.linspace(900, 700, 10)</span>
+<span class="sd">            &gt;&gt;&gt; model.set_temperature_profile(new_profile)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">temperature_data</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;temperature_data length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">temperature_data</span><span class="p">)</span><span class="si">}</span><span class="s2">) must match &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;n_nodes (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">temperature_data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">=</span> <span class="s1">&#39;user&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_data</span> <span class="o">=</span> <span class="n">temperature_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_node_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_node_parameters</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">reinitialize</span><span class="p">:</span>
+            <span class="c1"># Reinitialize state with new temperatures</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_state</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.get_temperature_profile">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.get_temperature_profile">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_temperature_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        获取当前径向温度分布 (Get current radial temperature profile)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            np.ndarray: 温度数组，形状 (n_nodes,)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(n_nodes=10, temperature_profile=&#39;parabolic&#39;)</span>
+<span class="sd">            &gt;&gt;&gt; T = model.get_temperature_profile()</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Center T: {T[0]:.0f} K, Surface T: {T[-1]:.0f} K&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.get_gas_pressure">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.get_gas_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_gas_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">R</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;bulk&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算气泡内的气体压力 (Calculate gas pressure inside bubble)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            R : float</span>
+<span class="sd">                气泡半径，单位：米 (bubble radius in meters)</span>
+<span class="sd">            N : float</span>
+<span class="sd">                气泡内气体原子数 (number of gas atoms in bubble)</span>
+<span class="sd">            location : str</span>
+<span class="sd">                位置标识 (&#39;bulk&#39; 或 &#39;boundary&#39;)</span>
+<span class="sd">                (location identifier: &#39;bulk&#39; or &#39;boundary&#39;)</span>
+<span class="sd">                默认值: &#39;bulk&#39;</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            float: 气体压力，单位：帕斯卡 (gas pressure in Pascals)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; pressure = model.get_gas_pressure(1e-8, 100)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Bubble pressure: {pressure:.2e} Pa&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eos_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eos_model&#39;</span><span class="p">,</span> <span class="s1">&#39;virial&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">calculate_gas_pressure</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">],</span> <span class="n">eos_model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.get_thermal_equilibrium_concentrations">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.get_thermal_equilibrium_concentrations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_thermal_equilibrium_concentrations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        计算指定节点的热平衡点缺陷浓度</span>
+<span class="sd">        (Calculate thermal equilibrium point defect concentrations for a node)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            node_index : int</span>
+<span class="sd">                节点索引 (node index)</span>
+<span class="sd">                Default: 0 (centerline)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            Tuple[float, float]: (cv0, ci0)</span>
+<span class="sd">                cv0 : 热平衡空位浓度 (thermal equilibrium vacancy concentration)</span>
+<span class="sd">                ci0 : 热平衡间隙原子浓度 (thermal equilibrium interstitial concentration)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel(n_nodes=10)</span>
+<span class="sd">            &gt;&gt;&gt; cv0, ci0 = model.get_thermal_equilibrium_concentrations(node_index=0)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;cv0 = {cv0:.2e}, ci0 = {ci0:.2e}&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">node_index</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">node_index</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;node_index must be in [0, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="o">-</span><span class="mi">1</span><span class="si">}</span><span class="s1">], got </span><span class="si">{</span><span class="n">node_index</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">T_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="n">node_index</span><span class="p">]</span>
+        <span class="n">cv0</span> <span class="o">=</span> <span class="n">calculate_cv0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="n">T_i</span><span class="p">,</span>
+            <span class="n">Evf_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Evf_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">],</span>
+            <span class="n">Evfmuti</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Evfmuti&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">ci0</span> <span class="o">=</span> <span class="n">calculate_ci0</span><span class="p">(</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="n">T_i</span><span class="p">,</span>
+            <span class="n">Eif_coeffs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;Eif_coeffs&#39;</span><span class="p">],</span>
+            <span class="n">kB_ev</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kB_ev&#39;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv0</span><span class="p">,</span> <span class="n">ci0</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.enable_debug">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.enable_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enable_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_step_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">output_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;debug_radial_output.csv&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        启用调试模式 (Enable debug mode)</span>
+
+<span class="sd">        参数 (Parameters):</span>
+<span class="sd">            time_step_interval : int</span>
+<span class="sd">                调试输出间隔（步数）(debug output interval in steps)</span>
+<span class="sd">                默认值: 1000</span>
+<span class="sd">            output_file : str</span>
+<span class="sd">                调试输出文件路径 (debug output file path)</span>
+<span class="sd">                默认值: &#39;debug_radial_output.csv&#39;</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; model.enable_debug(time_step_interval=500)</span>
+<span class="sd">            &gt;&gt;&gt; results = model.solve(debug_enabled=True)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">time_step_interval</span> <span class="o">=</span> <span class="n">time_step_interval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">save_to_file</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">output_file</span> <span class="o">=</span> <span class="n">output_file</span></div>
+
+
+<div class="viewcode-block" id="RadialGasSwellingModel.disable_debug">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.models.radial_model.RadialGasSwellingModel.disable_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disable_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        禁用调试模式 (Disable debug mode)</span>
+
+<span class="sd">        示例 (Example):</span>
+<span class="sd">            &gt;&gt;&gt; model = RadialGasSwellingModel()</span>
+<span class="sd">            &gt;&gt;&gt; model.disable_debug()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug_config</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        模型的字符串表示 (String representation of the model)</span>
+
+<span class="sd">        返回 (Returns):</span>
+<span class="sd">            str: 模型描述字符串 (model description string)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">fission_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fission_rate&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">eos_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eos_model&#39;</span><span class="p">,</span> <span class="s1">&#39;virial&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Add temperature profile info</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;uniform&#39;</span><span class="p">:</span>
+            <span class="n">temp_info</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">temp</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> K (uniform)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;parabolic&#39;</span><span class="p">:</span>
+            <span class="n">temp_info</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> K (parabolic)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_temperature_profile_type</span> <span class="o">==</span> <span class="s1">&#39;user&#39;</span><span class="p">:</span>
+            <span class="n">temp_info</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> K (user)&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">temp_info</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">temp</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> K&quot;</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;RadialGasSwellingModel(n_nodes=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;radius=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">radius</span><span class="si">:</span><span class="s2">.3e</span><span class="si">}</span><span class="s2"> m, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;geometry=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;solver_mode=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;radial_solver_mode&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;decoupled&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;temperature=</span><span class="si">{</span><span class="n">temp_info</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;fission_rate=</span><span class="si">{</span><span class="n">fission_rate</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> /m³/s, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;eos_model=&#39;</span><span class="si">{</span><span class="n">eos_model</span><span class="si">}</span><span class="s2">&#39;)&quot;</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -41,6 +41,10 @@ irradiated metallic fuels (U-Zr and U-Pu-Zr alloys).</p>
 <p>The model implements rate theory equations based on the theoretical framework
 from “Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium
 phase of irradiated U-Zr and U-Pu-Zr fuel.”</p>
+<p>If you are new to the repository, start with the repository guide before diving
+into the deeper tutorials. It is the best entry point for understanding where
+the package code lives, which example to run first, and which module to read
+for each feature area.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
@@ -48,7 +52,219 @@ phase of irradiated U-Zr and U-Pu-Zr fuel.”</p>
 <li class="toctree-l2"><a class="reference internal" href="api.html#model-classes">Model Classes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.html#parameter-classes">Parameter Classes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api.html#parameter-creation-functions">Parameter Creation Functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api.html#test-and-analysis-classes">Test and Analysis Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#solvers">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#analysis">Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#validation">Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#introduction-and-overview">1. Introduction and Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#model-architecture-and-state-variables">2. Model Architecture and State Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#radial-mesh-and-geometry">3. Radial Mesh and Geometry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#radial-transport-equations">4. Radial Transport Equations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#temperature-profiles-and-flux-depression">5. Temperature Profiles and Flux Depression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#boundary-conditions">6. Boundary Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#numerical-solution-method">7. Numerical Solution Method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#model-assumptions-and-limitations">8. Model Assumptions and Limitations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#comparison-with-0d-model">9. Comparison with 0D Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#practical-usage-guide">10. Practical Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#references">11. References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#appendix-a-variable-naming-conventions">Appendix A: Variable Naming Conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1d_radial_model.html#appendix-b-troubleshooting">Appendix B: Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-0-5-installation">Minute 0-5: Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-5-10-your-first-simulation">Minute 5-10: Your First Simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-10-15-understanding-the-output">Minute 10-15: Understanding the Output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-15-20-modifying-parameters">Minute 15-20: Modifying Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-20-25-advanced-visualizations">Minute 20-25: Advanced Visualizations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#minute-25-30-parameter-studies">Minute 25-30: Parameter Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#summary">Summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/30minute_quickstart.html#quick-reference-card">Quick Reference Card</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#what-this-repo-contains">1. What This Repo Contains / 这个仓库包含什么</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#repository-map">2. Repository Map / 仓库地图</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#how-to-use-the-repo">3. How to Use the Repo / 如何使用这个仓库</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#recommended-workflows">4. Recommended Workflows / 推荐工作流</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#current-model-variants">5. Current Model Variants / 当前模型变体</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#testing-guide">6. Testing Guide / 测试说明</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/repository_guide.html#important-notes">7. Important Notes / 重要说明</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#what-is-rate-theory">What is Rate Theory?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#the-physics-of-fission-gas-in-nuclear-fuel">The Physics of Fission Gas in Nuclear Fuel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#key-concepts-and-terminology">Key Concepts and Terminology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#the-rate-equations-explained">The Rate Equations Explained</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#from-physics-to-mathematics">From Physics to Mathematics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#swelling-the-practical-consequence">Swelling: The Practical Consequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#connecting-to-the-model-implementation">Connecting to the Model Implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#summary-and-key-takeaways">Summary and Key Takeaways</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#overview-the-two-location-framework">Overview: The Two-Location Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#bulk-matrix-variables">Bulk Matrix Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#phase-boundary-variables">Phase Boundary Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#how-variables-interact">How Variables Interact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#typical-evolution-during-irradiation">Typical Evolution During Irradiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#common-questions">Common Questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/model_equations_explained.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="learning_paths.html">Learning Paths Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#quick-assessment-which-path-is-right-for-you">Quick Assessment: Which Path is Right for You?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#beginner-path">Beginner Path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#intermediate-path">Intermediate Path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#advanced-path">Advanced Path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#special-tracks-by-use-case">Special Tracks: By Use Case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#complete-resource-list">Complete Resource List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#tips-for-effective-learning">Tips for Effective Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#getting-help">Getting Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#tracking-your-progress">Tracking Your Progress</a></li>
+<li class="toctree-l2"><a class="reference internal" href="learning_paths.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#quick-reference-result-dictionary-structure">Quick Reference: Result Dictionary Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#primary-output-variables">Primary Output Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#boundary-variables-cgf-ccf-ncf-rcf-cvf-cif-kvf-kif">Boundary Variables (Cgf, Ccf, Ncf, Rcf, cvf, cif, kvf, kif)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#derived-quantities">Derived Quantities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#interpreting-temporal-evolution">Interpreting Temporal Evolution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#warning-signs-and-troubleshooting">Warning Signs and Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#physical-interpretation-checklist">Physical Interpretation Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#common-analysis-patterns">Common Analysis Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#summary-key-takeaways">Summary: Key Takeaways</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/interpreting_results.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#basic-time-series-plots">Basic Time Series Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#bubble-evolution-plots">Bubble Evolution Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#gas-distribution-visualizations">Gas Distribution Visualizations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#temperature-comparison-plots">Temperature Comparison Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#multi-panel-summary-figures">Multi-Panel Summary Figures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#bulk-vs-interface-comparisons">Bulk vs Interface Comparisons</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#parameter-sweep-visualizations">Parameter Sweep Visualizations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#publication-quality-figures">Publication-Quality Figures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#advanced-analysis-plots">Advanced Analysis Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#custom-styled-plots">Custom Styled Plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#gas-release-analysis">Gas Release Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#arrhenius-analysis">Arrhenius Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#summary-quick-reference">Summary: Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/plot_gallery.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="guides/troubleshooting.html">Troubleshooting Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#installation-issues">Installation Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#import-and-module-errors">Import and Module Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#parameter-issues">Parameter Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#solver-convergence-problems">Solver Convergence Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#performance-issues">Performance Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#unrealistic-results">Unrealistic Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#numerical-instability">Numerical Instability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#gas-release-issues">Gas Release Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#temperature-related-problems">Temperature-Related Problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#experimental-validation-mismatches">Experimental Validation Mismatches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#plotting-and-visualization-issues">Plotting and Visualization Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#memory-and-resource-issues">Memory and Resource Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#getting-additional-help">Getting Additional Help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#quick-reference-error-messages">Quick Reference: Error Messages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="guides/troubleshooting.html#prevention-best-practices">Prevention Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="parameter_reference.html">Parameter Reference Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#quick-reference-common-fuel-types">Quick Reference: Common Fuel Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#material-parameters">Material Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#fuel-composition-specific-parameters">Fuel Composition Specific Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#simulation-parameters">Simulation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#physical-constants">Physical Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#parameter-sensitivity-guide">Parameter Sensitivity Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#parameter-measurement-uncertainty-summary">Parameter Measurement Uncertainty Summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#recommended-measurement-strategies">Recommended Measurement Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#parameter-selection-guide">Parameter Selection Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#id3">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#experimental-design-for-parameter-measurement">Experimental Design for Parameter Measurement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#best-practices-for-parameter-reporting">Best Practices for Parameter Reporting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#scenario-1-initial-screening-studies">Scenario 1: Initial Screening Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#scenario-2-calibration-studies">Scenario 2: Calibration Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#scenario-3-sensitivity-analysis-studies">Scenario 3: Sensitivity Analysis Studies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#scenario-4-validation-against-experimental-data">Scenario 4: Validation Against Experimental Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#comparison-of-scenarios">Comparison of Scenarios</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#related-documentation">Related Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#parameter-selection-checklist">Parameter Selection Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#id8">Related Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#references">References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parameter_reference.html#parameter-checklist">Parameter Checklist</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#sensitivity-analysis-methods">Sensitivity Analysis Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#method-1-one-at-a-time-oat-analysis">Method 1: One-at-a-Time (OAT) Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#method-2-morris-elementary-effects-screening">Method 2: Morris Elementary Effects Screening</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#method-3-sobol-variance-based-analysis">Method 3: Sobol Variance-Based Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#choosing-the-right-method">Choosing the Right Method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#practical-guidelines">Practical Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#advanced-topics">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#example-complete-sensitivity-study">Example: Complete Sensitivity Study</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#references-and-further-reading">References and Further Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#api-quick-reference">API Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sensitivity_analysis_guide.html#troubleshooting-guide">Troubleshooting Guide</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="validation_guide.html">Validation Guide for Gas Swelling Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#validation-methodology">Validation Methodology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#experimental-datasets">Experimental Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#validation-metrics">Validation Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#parameter-ranges">Parameter Ranges</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#running-validation">Running Validation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#interpreting-validation-results">Interpreting Validation Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#validation-checklist">Validation Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#troubleshooting-validation-issues">Troubleshooting Validation Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#example-complete-validation-workflow">Example: Complete Validation Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#api-quick-reference">API Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation_guide.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="adaptive_stepping.html">Adaptive Time Stepping Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#how-adaptive-stepping-works">How Adaptive Stepping Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#error-control-parameters">Error Control Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#performance-tuning-guidelines">Performance Tuning Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#adaptive-vs-fixed-stepping">Adaptive vs Fixed Stepping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#references">References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaptive_stepping.html#related-documentation">Related Documentation</a></li>
 </ul>
 </li>
 </ul>
@@ -56,44 +272,42 @@ phase of irradiated U-Zr and U-Pu-Zr fuel.”</p>
 </section>
 <section id="overview">
 <h1>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h1>
-<p>The Gas Swelling Model solves a system of 10 coupled ordinary differential
-equations (ODEs) describing:</p>
+<p>The Gas Swelling Model package combines the original rate-theory formulation
+with the current packaged implementation, including the main 0D model, reduced-
+order backends, and the 1D radial model.</p>
+<p>The repository covers:</p>
 <ul class="simple">
 <li><p>Gas atom concentration in bulk matrix and at phase boundaries</p></li>
 <li><p>Cavity/bubble concentration and gas atoms per cavity</p></li>
-<li><p>Vacancy and interstitial concentrations</p></li>
-<li><p>Swelling rate calculations based on cavity volume fraction</p></li>
+<li><p>Vacancy and interstitial behavior</p></li>
+<li><p>Swelling calculations and post-processing</p></li>
+<li><p>Reduced-order variants and radial workflows</p></li>
 </ul>
 <section id="key-features">
 <h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><strong>State Vector</strong>: 10 coupled ODEs for comprehensive physics modeling</p></li>
-<li><p><strong>Gas Pressure</strong>: Ideal gas law or modified Van der Waals EOS</p></li>
-<li><p><strong>Cavity Radius</strong>: Mechanical equilibrium between gas pressure and surface tension</p></li>
-<li><p><strong>Swelling Rate</strong>: Total volume fraction occupied by cavities</p></li>
-<li><p><strong>Critical Radius</strong>: Distinguishes gas-driven vs bias-driven void growth</p></li>
+<li><p><strong>Package-first API</strong>: main imports come from <code class="docutils literal notranslate"><span class="pre">gas_swelling</span></code></p></li>
+<li><p><strong>Model Variants</strong>: <code class="docutils literal notranslate"><span class="pre">full</span></code>, <code class="docutils literal notranslate"><span class="pre">qssa</span></code>, and <code class="docutils literal notranslate"><span class="pre">hybrid_qssa</span></code> backends</p></li>
+<li><p><strong>Radial Support</strong>: 1D radial model with default <code class="docutils literal notranslate"><span class="pre">decoupled</span></code> execution mode</p></li>
+<li><p><strong>Validation &amp; Analysis</strong>: experimental datasets, plotting, and sensitivity analysis</p></li>
+<li><p><strong>Testing</strong>: a large local pytest suite covering physics, numerics, plotting, and docs</p></li>
 </ul>
 </section>
 <section id="quick-start">
 <h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
 <p>To run a default simulation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">modelrk23</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span><span class="p">,</span> <span class="n">create_default_parameters</span>
 
 <span class="c1"># Create model with default parameters</span>
-<span class="n">mat_params</span><span class="p">,</span> <span class="n">sim_params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">mat_params</span><span class="p">,</span> <span class="n">sim_params</span><span class="p">)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
-<span class="c1"># Solve for 100 days of irradiation</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="n">sim_time</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">3600</span>  <span class="c1"># 100 days in seconds</span>
-<span class="n">time_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sim_time</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-
-<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">sim_time</span><span class="p">),</span> <span class="n">time_points</span><span class="p">)</span>
+<span class="c1"># Solve with the packaged interface</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
 
 <span class="c1"># Access results</span>
-<span class="n">swelling</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>  <span class="c1"># Volume fraction vs time</span>
-<span class="n">radius</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>  <span class="c1"># Bubble radius vs time</span>
+<span class="n">swelling</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+<span class="n">radius</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>
 </pre></div>
 </div>
 </section>
@@ -157,6 +371,19 @@ equations (ODEs) describing:</p>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
 </ul>
 
 <div class="relations">

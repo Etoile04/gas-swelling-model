@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gas_swelling.solvers.rk23_solver &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for gas_swelling.solvers.rk23_solver</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Flexible ODE Solver for Gas Swelling Model</span>
+<span class="sd">灵活ODE求解器模块 (气体肿胀模型)</span>
+
+<span class="sd">This module provides a flexible wrapper around scipy&#39;s solve_ivp supporting</span>
+<span class="sd">multiple solver methods for stiff and non-stiff ODE systems.</span>
+<span class="sd">本模块提供scipy的solve_ivp的灵活包装器，支持刚性和非刚性ODE系统的多种求解器方法。</span>
+
+<span class="sd">Supported Methods:</span>
+<span class="sd">- &#39;RK23&#39;: Explicit Runge-Kutta 2(3) - For non-stiff problems (fast)</span>
+<span class="sd">- &#39;RK45&#39;: Explicit Runge-Kutta 4(5) - For non-stiff problems (accurate)</span>
+<span class="sd">- &#39;LSODA&#39;: Adams/BDF method with automatic stiffness detection (RECOMMENDED)</span>
+<span class="sd">- &#39;BDF&#39;: Implicit Backward Differentiation Formula - For stiff problems</span>
+<span class="sd">- &#39;Radau&#39;: Implicit Runge-Kutta method - For stiff problems</span>
+<span class="sd">- &#39;BDF&#39;: Backward Differentiation Formula - For stiff problems</span>
+
+<span class="sd">支持的方法:</span>
+<span class="sd">- &#39;RK23&#39;: 显式龙格-库塔2(3) - 用于非刚性问题 (快速)</span>
+<span class="sd">- &#39;RK45&#39;: 显式龙格-库塔4(5) - 用于非刚性问题 (精确)</span>
+<span class="sd">- &#39;LSODA&#39;: Adams/BDF方法，自动检测刚性 (推荐)</span>
+<span class="sd">- &#39;BDF&#39;: 隐式向后微分公式 - 用于刚性问题</span>
+<span class="sd">- &#39;Radau&#39;: 隐式龙格-库塔方法 - 用于刚性问题</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+
+
+<div class="viewcode-block" id="RK23Solver">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.rk23_solver.RK23Solver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RK23Solver</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Flexible ODE Solver for Gas Swelling Equations</span>
+<span class="sd">    灵活ODE求解器 (气体肿胀方程)</span>
+
+<span class="sd">    This solver uses scipy&#39;s solve_ivp with configurable method selection.</span>
+<span class="sd">    It supports both explicit methods (RK23, RK45) for non-stiff problems</span>
+<span class="sd">    and implicit methods (BDF, Radau, LSODA) for stiff systems.</span>
+<span class="sd">    该求解器使用scipy的solve_ivp函数，可配置方法选择。支持显式方法（RK23、RK45）</span>
+<span class="sd">    用于非刚性问题，以及隐式方法（BDF、Radau、LSODA）用于刚性系统。</span>
+
+<span class="sd">    **Default method &#39;LSODA&#39;** automatically detects stiffness and switches</span>
+<span class="sd">    between Adams (non-stiff) and BDF (stiff) methods, providing optimal</span>
+<span class="sd">    performance for both cases.</span>
+<span class="sd">    **默认方法&#39;LSODA&#39;** 自动检测刚性并在Adams（非刚性）和BDF（刚性）</span>
+<span class="sd">    方法之间切换，为两种情况提供最佳性能。</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rate_equations : Callable</span>
+<span class="sd">        Function that computes derivatives dy/dt = f(t, y, params)</span>
+<span class="sd">        Signature: rate_equations(t: float, y: np.ndarray, params: Dict) -&gt; np.ndarray</span>
+<span class="sd">    params : Dict</span>
+<span class="sd">        Dictionary containing material and simulation parameters</span>
+<span class="sd">    method : str, optional</span>
+<span class="sd">        Solver method to use (default: &#39;LSODA&#39;)</span>
+<span class="sd">        Options: &#39;RK23&#39;, &#39;RK45&#39;, &#39;LSODA&#39;, &#39;BDF&#39;, &#39;Radau&#39;</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rate_equations : Callable</span>
+<span class="sd">        The rate equations function</span>
+<span class="sd">    params : Dict</span>
+<span class="sd">        Model parameters</span>
+<span class="sd">    method : str</span>
+<span class="sd">        The solver method being used</span>
+<span class="sd">    success : bool</span>
+<span class="sd">        Solver success status flag</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.solvers import RK23Solver</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.ode import rate_equations</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.params import create_default_parameters</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Setup solver</span>
+<span class="sd">    &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">    &gt;&gt;&gt; solver = RK23Solver(rate_equations, params)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Define initial conditions and time span</span>
+<span class="sd">    &gt;&gt;&gt; y0 = np.ones(17) * 1e-6  # 17 state variables</span>
+<span class="sd">    &gt;&gt;&gt; t_span = (0, 1000)  # 0 to 1000 seconds</span>
+<span class="sd">    &gt;&gt;&gt; t_eval = np.linspace(0, 1000, 100)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Solve</span>
+<span class="sd">    &gt;&gt;&gt; results = solver.solve(t_span, t_eval, y0)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RK23Solver.__init__">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.rk23_solver.RK23Solver.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rate_equations</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;LSODA&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize ODE solver with rate equations, parameters, and method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rate_equations : Callable</span>
+<span class="sd">            Function that computes derivatives dy/dt = f(t, y, params)</span>
+<span class="sd">        params : Dict</span>
+<span class="sd">            Dictionary containing model parameters</span>
+<span class="sd">        method : str, optional</span>
+<span class="sd">            Solver method to use (default: &#39;LSODA&#39;)</span>
+<span class="sd">            Options:</span>
+<span class="sd">            - &#39;RK23&#39;: Explicit Runge-Kutta 2(3) - Fast for non-stiff</span>
+<span class="sd">            - &#39;RK45&#39;: Explicit Runge-Kutta 4(5) - Accurate for non-stiff</span>
+<span class="sd">            - &#39;LSODA&#39;: Adams/BDF with auto stiffness detection (RECOMMENDED)</span>
+<span class="sd">            - &#39;BDF&#39;: Backward Differentiation Formula - For stiff systems</span>
+<span class="sd">            - &#39;Radau&#39;: Implicit Runge-Kutta - For stiff systems</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_equations</span> <span class="o">=</span> <span class="n">rate_equations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_equations_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Wrapper function for rate equations in scipy format.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t : float</span>
+<span class="sd">            Current time</span>
+<span class="sd">        y : np.ndarray</span>
+<span class="sd">            Current state vector</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            Time derivatives dy/dt</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_equations</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RK23Solver.solve">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.rk23_solver.RK23Solver.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">y0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">t_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-9</span><span class="p">,</span>
+        <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">100.0</span><span class="p">,</span>
+        <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+        <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000000</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve the ODE system using the specified method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t_span : Tuple[float, float]</span>
+<span class="sd">            Integration interval (t_start, t_end) in seconds</span>
+<span class="sd">        y0 : np.ndarray</span>
+<span class="sd">            Initial state vector (17 components for gas swelling model)</span>
+<span class="sd">        t_eval : Optional[np.ndarray]</span>
+<span class="sd">            Time points at which to store solution. If None, uses 100 points.</span>
+<span class="sd">        dt : float</span>
+<span class="sd">            Initial time step size (default: 1e-9 seconds)</span>
+<span class="sd">        max_dt : float</span>
+<span class="sd">            Maximum time step size (default: 100.0 seconds)</span>
+<span class="sd">        rtol : float</span>
+<span class="sd">            Relative tolerance for error control (default: 1e-4)</span>
+<span class="sd">        atol : float</span>
+<span class="sd">            Absolute tolerance for error control (default: 1e-6)</span>
+<span class="sd">        max_steps : int</span>
+<span class="sd">            Maximum number of internal steps (default: 1000000)</span>
+<span class="sd">        method : Optional[str]</span>
+<span class="sd">            Solver method to use. If None, uses the method from __init__ (default: &#39;LSODA&#39;)</span>
+<span class="sd">            Options: &#39;RK23&#39;, &#39;RK45&#39;, &#39;LSODA&#39;, &#39;BDF&#39;, &#39;Radau&#39;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict</span>
+<span class="sd">            Dictionary containing solution results:</span>
+<span class="sd">            - &#39;time&#39;: array of time points</span>
+<span class="sd">            - &#39;success&#39;: boolean indicating solver success</span>
+<span class="sd">            - &#39;message&#39;: solver status message</span>
+<span class="sd">            - &#39;y&#39;: array of solution vectors (shape: [n_vars, n_points])</span>
+<span class="sd">            - State variables indexed by name (Cgb, Ccb, Ncb, etc.)</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If initial conditions y0 has incorrect dimension</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            If solver fails and raises an exception</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Validate initial conditions (验证初始条件)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">17</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Initial condition y0 must have 17 components, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Set up time evaluation points (设置时间评估点)</span>
+        <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">100</span><span class="p">)</span>
+
+        <span class="c1"># Clip initial conditions to avoid numerical issues (裁剪初始条件以避免数值问题)</span>
+        <span class="n">y0_clipped</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">y0</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="mf">1e30</span><span class="p">)</span>
+
+        <span class="c1"># Determine which method to use (确定使用哪种方法)</span>
+        <span class="n">solver_method</span> <span class="o">=</span> <span class="n">method</span> <span class="k">if</span> <span class="n">method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span>
+
+        <span class="c1"># Validate method (验证方法)</span>
+        <span class="n">valid_methods</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;RK23&#39;</span><span class="p">,</span> <span class="s1">&#39;RK45&#39;</span><span class="p">,</span> <span class="s1">&#39;LSODA&#39;</span><span class="p">,</span> <span class="s1">&#39;BDF&#39;</span><span class="p">,</span> <span class="s1">&#39;Radau&#39;</span><span class="p">,</span> <span class="s1">&#39;BDF&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">solver_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_methods</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid method &#39;</span><span class="si">{</span><span class="n">solver_method</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Valid methods: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">valid_methods</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Solve ODE system with error handling (求解ODE系统，带错误处理)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span>
+                <span class="n">fun</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">,</span>
+                <span class="n">t_span</span><span class="o">=</span><span class="n">t_span</span><span class="p">,</span>
+                <span class="n">y0</span><span class="o">=</span><span class="n">y0_clipped</span><span class="p">,</span>
+                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
+                <span class="n">method</span><span class="o">=</span><span class="n">solver_method</span><span class="p">,</span>
+                <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span>
+                <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span>
+                <span class="n">first_step</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">max_step</span><span class="o">=</span><span class="n">max_dt</span><span class="p">,</span>
+                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># Return empty results on failure (失败时返回空结果)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;nfev&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;njev&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s1">&#39;nlu&#39;</span><span class="p">:</span> <span class="mi">0</span>
+            <span class="p">}</span>
+
+        <span class="c1"># Map solution to dictionary with variable names</span>
+        <span class="c1"># 将解映射到带变量名的字典</span>
+        <span class="c1"># State variables (状态变量 - 17 components):</span>
+        <span class="c1"># 0: Cgb, 1: Ccb, 2: Ncb, 3: Rcb, 4: Cgf, 5: Ccf,</span>
+        <span class="c1"># 6: Ncf, 7: Rcf, 8: cvb, 9: cib, 10: cvf, 11: cif,</span>
+        <span class="c1"># 12: released_gas, 13: kvb, 14: kib, 15: kvf, 16: kif</span>
+
+        <span class="c1"># Check if solver succeeded before accessing solution data</span>
+        <span class="c1"># 检查求解器是否成功，再访问解数据</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="c1"># Solver failed - return minimal results with error message</span>
+            <span class="c1"># 求解器失败 - 返回包含错误消息的最小结果</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+                <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span><span class="p">,</span>
+                <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+                <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span> <span class="k">if</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">17</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">))),</span>
+                <span class="s1">&#39;nfev&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">nfev</span><span class="p">,</span>
+                <span class="s1">&#39;njev&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">njev</span><span class="p">,</span>
+                <span class="s1">&#39;nlu&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">nlu</span><span class="p">,</span>
+                <span class="c1"># Add empty state variables for consistency</span>
+                <span class="c1"># 添加空状态变量以保持一致性</span>
+                <span class="s1">&#39;Cgb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;Ccb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;Ncb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;Rcb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;Cgf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;Ccf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;Ncf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;Rcf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;cvb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;cib&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;cvf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;cif&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;released_gas&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;kvb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;kib&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;kvf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s1">&#39;kif&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                <span class="s1">&#39;swelling&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+            <span class="p">}</span>
+
+        <span class="n">results_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+            <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span><span class="p">,</span>
+            <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">message</span><span class="p">,</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="s1">&#39;nfev&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">nfev</span><span class="p">,</span>
+            <span class="s1">&#39;njev&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">njev</span><span class="p">,</span>
+            <span class="s1">&#39;nlu&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">nlu</span><span class="p">,</span>
+            <span class="c1"># State variables</span>
+            <span class="s1">&#39;Cgb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;Ccb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;Ncb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s1">&#39;Rcb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s1">&#39;Cgf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="s1">&#39;Ccf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+            <span class="s1">&#39;Ncf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span>
+            <span class="s1">&#39;Rcf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+            <span class="s1">&#39;cvb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+            <span class="s1">&#39;cib&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">9</span><span class="p">],</span>
+            <span class="s1">&#39;cvf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">10</span><span class="p">],</span>
+            <span class="s1">&#39;cif&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">11</span><span class="p">],</span>
+            <span class="s1">&#39;released_gas&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span>
+            <span class="s1">&#39;kvb&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span>
+            <span class="s1">&#39;kib&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">14</span><span class="p">],</span>
+            <span class="s1">&#39;kvf&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">15</span><span class="p">],</span>
+            <span class="s1">&#39;kif&#39;</span><span class="p">:</span> <span class="n">sol</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">16</span><span class="p">]</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Calculate derived quantities (计算导出量)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_derived_quantities</span><span class="p">(</span><span class="n">results_dict</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results_dict</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_derived_quantities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add derived quantities to results dictionary.</span>
+<span class="sd">        将导出量添加到结果字典</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        results : Dict</span>
+<span class="sd">            Results dictionary to modify in-place (要就地修改的结果字典)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Calculate swelling volume fraction (计算肿胀体积分数)</span>
+        <span class="n">Rcb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>
+        <span class="n">Rcf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">]</span>
+        <span class="n">Ccb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">]</span>
+        <span class="n">Ccf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Bubble volume fractions (bulk + boundary)</span>
+        <span class="c1"># 气泡体积分数 (基体 + 晶界)</span>
+        <span class="n">V_bubble_b</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcb</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccb</span>
+        <span class="n">V_bubble_f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcf</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccf</span>
+
+        <span class="c1"># Total swelling as percentage (总肿胀百分比)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">V_bubble_b</span> <span class="o">+</span> <span class="n">V_bubble_f</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

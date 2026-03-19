@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gas_swelling.solvers.euler_solver &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for gas_swelling.solvers.euler_solver</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Euler Numerical Solver for Gas Swelling Model</span>
+<span class="sd">欧拉数值求解器模块 (气体肿胀模型)</span>
+
+<span class="sd">This module provides an explicit Euler method solver for solving the gas</span>
+<span class="sd">swelling ODE system. Simple and easy to understand, but requires careful</span>
+<span class="sd">choice of time step for stability.</span>
+<span class="sd">本模块提供显式欧拉方法求解器，用于求解气体肿胀ODE系统。简单易懂，但需要仔细选择时间步长以保证稳定性。</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+
+
+<div class="viewcode-block" id="EulerSolver">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.euler_solver.EulerSolver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EulerSolver</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Explicit Euler Method Solver for Gas Swelling Equations</span>
+<span class="sd">    显式欧拉方法求解器 (气体肿胀方程)</span>
+
+<span class="sd">    This solver implements the forward Euler method, a first-order numerical</span>
+<span class="sd">    procedure for solving ODEs. Simple and computationally efficient per step,</span>
+<span class="sd">    but requires small time steps for stability and accuracy.</span>
+<span class="sd">    该求解器实现前向欧拉方法，一种用于求解ODE的一阶数值方法。</span>
+<span class="sd">    每步计算简单高效，但需要小时间步长以保证稳定性和精度。</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rate_equations : Callable</span>
+<span class="sd">        Function that computes derivatives dy/dt = f(t, y, params)</span>
+<span class="sd">        Signature: rate_equations(t: float, y: np.ndarray, params: Dict) -&gt; np.ndarray</span>
+<span class="sd">    params : Dict</span>
+<span class="sd">        Dictionary containing material and simulation parameters</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rate_equations : Callable</span>
+<span class="sd">        The rate equations function</span>
+<span class="sd">    params : Dict</span>
+<span class="sd">        Model parameters</span>
+<span class="sd">    success : bool</span>
+<span class="sd">        Solver success status flag</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.solvers import EulerSolver</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.ode import rate_equations</span>
+<span class="sd">    &gt;&gt;&gt; from gas_swelling.params import create_default_parameters</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Setup solver</span>
+<span class="sd">    &gt;&gt;&gt; params = create_default_parameters()</span>
+<span class="sd">    &gt;&gt;&gt; solver = EulerSolver(rate_equations, params)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Define initial conditions and time span</span>
+<span class="sd">    &gt;&gt;&gt; y0 = np.ones(17) * 1e-6  # 17 state variables</span>
+<span class="sd">    &gt;&gt;&gt; t_span = (0, 1000)  # 0 to 1000 seconds</span>
+<span class="sd">    &gt;&gt;&gt; t_eval = np.linspace(0, 1000, 100)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Solve with small time step for stability</span>
+<span class="sd">    &gt;&gt;&gt; results = solver.solve(t_span, t_eval, y0, dt=0.1)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="EulerSolver.__init__">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.euler_solver.EulerSolver.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rate_equations</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize Euler solver with rate equations and parameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rate_equations : Callable</span>
+<span class="sd">            Function that computes derivatives dy/dt = f(t, y, params)</span>
+<span class="sd">        params : Dict</span>
+<span class="sd">            Dictionary containing model parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_equations</span> <span class="o">=</span> <span class="n">rate_equations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="EulerSolver.solve">
+<a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.euler_solver.EulerSolver.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">y0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">t_eval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">max_dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">100.0</span><span class="p">,</span>
+        <span class="n">adaptive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">output_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Solve the ODE system using explicit Euler method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t_span : Tuple[float, float]</span>
+<span class="sd">            Integration interval (t_start, t_end) in seconds</span>
+<span class="sd">        y0 : np.ndarray</span>
+<span class="sd">            Initial state vector (17 components for gas swelling model)</span>
+<span class="sd">        t_eval : Optional[np.ndarray]</span>
+<span class="sd">            Time points at which to store solution. If None, uses 100 points.</span>
+<span class="sd">        dt : float</span>
+<span class="sd">            Initial time step size (default: 0.1 seconds)</span>
+<span class="sd">        max_dt : float</span>
+<span class="sd">            Maximum time step size for adaptive stepping (default: 100.0 seconds)</span>
+<span class="sd">        adaptive : bool</span>
+<span class="sd">            Enable adaptive time stepping (default: True)</span>
+<span class="sd">        output_interval : int</span>
+<span class="sd">            Store output every N steps (default: 1000)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict</span>
+<span class="sd">            Dictionary containing solution results:</span>
+<span class="sd">            - &#39;time&#39;: array of time points</span>
+<span class="sd">            - &#39;success&#39;: boolean indicating solver success</span>
+<span class="sd">            - &#39;message&#39;: solver status message</span>
+<span class="sd">            - &#39;y&#39;: array of solution vectors (shape: [n_vars, n_points])</span>
+<span class="sd">            - State variables indexed by name (Cgb, Ccb, Ncb, etc.)</span>
+<span class="sd">            - &#39;n_steps&#39;: total number of steps taken</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If initial conditions y0 has incorrect dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Validate initial conditions</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">17</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Initial condition y0 must have 17 components, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Initialize time and state</span>
+        <span class="n">t_start</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">=</span> <span class="n">t_span</span>
+        <span class="n">t_current</span> <span class="o">=</span> <span class="n">t_start</span>
+        <span class="n">y_current</span> <span class="o">=</span> <span class="n">y0</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="c1"># Clip initial conditions to avoid numerical issues</span>
+        <span class="n">y_current</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">y_current</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="mf">1e30</span><span class="p">)</span>
+
+        <span class="c1"># Setup time evaluation points</span>
+        <span class="k">if</span> <span class="n">t_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">n_eval_points</span> <span class="o">=</span> <span class="mi">100</span>
+            <span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_start</span><span class="p">,</span> <span class="n">t_end</span><span class="p">,</span> <span class="n">n_eval_points</span><span class="p">)</span>
+
+        <span class="c1"># Calculate number of steps</span>
+        <span class="n">total_time</span> <span class="o">=</span> <span class="n">t_end</span> <span class="o">-</span> <span class="n">t_start</span>
+        <span class="n">n_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">total_time</span> <span class="o">/</span> <span class="n">dt</span><span class="p">))</span>
+
+        <span class="c1"># Storage arrays</span>
+        <span class="n">n_vars</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)</span>
+        <span class="n">n_output</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_eval</span><span class="p">)</span>
+
+        <span class="c1"># Initialize storage for output at evaluation times</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">t_eval</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+            <span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="s1">&#39;message&#39;</span><span class="p">:</span> <span class="s1">&#39;Euler solver completed successfully&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_vars</span><span class="p">,</span> <span class="n">n_output</span><span class="p">)),</span>
+            <span class="s1">&#39;n_steps&#39;</span><span class="p">:</span> <span class="mi">0</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Initialize variable dictionaries</span>
+        <span class="n">var_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;Cgb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccb&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncb&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;Cgf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ccf&#39;</span><span class="p">,</span> <span class="s1">&#39;Ncf&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcf&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;cvb&#39;</span><span class="p">,</span> <span class="s1">&#39;cib&#39;</span><span class="p">,</span> <span class="s1">&#39;cvf&#39;</span><span class="p">,</span> <span class="s1">&#39;cif&#39;</span><span class="p">,</span> <span class="s1">&#39;released_gas&#39;</span><span class="p">,</span> <span class="s1">&#39;kvb&#39;</span><span class="p">,</span> <span class="s1">&#39;kib&#39;</span><span class="p">,</span> <span class="s1">&#39;kvf&#39;</span><span class="p">,</span> <span class="s1">&#39;kif&#39;</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">var_names</span><span class="p">):</span>
+            <span class="n">results</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_output</span><span class="p">)</span>
+
+        <span class="c1"># Output storage index</span>
+        <span class="n">output_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">next_output_time</span> <span class="o">=</span> <span class="n">t_eval</span><span class="p">[</span><span class="n">output_idx</span><span class="p">]</span> <span class="k">if</span> <span class="n">n_output</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="c1"># Perform Euler integration</span>
+        <span class="n">current_dt</span> <span class="o">=</span> <span class="n">dt</span>
+        <span class="n">step_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="n">t_current</span> <span class="o">&lt;</span> <span class="n">t_end</span><span class="p">:</span>
+                <span class="c1"># Store output at evaluation times</span>
+                <span class="k">while</span> <span class="n">t_current</span> <span class="o">&gt;=</span> <span class="n">next_output_time</span> <span class="ow">and</span> <span class="n">output_idx</span> <span class="o">&lt;</span> <span class="n">n_output</span><span class="p">:</span>
+                    <span class="n">results</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][:,</span> <span class="n">output_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_current</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">var_names</span><span class="p">):</span>
+                        <span class="n">results</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">output_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_current</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">output_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">output_idx</span> <span class="o">&lt;</span> <span class="n">n_output</span><span class="p">:</span>
+                        <span class="n">next_output_time</span> <span class="o">=</span> <span class="n">t_eval</span><span class="p">[</span><span class="n">output_idx</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">next_output_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+
+                <span class="c1"># Check if we&#39;ve reached the end</span>
+                <span class="k">if</span> <span class="n">t_current</span> <span class="o">&gt;=</span> <span class="n">t_end</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="c1"># Adjust time step if we&#39;re close to the next output time</span>
+                <span class="k">if</span> <span class="n">next_output_time</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+                    <span class="n">current_dt</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">next_output_time</span> <span class="o">-</span> <span class="n">t_current</span><span class="p">,</span> <span class="n">max_dt</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">current_dt</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">-</span> <span class="n">t_current</span><span class="p">,</span> <span class="n">max_dt</span><span class="p">)</span>
+
+                <span class="c1"># Compute derivatives</span>
+                <span class="n">dydt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_equations</span><span class="p">(</span><span class="n">t_current</span><span class="p">,</span> <span class="n">y_current</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+                <span class="c1"># Euler step: y_{n+1} = y_n + dt * f(t_n, y_n)</span>
+                <span class="n">y_next</span> <span class="o">=</span> <span class="n">y_current</span> <span class="o">+</span> <span class="n">current_dt</span> <span class="o">*</span> <span class="n">dydt</span>
+
+                <span class="c1"># Ensure non-negative values and reasonable bounds</span>
+                <span class="n">y_next</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">y_next</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="mf">1e30</span><span class="p">)</span>
+
+                <span class="c1"># Update time and state</span>
+                <span class="n">t_current</span> <span class="o">+=</span> <span class="n">current_dt</span>
+                <span class="n">y_current</span> <span class="o">=</span> <span class="n">y_next</span>
+                <span class="n">step_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="c1"># Safety check for runaway solutions</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">y_current</span><span class="p">)):</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Solver encountered non-finite values&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Store final output if needed</span>
+            <span class="k">while</span> <span class="n">output_idx</span> <span class="o">&lt;</span> <span class="n">n_output</span><span class="p">:</span>
+                <span class="n">results</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][:,</span> <span class="n">output_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_current</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">var_names</span><span class="p">):</span>
+                    <span class="n">results</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">output_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_current</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">output_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;success&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Euler solver completed successfully&#39;</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">step_count</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;success&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">results</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">step_count</span>
+
+        <span class="c1"># Add derived quantities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_derived_quantities</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">results</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_derived_quantities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add derived quantities to results dictionary.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        results : Dict</span>
+<span class="sd">            Results dictionary to modify in-place</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Calculate swelling volume fraction</span>
+        <span class="n">Rcb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>
+        <span class="n">Rcf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">]</span>
+        <span class="n">Ccb</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">]</span>
+        <span class="n">Ccf</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Bubble volume fractions (bulk + boundary)</span>
+        <span class="n">V_bubble_b</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcb</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccb</span>
+        <span class="n">V_bubble_f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">Rcf</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Ccf</span>
+
+        <span class="c1"># Total swelling as percentage</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">V_bubble_b</span> <span class="o">+</span> <span class="n">V_bubble_f</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

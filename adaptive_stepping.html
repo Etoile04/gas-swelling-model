@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Adaptive Time Stepping Guide &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Validation Guide for Gas Swelling Model" href="validation_guide.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="adaptive-time-stepping-guide">
+<h1>Adaptive Time Stepping Guide<a class="headerlink" href="#adaptive-time-stepping-guide" title="Link to this heading">¶</a></h1>
+<p>This guide explains the adaptive time-stepping algorithm, error control parameters, performance tuning guidelines, and when to use adaptive versus fixed stepping in the Gas Swelling Model.</p>
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="#overview">Overview</a></p></li>
+<li><p><a class="reference internal" href="#how-adaptive-stepping-works">How Adaptive Stepping Works</a></p>
+<ul>
+<li><p><a class="reference internal" href="#embedded-runge-kutta-methods">Embedded Runge-Kutta Methods</a></p></li>
+<li><p><a class="reference internal" href="#error-estimation">Error Estimation</a></p></li>
+<li><p><a class="reference internal" href="#step-size-control">Step Size Control</a></p></li>
+<li><p><a class="reference internal" href="#algorithm-flow">Algorithm Flow</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#error-control-parameters">Error Control Parameters</a></p>
+<ul>
+<li><p><a class="reference internal" href="#relative-tolerance-rtol">Relative Tolerance (rtol)</a></p></li>
+<li><p><a class="reference internal" href="#absolute-tolerance-atol">Absolute Tolerance (atol)</a></p></li>
+<li><p><a class="reference internal" href="#minimum-step-size-min-step">Minimum Step Size (min_step)</a></p></li>
+<li><p><a class="reference internal" href="#maximum-step-size-max-step">Maximum Step Size (max_step)</a></p></li>
+<li><p><a class="reference internal" href="#safety-factor-safety-factor">Safety Factor (safety_factor)</a></p></li>
+<li><p><a class="reference internal" href="#integration-method-method">Integration Method (method)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#performance-tuning-guidelines">Performance Tuning Guidelines</a></p>
+<ul>
+<li><p><a class="reference internal" href="#balancing-accuracy-and-speed">Balancing Accuracy and Speed</a></p></li>
+<li><p><a class="reference internal" href="#stiff-system-considerations">Stiff System Considerations</a></p></li>
+<li><p><a class="reference internal" href="#recommended-parameter-sets">Recommended Parameter Sets</a></p></li>
+<li><p><a class="reference internal" href="#monitoring-performance">Monitoring Performance</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#adaptive-vs-fixed-stepping">Adaptive vs Fixed Stepping</a></p>
+<ul>
+<li><p><a class="reference internal" href="#when-to-use-adaptive-stepping">When to Use Adaptive Stepping</a></p></li>
+<li><p><a class="reference internal" href="#when-to-use-fixed-stepping">When to Use Fixed Stepping</a></p></li>
+<li><p><a class="reference internal" href="#performance-comparison">Performance Comparison</a></p></li>
+<li><p><a class="reference internal" href="#accuracy-comparison">Accuracy Comparison</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#usage-examples">Usage Examples</a></p>
+<ul>
+<li><p><a class="reference internal" href="#basic-adaptive-stepping">Basic Adaptive Stepping</a></p></li>
+<li><p><a class="reference internal" href="#custom-tolerances">Custom Tolerances</a></p></li>
+<li><p><a class="reference internal" href="#temperature-sweep-with-adaptive-stepping">Temperature Sweep with Adaptive Stepping</a></p></li>
+<li><p><a class="reference internal" href="#comparing-adaptive-and-fixed">Comparing Adaptive and Fixed</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#troubleshooting">Troubleshooting</a></p></li>
+<li><p><a class="reference internal" href="#references">References</a></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>Adaptive time stepping automatically adjusts the integration step size during simulation based on the local truncation error of each step. The solver:</p>
+<ul class="simple">
+<li><p><strong>Takes smaller steps</strong> during rapid changes (early irradiation, gas release events, temperature transients)</p></li>
+<li><p><strong>Takes larger steps</strong> during quasi-steady periods (stable bubble growth, equilibrium conditions)</p></li>
+<li><p><strong>Maintains accuracy</strong> by keeping estimated errors below user-specified tolerances</p></li>
+<li><p><strong>Optimizes efficiency</strong> by minimizing the number of steps while meeting accuracy requirements</p></li>
+</ul>
+<section id="key-benefits">
+<h3>Key Benefits<a class="headerlink" href="#key-benefits" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Automatic tuning</strong>: No manual trial-and-error to find optimal step sizes</p></li>
+<li><p><strong>Guaranteed accuracy</strong>: Errors are controlled within specified tolerances</p></li>
+<li><p><strong>Progress tracking</strong>: Real-time feedback on simulation progress and step sizes</p></li>
+<li><p><strong>Flexibility</strong>: Works with a wide range of parameter regimes</p></li>
+</ol>
+</section>
+<section id="limitations">
+<h3>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>For <strong>very stiff systems</strong> (like the gas swelling model), explicit methods (RK23/RK45) may be slower than implicit methods (BDF/LSODA)</p></li>
+<li><p>Performance gains are most pronounced for systems with <strong>varying timescales</strong> (fast transients + slow evolution)</p></li>
+<li><p>Requires careful <strong>tolerance selection</strong> to balance speed and accuracy</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="how-adaptive-stepping-works">
+<h2>How Adaptive Stepping Works<a class="headerlink" href="#how-adaptive-stepping-works" title="Link to this heading">¶</a></h2>
+<p>The adaptive solver uses <strong>embedded Runge-Kutta methods</strong>, which compute two solutions of different orders in a single step. The difference between these solutions provides an estimate of the local truncation error, which is then used to adjust the step size.</p>
+<section id="embedded-runge-kutta-methods">
+<h3>Embedded Runge-Kutta Methods<a class="headerlink" href="#embedded-runge-kutta-methods" title="Link to this heading">¶</a></h3>
+<p>The solver supports two embedded methods:</p>
+<section id="rk23-bogacki-shampine-2-3">
+<h4>RK23 (Bogacki-Shampine 2(3))<a class="headerlink" href="#rk23-bogacki-shampine-2-3" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>2nd order solution</strong>: Used for error estimation</p></li>
+<li><p><strong>3rd order solution</strong>: Used for advancement (higher accuracy)</p></li>
+<li><p><strong>4 stages</strong>: Requires 4 function evaluations per step</p></li>
+<li><p><strong>FSAL property</strong>: First Same As Last - reduces computational cost</p></li>
+<li><p><strong>Best for</strong>: Moderate accuracy requirements, non-stiff to moderately stiff problems</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Bogacki-Shampine coefficients</span>
+<span class="n">k1</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">k2</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span><span class="o">*</span><span class="n">k1</span><span class="p">)</span>
+<span class="n">k3</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.75</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mf">0.75</span><span class="o">*</span><span class="n">dt</span><span class="o">*</span><span class="n">k2</span><span class="p">)</span>
+<span class="n">k4</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">9</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mi">4</span><span class="o">/</span><span class="mi">9</span><span class="o">*</span><span class="n">k3</span><span class="p">))</span>
+
+<span class="c1"># 3rd order solution (advanced)</span>
+<span class="n">y_new</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">7</span><span class="o">/</span><span class="mi">24</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">4</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">8</span><span class="o">*</span><span class="n">k4</span><span class="p">)</span>
+
+<span class="c1"># 2nd order solution (error estimate)</span>
+<span class="n">y_low</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">9</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mi">4</span><span class="o">/</span><span class="mi">9</span><span class="o">*</span><span class="n">k3</span><span class="p">)</span>
+
+<span class="c1"># Error estimate</span>
+<span class="n">error</span> <span class="o">=</span> <span class="n">y_new</span> <span class="o">-</span> <span class="n">y_low</span>
+</pre></div>
+</div>
+</section>
+<section id="rk45-cash-karp-4-5">
+<h4>RK45 (Cash-Karp 4(5))<a class="headerlink" href="#rk45-cash-karp-4-5" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>4th order solution</strong>: Used for error estimation</p></li>
+<li><p><strong>5th order solution</strong>: Used for advancement (higher accuracy)</p></li>
+<li><p><strong>6 stages</strong>: Requires 6 function evaluations per step</p></li>
+<li><p><strong>Best for</strong>: High accuracy requirements, smooth solutions</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cash-Karp coefficients (6 stages)</span>
+<span class="n">k1</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">k2</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.2</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mf">0.2</span><span class="o">*</span><span class="n">dt</span><span class="o">*</span><span class="n">k1</span><span class="p">)</span>
+<span class="n">k3</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.3</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mf">0.075</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mf">0.225</span><span class="o">*</span><span class="n">k2</span><span class="p">))</span>
+<span class="n">k4</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.6</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mf">0.3</span><span class="o">*</span><span class="n">k1</span> <span class="o">-</span> <span class="mf">0.9</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mf">1.8</span><span class="o">*</span><span class="n">k3</span><span class="p">))</span>
+<span class="n">k5</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="o">-</span><span class="mi">11</span><span class="o">/</span><span class="mi">54</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mf">2.5</span><span class="o">*</span><span class="n">k2</span> <span class="o">-</span> <span class="mi">70</span><span class="o">/</span><span class="mi">27</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="mi">35</span><span class="o">/</span><span class="mi">27</span><span class="o">*</span><span class="n">k4</span><span class="p">))</span>
+<span class="n">k6</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="mf">0.875</span><span class="o">*</span><span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">1631</span><span class="o">/</span><span class="mi">55296</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">175</span><span class="o">/</span><span class="mi">512</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mi">575</span><span class="o">/</span><span class="mi">13824</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="mi">44275</span><span class="o">/</span><span class="mi">110592</span><span class="o">*</span><span class="n">k4</span> <span class="o">+</span> <span class="mi">253</span><span class="o">/</span><span class="mi">4096</span><span class="o">*</span><span class="n">k5</span><span class="p">))</span>
+
+<span class="c1"># 5th order solution (advanced)</span>
+<span class="n">y_new</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">37</span><span class="o">/</span><span class="mi">378</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">250</span><span class="o">/</span><span class="mi">621</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="mi">125</span><span class="o">/</span><span class="mi">594</span><span class="o">*</span><span class="n">k4</span> <span class="o">+</span> <span class="mi">512</span><span class="o">/</span><span class="mi">1771</span><span class="o">*</span><span class="n">k6</span><span class="p">)</span>
+
+<span class="c1"># 4th order solution (error estimate)</span>
+<span class="n">y_low</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="p">(</span><span class="mi">2825</span><span class="o">/</span><span class="mi">27648</span><span class="o">*</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">18575</span><span class="o">/</span><span class="mi">48384</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="mi">13525</span><span class="o">/</span><span class="mi">55296</span><span class="o">*</span><span class="n">k4</span> <span class="o">+</span> <span class="mi">277</span><span class="o">/</span><span class="mi">14336</span><span class="o">*</span><span class="n">k5</span> <span class="o">+</span> <span class="mf">0.25</span><span class="o">*</span><span class="n">k6</span><span class="p">)</span>
+
+<span class="c1"># Error estimate</span>
+<span class="n">error</span> <span class="o">=</span> <span class="n">y_new</span> <span class="o">-</span> <span class="n">y_low</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="error-estimation">
+<h3>Error Estimation<a class="headerlink" href="#error-estimation" title="Link to this heading">¶</a></h3>
+<p>The error estimate is computed as a weighted norm using both relative and absolute tolerances:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Scale for each state variable</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="n">atol</span> <span class="o">+</span> <span class="n">rtol</span> <span class="o">*</span> <span class="o">|</span><span class="n">y</span><span class="o">|</span>
+
+<span class="c1"># Weighted RMS error norm</span>
+<span class="n">error_norm</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">mean</span><span class="p">((</span><span class="n">error</span> <span class="o">/</span> <span class="n">scale</span><span class="p">)</span><span class="o">^</span><span class="mi">2</span><span class="p">))</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>If error_norm ≤ 1</strong>: Step is <strong>accepted</strong></p></li>
+<li><p><strong>If error_norm &gt; 1</strong>: Step is <strong>rejected</strong> and retried with smaller step size</p></li>
+</ul>
+</section>
+<section id="step-size-control">
+<h3>Step Size Control<a class="headerlink" href="#step-size-control" title="Link to this heading">¶</a></h3>
+<p>The step size is adjusted based on the error estimate:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute step size adjustment factor</span>
+<span class="k">if</span> <span class="n">error_norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">2.0</span>  <span class="c1"># No error, increase step size</span>
+<span class="k">elif</span> <span class="n">error_norm</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">:</span>
+    <span class="c1"># Error acceptable, modestly increase step size</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="n">safety_factor</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">error_norm</span><span class="p">)</span> <span class="o">^</span> <span class="n">exponent</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c1"># Error too large, decrease step size</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="n">safety_factor</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">error_norm</span><span class="p">)</span> <span class="o">^</span> <span class="n">exponent</span>
+
+<span class="c1"># Limit step size changes (factor ∈ [0.1, 5.0])</span>
+<span class="n">factor</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+
+<span class="c1"># Compute new step size</span>
+<span class="n">dt_new</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">factor</span>
+
+<span class="c1"># Constrain to allowable range</span>
+<span class="n">dt_new</span> <span class="o">=</span> <span class="n">clip</span><span class="p">(</span><span class="n">dt_new</span><span class="p">,</span> <span class="n">min_step</span><span class="p">,</span> <span class="n">max_step</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><strong>exponent</strong> = 0.5 for RK23 (optimal for 2nd/3rd order methods)</p></li>
+<li><p><strong>exponent</strong> = 0.2 for RK45 (optimal for 4th/5th order methods)</p></li>
+<li><p><strong>safety_factor</strong> = 0.9 (default) provides conservative step changes</p></li>
+</ul>
+</section>
+<section id="algorithm-flow">
+<h3>Algorithm Flow<a class="headerlink" href="#algorithm-flow" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. Initialize: t = t_start, y = y0, estimate initial step size
+2. While t &lt; t_end and steps &lt; max_steps:
+   a. Perform RK23 or RK45 step → (y_new, error_estimate)
+   b. Compute error_norm = weighted_norm(error_estimate, y)
+   c. If error_norm ≤ 1.0:
+      - Accept step: t += dt, y = y_new
+      - Increment n_accepted
+      - Print progress if needed
+   d. Else:
+      - Reject step: keep t, y unchanged
+      - Increment n_rejected
+      - Log warning periodically
+   e. Adjust step size: dt = adjust_step_size(dt, error_norm)
+   f. Increment n_steps
+3. Interpolate results to user-requested t_eval points
+4. Return solution with statistics
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="error-control-parameters">
+<h2>Error Control Parameters<a class="headerlink" href="#error-control-parameters" title="Link to this heading">¶</a></h2>
+<section id="relative-tolerance-rtol">
+<h3>Relative Tolerance (rtol)<a class="headerlink" href="#relative-tolerance-rtol" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">1e-4</span></code> (0.01%)</p></li>
+<li><p><strong>Description</strong>: Desired relative accuracy for each state variable</p></li>
+<li><p><strong>Physical Meaning</strong>: Error relative to the current magnitude of each variable</p></li>
+<li><p><strong>Equation</strong>: <code class="docutils literal notranslate"><span class="pre">error_i</span> <span class="pre">≤</span> <span class="pre">rtol</span> <span class="pre">×</span> <span class="pre">|y_i|</span> <span class="pre">+</span> <span class="pre">atol</span></code></p></li>
+<li><p><strong>Typical Range</strong>: 1e-6 to 1e-3</p></li>
+</ul>
+<section id="impact-on-simulation">
+<h4>Impact on Simulation<a class="headerlink" href="#impact-on-simulation" title="Link to this heading">¶</a></h4>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>rtol</p></th>
+<th class="head"><p>Accuracy</p></th>
+<th class="head"><p>Speed</p></th>
+<th class="head"><p>Step Size</p></th>
+<th class="head"><p>Use Case</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1e-6</p></td>
+<td><p>Very high</p></td>
+<td><p>Slow</p></td>
+<td><p>Small</p></td>
+<td><p>Final validation, publication-quality results</p></td>
+</tr>
+<tr class="row-odd"><td><p>1e-5</p></td>
+<td><p>High</p></td>
+<td><p>Moderate</p></td>
+<td><p>Moderate</p></td>
+<td><p>Detailed studies, sensitivity analysis</p></td>
+</tr>
+<tr class="row-even"><td><p>1e-4</p></td>
+<td><p>Medium</p></td>
+<td><p>Fast</p></td>
+<td><p>Moderate</p></td>
+<td><p>Default, exploratory studies</p></td>
+</tr>
+<tr class="row-odd"><td><p>1e-3</p></td>
+<td><p>Low</p></td>
+<td><p>Very fast</p></td>
+<td><p>Large</p></td>
+<td><p>Quick parameter sweeps, screening</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="recommendations">
+<h4>Recommendations<a class="headerlink" href="#recommendations" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Start with rtol=1e-4</strong> for exploratory studies</p></li>
+<li><p><strong>Use rtol=1e-5 to 1e-6</strong> for final results and publications</p></li>
+<li><p><strong>Use rtol=1e-3</strong> for quick parameter sweeps</p></li>
+</ul>
+</section>
+</section>
+<section id="absolute-tolerance-atol">
+<h3>Absolute Tolerance (atol)<a class="headerlink" href="#absolute-tolerance-atol" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">1e-6</span></code></p></li>
+<li><p><strong>Description</strong>: Absolute error tolerance for near-zero state variables</p></li>
+<li><p><strong>Physical Meaning</strong>: Minimum acceptable error when y ≈ 0</p></li>
+<li><p><strong>Equation</strong>: <code class="docutils literal notranslate"><span class="pre">error_i</span> <span class="pre">≤</span> <span class="pre">rtol</span> <span class="pre">×</span> <span class="pre">|y_i|</span> <span class="pre">+</span> <span class="pre">atol</span></code></p></li>
+<li><p><strong>Typical Range</strong>: 1e-9 to 1e-5</p></li>
+</ul>
+<section id="why-both-tolerances">
+<h4>Why Both Tolerances?<a class="headerlink" href="#why-both-tolerances" title="Link to this heading">¶</a></h4>
+<p>The combined error criterion handles two regimes:</p>
+<ol class="arabic simple">
+<li><p><strong>Large values</strong>: <code class="docutils literal notranslate"><span class="pre">rtol</span> <span class="pre">×</span> <span class="pre">|y|</span></code> dominates (relative error)</p></li>
+<li><p><strong>Near zero</strong>: <code class="docutils literal notranslate"><span class="pre">atol</span></code> dominates (absolute error)</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: For variables ranging from 1e-10 to 1e-5</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="n">atol</span> <span class="o">+</span> <span class="n">rtol</span> <span class="o">*</span> <span class="o">|</span><span class="n">y</span><span class="o">|</span>
+<span class="c1"># When y = 1e-10: scale ≈ atol = 1e-6 (absolute tolerance)</span>
+<span class="c1"># When y = 1e-5:  scale ≈ rtol * y = 1e-9 (relative tolerance)</span>
+</pre></div>
+</div>
+</section>
+<section id="id1">
+<h4>Recommendations<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Set atol to 10-100× smaller than your smallest meaningful value</strong></p></li>
+<li><p>For gas concentrations (typically 1e-5 to 1e20 atoms/m³), use atol=1e-6 to 1e-9</p></li>
+<li><p><strong>Keep atol proportional to rtol</strong> for consistent error control across scales</p></li>
+</ul>
+</section>
+</section>
+<section id="minimum-step-size-min-step">
+<h3>Minimum Step Size (min_step)<a class="headerlink" href="#minimum-step-size-min-step" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">1e-12</span></code> s</p></li>
+<li><p><strong>Description</strong>: Minimum allowed step size</p></li>
+<li><p><strong>Physical Meaning</strong>: Prevents numerical instability from excessively small steps</p></li>
+<li><p><strong>Typical Range</strong>: 1e-15 to 1e-9 s</p></li>
+</ul>
+<section id="when-min-step-matters">
+<h4>When min_step Matters<a class="headerlink" href="#when-min-step-matters" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Prevents infinite loops</strong>: If the system is too stiff, the solver keeps reducing step size</p></li>
+<li><p><strong>Numerical precision</strong>: Steps below ~1e-15 s suffer from floating-point round-off</p></li>
+<li><p><strong>Timescale limits</strong>: Physical processes have minimum timescales (e.g., atomic vibrations ~1e-13 s)</p></li>
+</ul>
+</section>
+<section id="id2">
+<h4>Recommendations<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Default (1e-12 s)</strong> works for most cases</p></li>
+<li><p><strong>Increase to 1e-10 or 1e-9 s</strong> for stiff systems to avoid getting stuck</p></li>
+<li><p><strong>Decrease to 1e-15 s</strong> only if studying ultra-fast transients</p></li>
+</ul>
+</section>
+</section>
+<section id="maximum-step-size-max-step">
+<h3>Maximum Step Size (max_step)<a class="headerlink" href="#maximum-step-size-max-step" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">100.0</span></code> s</p></li>
+<li><p><strong>Description</strong>: Maximum allowed step size</p></li>
+<li><p><strong>Physical Meaning</strong>: Prevents overshooting rapid transients</p></li>
+<li><p><strong>Typical Range</strong>: 0.1 to 10,000 s</p></li>
+</ul>
+<section id="when-max-step-matters">
+<h4>When max_step Matters<a class="headerlink" href="#when-max-step-matters" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Accuracy during transients</strong>: Limits step size during gas release events</p></li>
+<li><p><strong>Output resolution</strong>: Affects how well rapid changes are resolved</p></li>
+<li><p><strong>Stability</strong>: Large steps can cause instability in stiff systems</p></li>
+</ul>
+</section>
+<section id="id3">
+<h4>Recommendations<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># For short simulations (&lt; 1 day):</span>
+<span class="n">max_step</span> <span class="o">=</span> <span class="n">sim_time</span> <span class="o">/</span> <span class="mi">1000</span>  <span class="c1"># At least 1000 steps</span>
+
+<span class="c1"># For long simulations (&gt; 100 days):</span>
+<span class="n">max_step</span> <span class="o">=</span> <span class="n">sim_time</span> <span class="o">/</span> <span class="mi">10000</span>  <span class="c1"># At least 10000 steps</span>
+
+<span class="c1"># For studies with rapid transients:</span>
+<span class="n">max_step</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Keep steps small</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="safety-factor-safety-factor">
+<h3>Safety Factor (safety_factor)<a class="headerlink" href="#safety-factor-safety-factor" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">0.9</span></code></p></li>
+<li><p><strong>Description</strong>: Conservative multiplier for step size adjustment</p></li>
+<li><p><strong>Range</strong>: (0, 1), typically 0.8 - 0.95</p></li>
+<li><p><strong>Physical Meaning</strong>: Reduces risk of step rejection by being conservative</p></li>
+</ul>
+<section id="how-it-works">
+<h4>How It Works<a class="headerlink" href="#how-it-works" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">factor</span> <span class="o">=</span> <span class="n">safety_factor</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">error_norm</span><span class="p">)</span> <span class="o">^</span> <span class="n">exponent</span>
+
+<span class="c1"># With safety_factor = 0.9:</span>
+<span class="c1"># If error_norm = 0.5: factor = 0.9 * (2.0) ^ 0.5 = 1.27 (modest increase)</span>
+<span class="c1"># If error_norm = 2.0: factor = 0.9 * (0.5) ^ 0.5 = 0.64 (conservative decrease)</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h4>Recommendations<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Default (0.9)</strong> is optimal for most problems</p></li>
+<li><p><strong>Increase to 0.95</strong> for faster but less conservative stepping</p></li>
+<li><p><strong>Decrease to 0.8</strong> for very conservative stepping (fewer rejections)</p></li>
+</ul>
+</section>
+</section>
+<section id="integration-method-method">
+<h3>Integration Method (method)<a class="headerlink" href="#integration-method-method" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Type</strong>: <code class="docutils literal notranslate"><span class="pre">str</span></code></p></li>
+<li><p><strong>Options</strong>: <code class="docutils literal notranslate"><span class="pre">'RK23'</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">'RK45'</span></code></p></li>
+<li><p><strong>Description</strong>: Embedded Runge-Kutta method for error estimation</p></li>
+</ul>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Order</p></th>
+<th class="head"><p>Cost</p></th>
+<th class="head"><p>Accuracy</p></th>
+<th class="head"><p>Speed</p></th>
+<th class="head"><p>Best For</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RK23</p></td>
+<td><p>2(3)</p></td>
+<td><p>4 evals/step</p></td>
+<td><p>Good</p></td>
+<td><p>Fast</p></td>
+<td><p>Default, moderately stiff systems</p></td>
+</tr>
+<tr class="row-odd"><td><p>RK45</p></td>
+<td><p>4(5)</p></td>
+<td><p>6 evals/step</p></td>
+<td><p>Excellent</p></td>
+<td><p>Moderate</p></td>
+<td><p>High accuracy, smooth solutions</p></td>
+</tr>
+</tbody>
+</table>
+<section id="id5">
+<h4>Recommendations<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Use RK23</strong> for most gas swelling simulations (default)</p></li>
+<li><p><strong>Use RK45</strong> for:</p>
+<ul>
+<li><p>High accuracy requirements (rtol &lt; 1e-5)</p></li>
+<li><p>Smooth, non-stiff problems</p></li>
+<li><p>Final validation studies</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="performance-tuning-guidelines">
+<h2>Performance Tuning Guidelines<a class="headerlink" href="#performance-tuning-guidelines" title="Link to this heading">¶</a></h2>
+<section id="balancing-accuracy-and-speed">
+<h3>Balancing Accuracy and Speed<a class="headerlink" href="#balancing-accuracy-and-speed" title="Link to this heading">¶</a></h3>
+<p>The key to effective adaptive stepping is choosing tolerances that are:</p>
+<ol class="arabic simple">
+<li><p><strong>Loose enough</strong> to allow efficient large steps</p></li>
+<li><p><strong>Tight enough</strong> to maintain required accuracy</p></li>
+</ol>
+<section id="tuning-strategy">
+<h4>Tuning Strategy<a class="headerlink" href="#tuning-strategy" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Step 1: Start with default tolerances</span>
+<span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-6</span>
+
+<span class="c1"># Step 2: Run a short test simulation</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3600</span><span class="p">),</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span>
+
+<span class="c1"># Step 3: Check performance</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Steps: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, Accepted: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, Rejected: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Step 4: Adjust based on results</span>
+<span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">:</span>
+    <span class="c1"># Too many rejections, tighten tolerances</span>
+    <span class="n">rtol</span> <span class="o">*=</span> <span class="mf">0.5</span>
+    <span class="n">atol</span> <span class="o">*=</span> <span class="mf">0.5</span>
+<span class="k">elif</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">100</span><span class="p">:</span>
+    <span class="c1"># Very few steps, can loosen tolerances</span>
+    <span class="n">rtol</span> <span class="o">*=</span> <span class="mf">2.0</span>
+    <span class="n">atol</span> <span class="o">*=</span> <span class="mf">2.0</span>
+
+<span class="c1"># Step 5: Validate final accuracy by comparing with tighter tolerances</span>
+<span class="n">result_tight</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3600</span><span class="p">),</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="o">/</span><span class="mi">10</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="o">/</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">result_tight</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Validation error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="stiff-system-considerations">
+<h3>Stiff System Considerations<a class="headerlink" href="#stiff-system-considerations" title="Link to this heading">¶</a></h3>
+<p>The gas swelling model is a <strong>very stiff system</strong> with:</p>
+<ul class="simple">
+<li><p><strong>Fast timescales</strong>: Vacancy-interstitial recombination (~1e-9 s)</p></li>
+<li><p><strong>Slow timescales</strong>: Bubble growth over days (~1e5 s)</p></li>
+<li><p><strong>Timescale ratio</strong>: ~10¹⁴ (extremely stiff!)</p></li>
+</ul>
+<section id="implications">
+<h4>Implications<a class="headerlink" href="#implications" title="Link to this heading">¶</a></h4>
+<ol class="arabic simple">
+<li><p><strong>Explicit methods (RK23/RK45)</strong> are limited by stability requirements</p></li>
+<li><p><strong>Implicit methods (BDF/LSODA)</strong> are often faster for stiff systems</p></li>
+<li><p><strong>Adaptive stepping may not provide speedup</strong> compared to scipy’s BDF method</p></li>
+</ol>
+</section>
+<section id="recommendations-for-stiff-systems">
+<h4>Recommendations for Stiff Systems<a class="headerlink" href="#recommendations-for-stiff-systems" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># For gas swelling model, try these parameter sets:</span>
+
+<span class="c1"># Option 1: Conservative (stable but slow)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">,</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-10</span><span class="p">,</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">1000.0</span><span class="p">,</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK23&#39;</span>
+<span class="p">}</span>
+
+<span class="c1"># Option 2: Balanced (default)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-12</span><span class="p">,</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK23&#39;</span>
+<span class="p">}</span>
+
+<span class="c1"># Option 3: For comparison, use scipy&#39;s BDF (often faster for stiff systems)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># Use scipy&#39;s BDF</span>
+    <span class="s1">&#39;max_time_step&#39;</span><span class="p">:</span> <span class="mf">100.0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="recommended-parameter-sets">
+<h3>Recommended Parameter Sets<a class="headerlink" href="#recommended-parameter-sets" title="Link to this heading">¶</a></h3>
+<section id="quick-exploratory-study">
+<h4>Quick Exploratory Study<a class="headerlink" href="#quick-exploratory-study" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">,</span>       <span class="c1"># Relaxed tolerance</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>       <span class="c1"># Relaxed tolerance</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-10</span><span class="p">,</span>  <span class="c1"># Prevent getting stuck</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">1000.0</span><span class="p">,</span> <span class="c1"># Allow large steps</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK23&#39;</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="standard-production-run">
+<h4>Standard Production Run<a class="headerlink" href="#standard-production-run" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>       <span class="c1"># Default tolerance</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>       <span class="c1"># Default tolerance</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-12</span><span class="p">,</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK23&#39;</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="high-accuracy-validation">
+<h4>High Accuracy Validation<a class="headerlink" href="#high-accuracy-validation" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>       <span class="c1"># Tight tolerance</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-9</span><span class="p">,</span>       <span class="c1"># Tight tolerance</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-14</span><span class="p">,</span>  <span class="c1"># Allow very small steps</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>   <span class="c1"># Keep steps moderate</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK45&#39;</span>    <span class="c1"># Higher order method</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="parameter-sweep-fast">
+<h4>Parameter Sweep (Fast)<a class="headerlink" href="#parameter-sweep-fast" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">,</span>       <span class="c1"># Very relaxed</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>       <span class="c1"># Very relaxed</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-9</span><span class="p">,</span>   <span class="c1"># Aggressive</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">10000.0</span> <span class="c1"># Very aggressive</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="monitoring-performance">
+<h3>Monitoring Performance<a class="headerlink" href="#monitoring-performance" title="Link to this heading">¶</a></h3>
+<p>Enable progress tracking and statistics:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;show_progress&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;progress_interval&#39;</span><span class="p">:</span> <span class="mi">100</span>  <span class="c1"># Print every 100 accepted steps</span>
+<span class="p">})</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sim_time</span><span class="p">))</span>
+
+<span class="c1"># Check solver statistics</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total steps: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Accepted: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rejected: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Acceptance rate: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+
+<span class="c1"># Performance indicators:</span>
+<span class="c1"># - Acceptance rate &gt; 80%: Well-tuned</span>
+<span class="c1"># - Acceptance rate 50-80%: Acceptable</span>
+<span class="c1"># - Acceptance rate &lt; 50%: Consider tightening min_step</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="adaptive-vs-fixed-stepping">
+<h2>Adaptive vs Fixed Stepping<a class="headerlink" href="#adaptive-vs-fixed-stepping" title="Link to this heading">¶</a></h2>
+<section id="when-to-use-adaptive-stepping">
+<h3>When to Use Adaptive Stepping<a class="headerlink" href="#when-to-use-adaptive-stepping" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Use adaptive stepping when:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Exploring new parameter regimes</strong> - No prior knowledge of appropriate step sizes</p></li>
+<li><p><strong>Systems with varying timescales</strong> - Fast transients + slow evolution</p></li>
+<li><p><strong>Automatic error control needed</strong> - Want guaranteed accuracy</p></li>
+<li><p><strong>Parameter sweeps</strong> - Different parameters require different optimal step sizes</p></li>
+<li><p><strong>Gas release events</strong> - Rapid changes during interconnection</p></li>
+<li><p><strong>Temperature changes</strong> - Transients during temperature ramps</p></li>
+</ol>
+<p>✅ <strong>Benefits:</strong></p>
+<ul class="simple">
+<li><p>Automatic tuning - no manual trial-and-error</p></li>
+<li><p>Guaranteed accuracy within tolerances</p></li>
+<li><p>Real-time progress feedback</p></li>
+<li><p>Works across wide range of conditions</p></li>
+</ul>
+</section>
+<section id="when-to-use-fixed-stepping">
+<h3>When to Use Fixed Stepping<a class="headerlink" href="#when-to-use-fixed-stepping" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Use fixed stepping (scipy’s BDF/LSODA) when:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Very stiff systems</strong> - Gas swelling model is extremely stiff</p></li>
+<li><p><strong>Benchmarking</strong> - Need consistent, reproducible results</p></li>
+<li><p><strong>Known optimal step size</strong> - From prior experience</p></li>
+<li><p><strong>Performance critical</strong> - Scipy’s BDF is optimized for stiff systems</p></li>
+<li><p><strong>Simple dynamics</strong> - No rapid transients or regime changes</p></li>
+</ol>
+<p>✅ <strong>Benefits:</strong></p>
+<ul class="simple">
+<li><p><strong>Faster for stiff systems</strong> - BDF method uses Newton iteration</p></li>
+<li><p><strong>Well-tested</strong> - Scipy’s solvers are mature and robust</p></li>
+<li><p><strong>Predictable performance</strong> - Consistent step sizes</p></li>
+<li><p><strong>Lower overhead</strong> - No step rejection/retry</p></li>
+</ul>
+</section>
+<section id="performance-comparison">
+<h3>Performance Comparison<a class="headerlink" href="#performance-comparison" title="Link to this heading">¶</a></h3>
+<p>Benchmark results for 1-hour simulation (3600 s) at 773 K:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Time (s)</p></th>
+<th class="head"><p>Steps</p></th>
+<th class="head"><p>Speedup</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Fixed (BDF)</p></td>
+<td><p>0.04</p></td>
+<td><p>~100</p></td>
+<td><p>1.0x (baseline)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Adaptive (RK23, rtol=1e-4)</p></td>
+<td><p>177</p></td>
+<td><p>~10,000</p></td>
+<td><p>0.00x (slower)</p></td>
+</tr>
+<tr class="row-even"><td><p>Adaptive (RK23, rtol=1e-3)</p></td>
+<td><p>95</p></td>
+<td><p>~5,000</p></td>
+<td><p>0.00x (slower)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key Insight</strong>: For the gas swelling model (very stiff system), scipy’s BDF method is <strong>significantly faster</strong> than explicit RK23 adaptive stepping. This is expected behavior:</p>
+<ul class="simple">
+<li><p><strong>BDF (implicit)</strong>: Handles stiffness efficiently using Newton iteration</p></li>
+<li><p><strong>RK23 (explicit)</strong>: Limited by stability requirement, requires tiny steps</p></li>
+</ul>
+</section>
+<section id="accuracy-comparison">
+<h3>Accuracy Comparison<a class="headerlink" href="#accuracy-comparison" title="Link to this heading">¶</a></h3>
+<p>Final swelling values after 1 day (86400 s) at 773 K:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Swelling (%)</p></th>
+<th class="head"><p>Difference</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Fixed (BDF)</p></td>
+<td><p>0.152</p></td>
+<td><p>Baseline</p></td>
+</tr>
+<tr class="row-odd"><td><p>Adaptive (RK23, rtol=1e-3)</p></td>
+<td><p>0.145</p></td>
+<td><p>4.6%</p></td>
+</tr>
+<tr class="row-even"><td><p>Adaptive (RK23, rtol=1e-4)</p></td>
+<td><p>0.149</p></td>
+<td><p>1.9%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Adaptive (RK23, rtol=1e-5)</p></td>
+<td><p>0.151</p></td>
+<td><p>0.7%</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key Insight</strong>: Adaptive stepping produces results within <strong>same order of magnitude</strong> as fixed stepping. For stiff systems, small differences (&lt;5%) are acceptable and reflect different numerical approaches.</p>
+</section>
+<section id="decision-flowchart">
+<h3>Decision Flowchart<a class="headerlink" href="#decision-flowchart" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Start
+  │
+  ├─ Is system very stiff? (timescale ratio &gt; 10⁶)
+  │   ├─ Yes → Use fixed stepping (BDF)
+  │   └─ No  → Continue
+  │
+  ├─ Are there rapid transients? (gas release, T changes)
+  │   ├─ Yes → Use adaptive stepping
+  │   └─ No  → Continue
+  │
+  ├─ Is automatic tuning needed?
+  │   ├─ Yes → Use adaptive stepping
+  │   └─ No  → Continue
+  │
+  ├─ Is performance critical?
+  │   ├─ Yes → Use fixed stepping (BDF)
+  │   └─ No  → Use adaptive stepping
+  │
+End
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="usage-examples">
+<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">¶</a></h2>
+<section id="basic-adaptive-stepping">
+<h3>Basic Adaptive Stepping<a class="headerlink" href="#basic-adaptive-stepping" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.models.modelrk23</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># Create parameters with adaptive stepping enabled</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;temperature&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">773</span>  <span class="c1"># 500°C</span>
+
+<span class="c1"># Create and run model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">))</span>  <span class="c1"># 1 day</span>
+
+<span class="c1"># Access results</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final swelling: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Steps taken: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_steps&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Accepted: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, Rejected: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;n_rejected&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-tolerances">
+<h3>Custom Tolerances<a class="headerlink" href="#custom-tolerances" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># High accuracy simulation</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>        <span class="c1"># Tight relative tolerance</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-9</span><span class="p">,</span>        <span class="c1"># Tight absolute tolerance</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-14</span><span class="p">,</span>   <span class="c1"># Allow very small steps</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>    <span class="c1"># Limit maximum step size</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK45&#39;</span>     <span class="c1"># Higher order method</span>
+<span class="p">})</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="o">*</span><span class="mi">100</span><span class="p">))</span>  <span class="c1"># 100 days</span>
+</pre></div>
+</div>
+</section>
+<section id="temperature-sweep-with-adaptive-stepping">
+<h3>Temperature Sweep with Adaptive Stepping<a class="headerlink" href="#temperature-sweep-with-adaptive-stepping" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temperatures</span> <span class="o">=</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">700</span><span class="p">,</span> <span class="mi">800</span><span class="p">,</span> <span class="mi">900</span><span class="p">,</span> <span class="mi">1000</span><span class="p">]</span>  <span class="c1"># K</span>
+<span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="n">temperatures</span><span class="p">:</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+    <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+        <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s1">&#39;temperature&#39;</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
+        <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+        <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+        <span class="s1">&#39;show_progress&#39;</span><span class="p">:</span> <span class="kc">True</span>
+    <span class="p">})</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="o">*</span><span class="mi">100</span><span class="p">))</span>  <span class="c1"># 100 days</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;T = </span><span class="si">{</span><span class="n">T</span><span class="si">}</span><span class="s2"> K, Final swelling = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+
+<span class="c1"># Plot results</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">swelling</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">swelling</span><span class="p">,</span> <span class="s1">&#39;o-&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Temperature (K)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Swelling (%)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Temperature Dependence of Swelling&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="comparing-adaptive-and-fixed">
+<h3>Comparing Adaptive and Fixed<a class="headerlink" href="#comparing-adaptive-and-fixed" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="c1"># Fixed stepping (BDF)</span>
+<span class="n">params_fixed</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params_fixed</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">model_fixed</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params_fixed</span><span class="p">)</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">result_fixed</span> <span class="o">=</span> <span class="n">model_fixed</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">))</span>
+<span class="n">time_fixed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+<span class="c1"># Adaptive stepping (RK23)</span>
+<span class="n">params_adaptive</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>
+<span class="n">params_adaptive</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>
+    <span class="s1">&#39;show_progress&#39;</span><span class="p">:</span> <span class="kc">False</span>
+<span class="p">})</span>
+<span class="n">model_adaptive</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params_adaptive</span><span class="p">)</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">result_adaptive</span> <span class="o">=</span> <span class="n">model_adaptive</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">86400</span><span class="p">))</span>
+<span class="n">time_adaptive</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+<span class="c1"># Compare</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fixed stepping: </span><span class="si">{</span><span class="n">time_fixed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s, </span><span class="si">{</span><span class="n">result_fixed</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adaptive: </span><span class="si">{</span><span class="n">time_adaptive</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">s, </span><span class="si">{</span><span class="n">result_adaptive</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Speedup: </span><span class="si">{</span><span class="n">time_fixed</span><span class="o">/</span><span class="n">time_adaptive</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Accuracy difference: </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">result_fixed</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">result_adaptive</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<section id="problem-too-many-rejected-steps">
+<h3>Problem: Too Many Rejected Steps<a class="headerlink" href="#problem-too-many-rejected-steps" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>: High rejection rate (&gt;30%), slow simulation</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Tighten tolerances</strong>: Reduce rtol and atol</p></li>
+<li><p><strong>Increase min_step</strong>: Prevent excessive step reduction</p></li>
+<li><p><strong>Reduce safety_factor</strong>: Use 0.8 instead of 0.9</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>        <span class="c1"># Tighter (was 1e-4)</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-8</span><span class="p">,</span>        <span class="c1"># Tighter (was 1e-6)</span>
+    <span class="s1">&#39;min_step&#39;</span><span class="p">:</span> <span class="mf">1e-10</span><span class="p">,</span>   <span class="c1"># Larger (was 1e-12)</span>
+    <span class="s1">&#39;safety_factor&#39;</span><span class="p">:</span> <span class="mf">0.8</span> <span class="c1"># More conservative (was 0.9)</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="problem-simulation-gets-stuck">
+<h3>Problem: Simulation Gets Stuck<a class="headerlink" href="#problem-simulation-gets-stuck" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>: Step size reduces to min_step and stays there, simulation never completes</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Increase min_step</strong>: Allow larger minimum steps</p></li>
+<li><p><strong>Switch to fixed stepping</strong>: Use scipy’s BDF method</p></li>
+<li><p><strong>Check parameter values</strong>: Ensure physical parameters are reasonable</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Increase min_step</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;min_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-9</span>  <span class="c1"># Was 1e-12</span>
+
+<span class="c1"># Option 2: Switch to fixed stepping</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+</div>
+</section>
+<section id="problem-poor-accuracy">
+<h3>Problem: Poor Accuracy<a class="headerlink" href="#problem-poor-accuracy" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>: Results don’t match expected values or vary significantly with tolerances</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Tighten tolerances</strong>: Use rtol=1e-6 or tighter</p></li>
+<li><p><strong>Use RK45 method</strong>: Higher order accuracy</p></li>
+<li><p><strong>Validate against fixed stepping</strong>: Compare with BDF results</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-6</span><span class="p">,</span>        <span class="c1"># Much tighter</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-9</span><span class="p">,</span>        <span class="c1"># Much tighter</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;RK45&#39;</span>     <span class="c1"># Higher order</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+<section id="problem-slow-performance">
+<h3>Problem: Slow Performance<a class="headerlink" href="#problem-slow-performance" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>: Simulation takes much longer than fixed stepping</p>
+<p><strong>Solutions</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Loosen tolerances</strong>: Use rtol=1e-3</p></li>
+<li><p><strong>Increase max_step</strong>: Allow larger steps</p></li>
+<li><p><strong>Use fixed stepping</strong>: BDF is faster for stiff systems</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Option 1: Looser tolerances</span>
+<span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">,</span>
+    <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
+    <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="mf">1000.0</span>
+<span class="p">})</span>
+
+<span class="c1"># Option 2: Use fixed stepping (recommended for stiff systems)</span>
+<span class="n">params</span><span class="p">[</span><span class="s1">&#39;adaptive_stepping_enabled&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<section id="numerical-methods">
+<h3>Numerical Methods<a class="headerlink" href="#numerical-methods" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Hairer, Nørsett, Wanner</strong> (1993). <em>Solving Ordinary Differential Equations I: Nonstiff Problems</em>. Springer.</p>
+<ul class="simple">
+<li><p>Chapter II.4: Embedded Runge-Kutta Methods</p></li>
+</ul>
+</li>
+<li><p><strong>Hairer, Wanner</strong> (1996). <em>Solving Ordinary Differential Equations II: Stiff and Differential-Algebraic Problems</em>. Springer.</p>
+<ul class="simple">
+<li><p>Chapter IV.6: BDF Methods</p></li>
+</ul>
+</li>
+<li><p><strong>Bogacki, Shampine</strong> (1989). “An Efficient Runge-Kutta (4,5) Pair”. <em>SIAM J. Numer. Anal.</em>, 26(3).</p></li>
+<li><p><strong>Cash, Karp</strong> (1990). “A Variable Order Runge-Kutta Method for Initial Value Problems with Rapidly Varying Right-Hand Sides”. <em>ACM TOMS</em>, 16(3).</p></li>
+</ol>
+</section>
+<section id="adaptive-stepping-theory">
+<h3>Adaptive Stepping Theory<a class="headerlink" href="#adaptive-stepping-theory" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple" start="5">
+<li><p><strong>Söderlind</strong> (2002). “Automatic Control and Adaptive Time-Stepping”. <em>Numerical Algorithms</em>, 31.</p>
+<ul class="simple">
+<li><p>Stability and efficiency of adaptive step size control</p></li>
+</ul>
+</li>
+<li><p><strong>Gustafsson</strong> (1991). “Control Theoretic Techniques for Step Size Selection in Explicit Runge-Kutta Methods”. <em>ACM TOMS</em>, 17(4).</p></li>
+</ol>
+</section>
+<section id="gas-swelling-model">
+<h3>Gas Swelling Model<a class="headerlink" href="#gas-swelling-model" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple" start="7">
+<li><p>Rest, J. “A model for the fission-gas-driven swelling of metallic fuels.” <em>J. Nucl. Mater.</em> (1992).</p></li>
+<li><p>Original theoretical paper: “Kinetics of fission-gas-bubble-nucleated void swelling”</p></li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="related-documentation">
+<h2>Related Documentation<a class="headerlink" href="#related-documentation" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="parameter_reference.html"><span class="std std-doc">Parameter Reference Guide</span></a> - All model parameters and their meanings</p></li>
+<li><p>Model theory: see repo-root <code class="docutils literal notranslate"><span class="pre">model_design.md</span></code></p></li>
+<li><p><a class="reference download internal" download="" href="_downloads/711e46c12f2dd8d19075a8e0db28f0cc/adaptive_stepping_demo.py"><span class="xref download myst">Adaptive Stepping Demo</span></a> - Interactive demonstration</p></li>
+<li><p>Installation guide: see repo-root <code class="docutils literal notranslate"><span class="pre">INSTALL.md</span></code></p></li>
+</ul>
+<hr class="docutils" />
+<p><em>For questions or issues, please refer to the <a class="reference external" href="https://github.com/your-org/gas-swelling-model">GitHub repository</a> or contact the development team.</em></p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Adaptive Time Stepping Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-adaptive-stepping-works">How Adaptive Stepping Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#error-control-parameters">Error Control Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-tuning-guidelines">Performance Tuning Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adaptive-vs-fixed-stepping">Adaptive vs Fixed Stepping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage-examples">Usage Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#related-documentation">Related Documentation</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="validation_guide.html" title="previous chapter">Validation Guide for Gas Swelling Model</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/adaptive_stepping.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

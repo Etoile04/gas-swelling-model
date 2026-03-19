@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Interpreting Simulation Results: A Comprehensive Guide &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Plot Gallery: Code Snippets &amp; Examples" href="plot_gallery.html" />
+    <link rel="prev" title="Learning Paths Guide" href="../learning_paths.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="interpreting-simulation-results-a-comprehensive-guide">
+<h1>Interpreting Simulation Results: A Comprehensive Guide<a class="headerlink" href="#interpreting-simulation-results-a-comprehensive-guide" title="Link to this heading">¶</a></h1>
+<p><strong>Target Audience:</strong> Graduate students and researchers who want to understand what their simulation results mean
+<strong>Reading Time:</strong> ~30 minutes
+<strong>Prerequisites:</strong> Basic understanding of <a class="reference internal" href="../tutorials/rate_theory_fundamentals.html"><span class="std std-doc">Rate Theory Fundamentals</span></a> and <a class="reference internal" href="../tutorials/model_equations_explained.html"><span class="std std-doc">Model Equations</span></a></p>
+<hr class="docutils" />
+<section id="learning-objectives">
+<h2>Learning Objectives<a class="headerlink" href="#learning-objectives" title="Link to this heading">¶</a></h2>
+<p>After reading this guide, you will understand:</p>
+<ul class="simple">
+<li><p>✓ What each output variable represents physically</p></li>
+<li><p>✓ How to identify typical vs. atypical behavior</p></li>
+<li><p>✓ What physical processes your results reveal</p></li>
+<li><p>✓ Warning signs that indicate potential problems</p></li>
+<li><p>✓ How to extract meaningful insights from your data</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#quick-reference-result-dictionary-structure">Quick Reference: Result Dictionary Structure</a></p></li>
+<li><p><a class="reference internal" href="#primary-output-variables">Primary Output Variables</a></p></li>
+<li><p><a class="reference internal" href="#derived-quantities">Derived Quantities</a></p></li>
+<li><p><a class="reference internal" href="#interpreting-temporal-evolution">Interpreting Temporal Evolution</a></p></li>
+<li><p><a class="reference internal" href="#warning-signs-and-troubleshooting">Warning Signs and Troubleshooting</a></p></li>
+<li><p><a class="reference internal" href="#physical-interpretation-checklist">Physical Interpretation Checklist</a></p></li>
+<li><p><a class="reference internal" href="#common-analysis-patterns">Common Analysis Patterns</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="quick-reference-result-dictionary-structure">
+<h2>Quick Reference: Result Dictionary Structure<a class="headerlink" href="#quick-reference-result-dictionary-structure" title="Link to this heading">¶</a></h2>
+<p>When you call <code class="docutils literal notranslate"><span class="pre">model.solve()</span></code>, you receive a dictionary with the following keys:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Time</span>
+    <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>          <span class="c1"># Time points (seconds)</span>
+
+    <span class="c1"># State variables - Bulk (index b = bulk)</span>
+    <span class="s1">&#39;Cgb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Gas concentration in bulk matrix (atoms/m³)</span>
+    <span class="s1">&#39;Ccb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Bubble concentration in bulk (cavities/m³)</span>
+    <span class="s1">&#39;Ncb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Gas atoms per bulk bubble (atoms/bubble)</span>
+    <span class="s1">&#39;Rcb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Bulk bubble radius (meters)</span>
+    <span class="s1">&#39;cvb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Vacancy concentration in bulk (dimensionless)</span>
+    <span class="s1">&#39;cib&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Interstitial concentration in bulk (dimensionless)</span>
+    <span class="s1">&#39;kvb&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Vacancy sink strength in bulk (m⁻²)</span>
+    <span class="s1">&#39;kib&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Interstitial sink strength in bulk (m⁻²)</span>
+
+    <span class="c1"># State variables - Boundary (index f = facet/boundary)</span>
+    <span class="s1">&#39;Cgf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Gas concentration at boundaries (atoms/m³)</span>
+    <span class="s1">&#39;Ccf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Bubble concentration at boundaries (cavities/m³)</span>
+    <span class="s1">&#39;Ncf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Gas atoms per boundary bubble (atoms/bubble)</span>
+    <span class="s1">&#39;Rcf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Boundary bubble radius (meters)</span>
+    <span class="s1">&#39;cvf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Vacancy concentration at boundaries (dimensionless)</span>
+    <span class="s1">&#39;cif&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Interstitial concentration at boundaries (dimensionless)</span>
+    <span class="s1">&#39;kvf&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Vacancy sink strength at boundaries (m⁻²)</span>
+    <span class="s1">&#39;kif&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>           <span class="c1"># Interstitial sink strength at boundaries (m⁻²)</span>
+
+    <span class="c1"># Cumulative quantities</span>
+    <span class="s1">&#39;released_gas&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># Cumulative gas release (atoms/m³)</span>
+
+    <span class="c1"># Key derived quantity</span>
+    <span class="s1">&#39;swelling&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>       <span class="c1"># Swelling percentage (%)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Key convention:</strong></p>
+<ul class="simple">
+<li><p>Variables ending in <code class="docutils literal notranslate"><span class="pre">b</span></code> (bulk) refer to the grain interior</p></li>
+<li><p>Variables ending in <code class="docutils literal notranslate"><span class="pre">f</span></code> (facet) refer to grain boundaries</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="primary-output-variables">
+<h2>Primary Output Variables<a class="headerlink" href="#primary-output-variables" title="Link to this heading">¶</a></h2>
+<section id="time-evolution-time">
+<h3>Time Evolution: <code class="docutils literal notranslate"><span class="pre">time</span></code><a class="headerlink" href="#time-evolution-time" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> seconds</p>
+<p><strong>Physical Meaning:</strong> The simulation time points at which all other variables are evaluated.</p>
+<p><strong>Typical Range:</strong></p>
+<ul class="simple">
+<li><p>Short simulations: 0 to 3.6×10⁶ seconds (0-42 days)</p></li>
+<li><p>Standard simulations: 0 to 8.6×10⁶ seconds (0-100 days)</p></li>
+<li><p>Long-term studies: 0 to 3.2×10⁷ seconds (0-370 days)</p></li>
+</ul>
+<p><strong>What to Look For:</strong></p>
+<ul class="simple">
+<li><p>The time points should be roughly evenly spaced (if you specified <code class="docutils literal notranslate"><span class="pre">t_eval</span></code>)</p></li>
+<li><p>For adaptive solvers, time points may cluster during rapid changes</p></li>
+</ul>
+<p><strong>Conversion Tip:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">time_days</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>  <span class="c1"># Convert seconds to days</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="cgb-gas-concentration-in-bulk-matrix">
+<h3>1. <code class="docutils literal notranslate"><span class="pre">Cgb</span></code> - Gas Concentration in Bulk Matrix<a class="headerlink" href="#cgb-gas-concentration-in-bulk-matrix" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> atoms/m³</p>
+<p><strong>Physical Meaning:</strong> Number of fission gas atoms dissolved in the fuel crystal lattice, wandering randomly through the bulk material.</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Typical Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10²⁰ atoms/m³</p></td>
+<td><p>Small initial gas concentration</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>1×10²⁰ - 5×10²⁰ atoms/m³</p></td>
+<td><p>Gas production exceeds loss to bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>5×10¹⁹ - 2×10²⁰ atoms/m³</p></td>
+<td><p>Balance between production and capture</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Low temperature (&lt;600K)</strong></p></td>
+<td><p>1×10²⁰ - 5×10²⁰ atoms/m³</p></td>
+<td><p>Low diffusion → gas accumulates in solution</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High temperature (&gt;800K)</strong></p></td>
+<td><p>1×10¹⁹ - 1×10²⁰ atoms/m³</p></td>
+<td><p>Fast diffusion → gas escapes to boundaries</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Initial rise:</strong> Cgb should increase initially as fission produces gas</p></li>
+<li><p><strong>Peak and decline:</strong> After reaching a peak, Cgb may decline as gas diffuses to boundaries</p></li>
+<li><p><strong>Temperature dependence:</strong> Higher temperature → lower steady-state Cgb</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>High Cgb</strong> means: Many gas atoms are still dissolved, not yet trapped in bubbles</p></li>
+<li><p><strong>Low Cgb</strong> means: Most gas has been captured by bubbles or diffused to boundaries</p></li>
+<li><p><strong>Increasing Cgb</strong> means: Gas production is outpacing bubble nucleation/growth</p></li>
+</ul>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Cgb &gt; 1×10²¹ atoms/m³: Unphysically high - may indicate insufficient bubble nucleation</p></li>
+<li><p>⚠️ Cgb decreasing below 1×10¹⁸ atoms/m³: May indicate all gas has been captured (unlikely early in simulation)</p></li>
+<li><p>⚠️ Cgb monotonically increasing: May indicate bubble nucleation is too slow</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="ccb-bubble-concentration-in-bulk">
+<h3>2. <code class="docutils literal notranslate"><span class="pre">Ccb</span></code> - Bubble Concentration in Bulk<a class="headerlink" href="#ccb-bubble-concentration-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> cavities/m³ (number of bubbles per unit volume)</p>
+<p><strong>Physical Meaning:</strong> How many distinct gas bubbles exist in the bulk material. This is the <strong>number density</strong>, not the size.</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Typical Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1×10¹⁸ cavities/m³</p></td>
+<td><p>Small initial bubble nuclei</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>1×10¹⁸ - 5×10¹⁸ cavities/m³</p></td>
+<td><p>Active nucleation phase</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Steady state</strong></p></td>
+<td><p>5×10¹⁸ - 2×10¹⁹ cavities/m³</p></td>
+<td><p>Nucleation slows, count stabilizes</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>High nucleation (high Fnb)</strong></p></td>
+<td><p>1×10¹⁹ - 5×10¹⁹ cavities/m³</p></td>
+<td><p>Aggressive bubble formation</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Low nucleation (low Fnb)</strong></p></td>
+<td><p>1×10¹⁸ - 5×10¹⁸ cavities/m³</p></td>
+<td><p>Limited bubble formation</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Monotonic increase:</strong> Bubble count should only increase (bubbles are created, not destroyed)</p></li>
+<li><p><strong>Initial rapid rise:</strong> Early nucleation phase creates many new bubbles</p></li>
+<li><p><strong>Plateau:</strong> Bubble count should eventually level off as nucleation slows</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>Higher Ccb</strong> means: More bubbles competing for the same amount of gas → each bubble stays smaller</p></li>
+<li><p><strong>Lower Ccb</strong> means: Fewer bubbles, each can grow larger</p></li>
+<li><p><strong>Rapidly increasing Ccb</strong> means: Active nucleation phase</p></li>
+</ul>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Ccb decreasing: Physical error - bubbles should not disappear in bulk</p></li>
+<li><p>⚠️ Ccb &gt; 1×10²⁰ cavities/m³: Unphysically high - may indicate nucleation parameters are too aggressive</p></li>
+<li><p>⚠️ Ccb &lt; 1×10¹⁵ cavities/m³: Too few bubbles - check nucleation factor Fnb</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="ncb-gas-atoms-per-bulk-bubble">
+<h3>3. <code class="docutils literal notranslate"><span class="pre">Ncb</span></code> - Gas Atoms per Bulk Bubble<a class="headerlink" href="#ncb-gas-atoms-per-bulk-bubble" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> atoms per bubble (dimensionless count)</p>
+<p><strong>Physical Meaning:</strong> Average number of gas atoms contained within each bulk bubble. This determines the gas pressure and whether bubbles grow or shrink.</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Typical Value</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~5-10 atoms/bubble</p></td>
+<td><p>Newly nucleated bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Growing</strong></p></td>
+<td><p>10 - 1,000 atoms/bubble</p></td>
+<td><p>Active gas accumulation</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Mature</strong></p></td>
+<td><p>1,000 - 10,000 atoms/bubble</p></td>
+<td><p>Significant gas content</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Large</strong></p></td>
+<td><p>10,000 - 100,000 atoms/bubble</p></td>
+<td><p>Large, stable bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Overpressurized</strong></p></td>
+<td><p>&gt; Critical value</p></td>
+<td><p>Gas pressure exceeds surface tension → growth</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Underpressurized</strong></p></td>
+<td><p>&lt; Critical value</p></td>
+<td><p>Surface tension dominates → shrinkage</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Critical Radius Insight:</strong></p>
+<ul class="simple">
+<li><p><strong>Critical Nc</strong> (atoms per bubble at mechanical equilibrium):</p>
+<ul>
+<li><p>For 10 nm bubbles at 800K: ~1000 atoms/bubble</p></li>
+<li><p>For 100 nm bubbles at 800K: ~1,000,000 atoms/bubble</p></li>
+</ul>
+</li>
+<li><p><strong>Ncb &gt; critical</strong>: Gas pressure &gt; surface tension → bubble grows</p></li>
+<li><p><strong>Ncb &lt; critical</strong>: Surface tension &gt; gas pressure → bubble shrinks</p></li>
+</ul>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Monotonic increase:</strong> Bubbles accumulate gas over time</p></li>
+<li><p><strong>Growth rate acceleration:</strong> Ncb may grow faster as bubbles get larger (higher capture cross-section)</p></li>
+<li><p><strong>Approach to equilibrium:</strong> Ncb may approach equilibrium with gas pressure</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>Higher Ncb</strong> means: Higher internal gas pressure → driving force for bubble growth</p></li>
+<li><p><strong>Lower Ncb</strong> means: Lower pressure → bubble may be stable or shrinking</p></li>
+<li><p><strong>Rapidly increasing Ncb</strong> means: Bubble is actively absorbing gas from matrix</p></li>
+</ul>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Ncb decreasing significantly: May indicate numerical instability or incorrect re-solution</p></li>
+<li><p>⚠️ Ncb &gt; 10⁷ atoms/bubble: Extremely large - verify with expected bubble radius</p></li>
+<li><p>⚠️ Ncb &lt; 2 atoms/bubble: Too small for stable bubbles - check nucleation parameters</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="rcb-bulk-bubble-radius">
+<h3>4. <code class="docutils literal notranslate"><span class="pre">Rcb</span></code> - Bulk Bubble Radius<a class="headerlink" href="#rcb-bulk-bubble-radius" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> meters (typically displayed in nanometers: 1 nm = 10⁻⁹ m)</p>
+<p><strong>Physical Meaning:</strong> Physical radius of bubbles in the bulk matrix, calculated from Ncb using mechanical equilibrium between gas pressure and surface tension.</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Radius (nm)</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~1-10 nm</p></td>
+<td><p>Tiny nuclei</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Early growth</strong></p></td>
+<td><p>10-50 nm</p></td>
+<td><p>Small growing bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Intermediate</strong></p></td>
+<td><p>50-200 nm</p></td>
+<td><p>Medium-sized bubbles</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Large</strong></p></td>
+<td><p>200-1000 nm (0.2-1 μm)</p></td>
+<td><p>Large bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Very large</strong></p></td>
+<td><p>&gt; 1000 nm (&gt;1 μm)</p></td>
+<td><p>Very large bubbles (uncommon in bulk)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Gradual increase:</strong> Bubbles grow slowly in bulk due to re-solution effect</p></li>
+<li><p><strong>Size limitation:</strong> Bulk bubbles typically stay below ~500 nm due to re-solution</p></li>
+<li><p><strong>Correlation with Ncb:</strong> Rcb should track with Ncb (more atoms → larger radius)</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>Larger Rcb</strong> means: More space occupied by each bubble → higher swelling potential</p></li>
+<li><p><strong>Smaller Rcb</strong> means: More numerous but less space-filling bubbles</p></li>
+<li><p><strong>Rapidly growing Rcb</strong> means: Low re-solution, high gas capture</p></li>
+</ul>
+<p><strong>Relationship to Swelling:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Swelling contribution from bulk = (4/3) × π × Rcb³ × Ccb
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Many small bubbles vs. few large bubbles: same gas amount can give different swelling</p></li>
+</ul>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Rcb &gt; 2000 nm (2 μm): Unusually large for bulk - may indicate re-solution is too weak</p></li>
+<li><p>⚠️ Rcb decreasing: Physical error - bubbles should not spontaneously shrink without loss of atoms</p></li>
+<li><p>⚠️ Rcb &lt; 0.1 nm: Too small to be physical - check initial conditions</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="cvb-and-cib-point-defect-concentrations-in-bulk">
+<h3>5. <code class="docutils literal notranslate"><span class="pre">cvb</span></code> and <code class="docutils literal notranslate"><span class="pre">cib</span></code> - Point Defect Concentrations in Bulk<a class="headerlink" href="#cvb-and-cib-point-defect-concentrations-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> dimensionless (fraction of lattice sites that are vacancies/interstitials)</p>
+<p><strong>Physical Meaning:</strong></p>
+<ul class="simple">
+<li><p><strong>cvb:</strong> Fraction of lattice sites that are vacant (missing atoms)</p></li>
+<li><p><strong>cib:</strong> Fraction of lattice sites with extra atoms (interstitials)</p></li>
+</ul>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>cvb (vacancy)</p></th>
+<th class="head"><p>cib (interstitial)</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Thermal equilibrium</strong></p></td>
+<td><p>~10⁻⁸ - 10⁻⁶</p></td>
+<td><p>~10⁻²⁰ - 10⁻¹⁸</p></td>
+<td><p>Baseline thermal defects</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Under irradiation</strong></p></td>
+<td><p>~10⁻⁶ - 10⁻⁴</p></td>
+<td><p>~10⁻¹⁰ - 10⁻⁸</p></td>
+<td><p>Radiation-enhanced defects</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High fission rate</strong></p></td>
+<td><p>~10⁻⁴ - 10⁻³</p></td>
+<td><p>~10⁻⁸ - 10⁻⁷</p></td>
+<td><p>Massive defect production</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Low temperature</strong></p></td>
+<td><p>Lower</p></td>
+<td><p>Lower</p></td>
+<td><p>Low thermal emission</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Steady state:</strong> Both should reach steady-state values (production = annihilation)</p></li>
+<li><p><strong>cib ≫ cvb is FALSE:</strong> Actually cvb ≫ cib typically (vacancies accumulate)</p></li>
+<li><p><strong>Temperature dependence:</strong> Higher T → higher thermal equilibrium values</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>High cvb</strong> means: Many vacancies available for bubble growth → enhances swelling</p></li>
+<li><p><strong>High cib</strong> means: Many interstitials (but they annihilate quickly at dislocations)</p></li>
+<li><p><strong>Vacancy supersaturation:</strong> When cvb &gt; thermal equilibrium → driving force for void growth</p></li>
+</ul>
+<p><strong>Key Relationship:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Bubble growth ∝ (vacancy influx) - (thermal vacancy emission)
+</pre></div>
+</div>
+<p>Higher cvb → more vacancy influx → bubble growth</p>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ cvb or cib &gt; 0.01: Too high - would mean 1% of lattice sites are defects (unphysical)</p></li>
+<li><p>⚠️ cib &gt; cvb: Unusual (interstitials typically annihilate faster)</p></li>
+<li><p>⚠️ cvb or cib monotonically increasing without bound: May indicate sink strength too low</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="kvb-and-kib-sink-strengths-in-bulk">
+<h3>6. <code class="docutils literal notranslate"><span class="pre">kvb</span></code> and <code class="docutils literal notranslate"><span class="pre">kib</span></code> - Sink Strengths in Bulk<a class="headerlink" href="#kvb-and-kib-sink-strengths-in-bulk" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> m⁻² (inverse area)</p>
+<p><strong>Physical Meaning:</strong> Measure of how effectively defects are absorbed by sinks (dislocations, bubbles, grain boundaries). Higher sink strength = faster defect annihilation.</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>kvb (vacancy)</p></th>
+<th class="head"><p>kib (interstitial)</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Initial</strong></p></td>
+<td><p>~10¹⁴ - 10¹⁵ m⁻²</p></td>
+<td><p>~10¹⁴ - 10¹⁵ m⁻²</p></td>
+<td><p>From dislocations only</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>With bubbles</strong></p></td>
+<td><p>~10¹⁵ - 10¹⁶ m⁻²</p></td>
+<td><p>~10¹⁵ - 10¹⁶ m⁻²</p></td>
+<td><p>Bubbles act as additional sinks</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High bubble density</strong></p></td>
+<td><p>~10¹⁶ - 10¹⁷ m⁻²</p></td>
+<td><p>~10¹⁶ - 10¹⁷ m⁻²</p></td>
+<td><p>Many bubble sinks</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Low dislocation density</strong></p></td>
+<td><p>~10¹³ - 10¹⁴ m⁻²</p></td>
+<td><p>~10¹³ - 10¹⁴ m⁻²</p></td>
+<td><p>Few dislocation sinks</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Time evolution:</strong> Sink strengths increase as bubbles nucleate and grow</p></li>
+<li><p><strong>kvb ≈ kib:</strong> Similar magnitude (both depend on bubble/dislocation density)</p></li>
+<li><p><strong>Correlation with Ccb:</strong> Higher bubble concentration → higher sink strength</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>High sink strength</strong> means: Defects are quickly annihilated → lower steady-state defect concentrations</p></li>
+<li><p><strong>Low sink strength</strong> means: Defects accumulate → higher supersaturation → more bubble growth</p></li>
+</ul>
+<p><strong>Key Relationship:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Steady-state defect concentration ∝ (production rate) / (sink strength)
+</pre></div>
+</div>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ kvb or kib &gt; 10¹⁸ m⁻²: Unphysically high - check bubble density</p></li>
+<li><p>⚠️ kvb or kib decreasing: Should be monotonic increase or constant</p></li>
+<li><p>⚠️ Large discrepancy between kvb and kib: Should be similar (check Zv vs Zi bias)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="boundary-variables-cgf-ccf-ncf-rcf-cvf-cif-kvf-kif">
+<h2>Boundary Variables (Cgf, Ccf, Ncf, Rcf, cvf, cif, kvf, kif)<a class="headerlink" href="#boundary-variables-cgf-ccf-ncf-rcf-cvf-cif-kvf-kif" title="Link to this heading">¶</a></h2>
+<p><strong>Key Difference from Bulk:</strong></p>
+<ul class="simple">
+<li><p><strong>No re-solution effect</strong> at boundaries → bubbles grow much larger</p></li>
+<li><p><strong>Lower dislocation density</strong> → different defect kinetics</p></li>
+<li><p><strong>Gas release possible</strong> when bubbles interconnect</p></li>
+</ul>
+<section id="ccf-bubble-concentration-at-boundaries">
+<h3><code class="docutils literal notranslate"><span class="pre">Ccf</span></code> - Bubble Concentration at Boundaries<a class="headerlink" href="#ccf-bubble-concentration-at-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Typical Range:</strong> 10¹⁴ - 10¹⁶ cavities/m² (per unit boundary area)</p>
+<p><strong>Key Difference from Bulk:</strong></p>
+<ul class="simple">
+<li><p>Much lower than Ccb (2D vs 3D density)</p></li>
+<li><p>Units are different: m⁻² (area density) vs m⁻³ (volume density)</p></li>
+</ul>
+</section>
+<section id="ncf-gas-atoms-per-boundary-bubble">
+<h3><code class="docutils literal notranslate"><span class="pre">Ncf</span></code> - Gas Atoms per Boundary Bubble<a class="headerlink" href="#ncf-gas-atoms-per-boundary-bubble" title="Link to this heading">¶</a></h3>
+<p><strong>Typical Range:</strong> 10³ - 10⁷ atoms/bubble</p>
+<p><strong>Key Difference from Bulk:</strong></p>
+<ul class="simple">
+<li><p><strong>Much larger than Ncb</strong> (can be 100-1000× larger)</p></li>
+<li><p>No re-solution → bubbles accumulate many more atoms</p></li>
+<li><p>Drives bubble growth to larger sizes</p></li>
+</ul>
+</section>
+<section id="rcf-boundary-bubble-radius">
+<h3><code class="docutils literal notranslate"><span class="pre">Rcf</span></code> - Boundary Bubble Radius<a class="headerlink" href="#rcf-boundary-bubble-radius" title="Link to this heading">¶</a></h3>
+<p><strong>Typical Range:</strong> 100 nm - 10 μm (0.1 - 10 μm)</p>
+<p><strong>Key Difference from Bulk:</strong></p>
+<ul class="simple">
+<li><p><strong>Much larger than Rcb</strong> (10-100× larger)</p></li>
+<li><p>Can reach micron-scale at boundaries</p></li>
+<li><p>Main contributor to swelling</p></li>
+</ul>
+</section>
+<section id="cgf-gas-concentration-at-boundaries">
+<h3><code class="docutils literal notranslate"><span class="pre">Cgf</span></code> - Gas Concentration at Boundaries<a class="headerlink" href="#cgf-gas-concentration-at-boundaries" title="Link to this heading">¶</a></h3>
+<p><strong>Typical Range:</strong> 10¹⁹ - 10²¹ atoms/m³</p>
+<p><strong>Key Difference from Bulk:</strong></p>
+<ul class="simple">
+<li><p>Often higher than Cgb (gas accumulates at boundaries)</p></li>
+<li><p>Feeds bubble growth at boundaries</p></li>
+</ul>
+</section>
+<section id="boundary-point-defects-cvf-cif-kvf-kif">
+<h3>Boundary Point Defects (cvf, cif, kvf, kif)<a class="headerlink" href="#boundary-point-defects-cvf-cif-kvf-kif" title="Link to this heading">¶</a></h3>
+<p><strong>Typical Behavior:</strong></p>
+<ul class="simple">
+<li><p>Similar to bulk but different magnitudes</p></li>
+<li><p>Lower dislocation density at boundaries → different sink strengths</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="derived-quantities">
+<h2>Derived Quantities<a class="headerlink" href="#derived-quantities" title="Link to this heading">¶</a></h2>
+<section id="swelling-volume-percentage">
+<h3><code class="docutils literal notranslate"><span class="pre">swelling</span></code> - Volume Percentage<a class="headerlink" href="#swelling-volume-percentage" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> percent (%)</p>
+<p><strong>Physical Meaning:</strong> Percentage of fuel volume occupied by gas bubbles. This is the key output for fuel performance analysis.</p>
+<p><strong>Formula:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>swelling = [(4/3) × π × Rcb³ × Ccb + (4/3) × π × Rcf³ × Ccf] × 100%
+</pre></div>
+</div>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Swelling</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Early irradiation</strong></p></td>
+<td><p>&lt; 0.1%</p></td>
+<td><p>Minimal swelling</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Standard operation</strong></p></td>
+<td><p>0.1% - 2%</p></td>
+<td><p>Acceptable swelling</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High swelling</strong></p></td>
+<td><p>2% - 10%</p></td>
+<td><p>Significant swelling, may impact performance</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Extreme swelling</strong></p></td>
+<td><p>&gt; 10%</p></td>
+<td><p>Severe swelling, potential fuel failure</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Temperature peak (700-800K)</strong></p></td>
+<td><p>1% - 5%</p></td>
+<td><p>Maximum swelling at intermediate temperatures</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Low T (&lt;600K)</strong></p></td>
+<td><p>&lt; 1%</p></td>
+<td><p>Limited diffusion → low swelling</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High T (&gt;900K)</strong></p></td>
+<td><p>1% - 3%</p></td>
+<td><p>Gas release reduces swelling</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Sigmoidal shape:</strong> Slow initial rise → rapid growth → plateau</p></li>
+<li><p><strong>Temperature dependence:</strong> Peak swelling at ~700-800K</p></li>
+<li><p><strong>Saturation:</strong> Swelling should eventually saturate (gas production = release)</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>0-0.5% swelling:</strong> Early stage, bubbles nucleating</p></li>
+<li><p><strong>0.5-2% swelling:</strong> Active growth phase</p></li>
+<li><p><strong>2-5% swelling:</strong> Significant swelling, monitor for fuel performance</p></li>
+<li><p><strong>&gt;5% swelling:</strong> High swelling, may require design changes</p></li>
+</ul>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Swelling &gt; 20%: Unphysically high - fuel would be severely degraded</p></li>
+<li><p>⚠️ Swelling decreasing: Physical error - bubbles don’t disappear</p></li>
+<li><p>⚠️ Swelling oscillating: Numerical instability</p></li>
+<li><p>⚠️ Swelling &lt; 0.001% after long simulation: May indicate insufficient bubble nucleation</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="released-gas-cumulative-gas-release">
+<h3><code class="docutils literal notranslate"><span class="pre">released_gas</span></code> - Cumulative Gas Release<a class="headerlink" href="#released-gas-cumulative-gas-release" title="Link to this heading">¶</a></h3>
+<p><strong>Units:</strong> atoms/m³</p>
+<p><strong>Physical Meaning:</strong> Total amount of gas that has been released from the fuel (typically via grain boundary interconnection and venting to fuel-clad gap).</p>
+<p><strong>Typical Ranges:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Condition</p></th>
+<th class="head"><p>Released Gas</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Early simulation</strong></p></td>
+<td><p>&lt; 10% of total</p></td>
+<td><p>Most gas retained in fuel</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Standard operation</strong></p></td>
+<td><p>10% - 30% of total</p></td>
+<td><p>Partial gas release</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>High release</strong></p></td>
+<td><p>30% - 60% of total</p></td>
+<td><p>Significant release</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Very high release</strong></p></td>
+<td><p>&gt; 60% of total</p></td>
+<td><p>Most gas released</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What to Look For:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Delayed onset:</strong> Release typically starts after swelling reaches ~1-2%</p></li>
+<li><p><strong>Accelerating release:</strong> Release rate increases as bubbles interconnect</p></li>
+<li><p><strong>Temperature dependence:</strong> Higher T → earlier and faster release</p></li>
+</ol>
+<p><strong>Physical Interpretation:</strong></p>
+<ul class="simple">
+<li><p><strong>Gas release threshold:</strong> Bubbles must interconnect before release occurs</p></li>
+<li><p><strong>Release mechanism:</strong> Bubbles at grain boundaries coalesce and form pathways to free surface</p></li>
+<li><p><strong>Impact on swelling:</strong> Release reduces swelling (gas leaves the fuel)</p></li>
+</ul>
+<p><strong>Calculate Release Fraction:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">total_gas_produced</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;gas_generation_rate&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">final_time</span>
+<span class="n">release_fraction</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;released_gas&#39;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">total_gas_produced</span>
+</pre></div>
+</div>
+<p><strong>Warning Signs:</strong></p>
+<ul class="simple">
+<li><p>⚠️ Release &gt; 90%: Unrealistically high - most models predict 30-60% release</p></li>
+<li><p>⚠️ Immediate release at t=0: May indicate interconnection threshold too low</p></li>
+<li><p>⚠️ No release at high swelling: May indicate threshold too high</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="interpreting-temporal-evolution">
+<h2>Interpreting Temporal Evolution<a class="headerlink" href="#interpreting-temporal-evolution" title="Link to this heading">¶</a></h2>
+<section id="stage-1-incubation-period-0-10-days">
+<h3>Stage 1: Incubation Period (0-10 days)<a class="headerlink" href="#stage-1-incubation-period-0-10-days" title="Link to this heading">¶</a></h3>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Low swelling (&lt; 0.1%)</p></li>
+<li><p>Active bubble nucleation (Ccb increasing rapidly)</p></li>
+<li><p>Gas accumulation in solution (Cgb rising)</p></li>
+<li><p>Small bubble radius (Rcb, Rcf &lt; 10 nm)</p></li>
+</ul>
+<p><strong>Physical Processes:</strong></p>
+<ul class="simple">
+<li><p>Gas production by fission</p></li>
+<li><p>Bubble nucleation</p></li>
+<li><p>Gas atom diffusion</p></li>
+</ul>
+<p><strong>What to Check:</strong></p>
+<ul class="simple">
+<li><p>Ccb should show rapid initial increase</p></li>
+<li><p>Cgb should rise as gas is produced</p></li>
+<li><p>Swelling should be minimal</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="stage-2-growth-phase-10-60-days">
+<h3>Stage 2: Growth Phase (10-60 days)<a class="headerlink" href="#stage-2-growth-phase-10-60-days" title="Link to this heading">¶</a></h3>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Rapid swelling increase (0.1% → 1-5%)</p></li>
+<li><p>Bubble growth (Rcb, Rcf increasing)</p></li>
+<li><p>Gas accumulation in bubbles (Ncb, Ncf increasing)</p></li>
+<li><p>Cgb may peak and decline</p></li>
+</ul>
+<p><strong>Physical Processes:</strong></p>
+<ul class="simple">
+<li><p>Bubble growth by gas absorption</p></li>
+<li><p>Vacancy-driven bubble expansion</p></li>
+<li><p>Gas diffusion from matrix to bubbles</p></li>
+</ul>
+<p><strong>What to Check:</strong></p>
+<ul class="simple">
+<li><p>Swelling curve should show steep upward slope</p></li>
+<li><p>Ncb, Ncf should increase monotonically</p></li>
+<li><p>Rcb, Rcf should grow steadily</p></li>
+<li><p>Boundary bubbles (Rcf) should grow larger than bulk bubbles (Rcb)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="stage-3-saturation-release-phase-60-days">
+<h3>Stage 3: Saturation/Release Phase (60+ days)<a class="headerlink" href="#stage-3-saturation-release-phase-60-days" title="Link to this heading">¶</a></h3>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Swelling growth slows (approaches plateau)</p></li>
+<li><p>Gas release may begin (released_gas increasing)</p></li>
+<li><p>Bubble concentrations stabilize (Ccb, Ccf plateau)</p></li>
+<li><p>Gas in solution reaches steady state (Cgb stabilizes)</p></li>
+</ul>
+<p><strong>Physical Processes:</strong></p>
+<ul class="simple">
+<li><p>Gas release from interconnected bubbles</p></li>
+<li><p>Balance between gas production and release</p></li>
+<li><p>Bubble growth saturation</p></li>
+</ul>
+<p><strong>What to Check:</strong></p>
+<ul class="simple">
+<li><p>Swelling should approach asymptotic value</p></li>
+<li><p>released_gas should show accelerating release</p></li>
+<li><p>Cgb should reach steady state</p></li>
+<li><p>Final swelling should be in physically reasonable range (0.5-10%)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="warning-signs-and-troubleshooting">
+<h2>Warning Signs and Troubleshooting<a class="headerlink" href="#warning-signs-and-troubleshooting" title="Link to this heading">¶</a></h2>
+<section id="numerical-instability">
+<h3>Numerical Instability<a class="headerlink" href="#numerical-instability" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul class="simple">
+<li><p>Oscillating values</p></li>
+<li><p>Sudden jumps in variables</p></li>
+<li><p>Negative concentrations</p></li>
+</ul>
+<p><strong>Possible Causes:</strong></p>
+<ul class="simple">
+<li><p>Time step too large</p></li>
+<li><p>Solver method inappropriate (try ‘BDF’ for stiff systems)</p></li>
+<li><p>Initial conditions inconsistent</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p>Reduce <code class="docutils literal notranslate"><span class="pre">max_dt</span></code> parameter</p></li>
+<li><p>Try <code class="docutils literal notranslate"><span class="pre">method='BDF'</span></code> instead of ‘RK23’</p></li>
+<li><p>Check initial conditions are physically reasonable</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="unphysical-results">
+<h3>Unphysical Results<a class="headerlink" href="#unphysical-results" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul class="simple">
+<li><p>Bubble radius &gt; 10 μm</p></li>
+<li><p>Swelling &gt; 20%</p></li>
+<li><p>Gas concentration &gt; 10²² atoms/m³</p></li>
+<li><p>Decreasing bubble count</p></li>
+</ul>
+<p><strong>Possible Causes:</strong></p>
+<ul class="simple">
+<li><p>Parameters outside physical range</p></li>
+<li><p>Incorrect material properties</p></li>
+<li><p>Wrong fuel type parameters</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p>Verify all parameters using <a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></p></li>
+<li><p>Check material-specific parameters (U-10Zr vs U-Pu-Zr)</p></li>
+<li><p>Compare with validation cases from paper</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="no-swelling">
+<h3>No Swelling<a class="headerlink" href="#no-swelling" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul class="simple">
+<li><p>Swelling &lt; 0.001% after long simulation</p></li>
+<li><p>Bubble radius not growing</p></li>
+<li><p>Gas accumulating in solution but not in bubbles</p></li>
+</ul>
+<p><strong>Possible Causes:</strong></p>
+<ul class="simple">
+<li><p>Nucleation factors (Fnb, Fnf) too low</p></li>
+<li><p>Temperature too low for diffusion</p></li>
+<li><p>Surface energy too high (prevents bubble growth)</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p>Increase Fnb, Fnf parameters</p></li>
+<li><p>Increase temperature to &gt; 700K</p></li>
+<li><p>Verify surface energy parameter (should be ~0.5-1.0 J/m²)</p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="excessive-swelling">
+<h3>Excessive Swelling<a class="headerlink" href="#excessive-swelling" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul class="simple">
+<li><p>Swelling &gt; 10% early in simulation</p></li>
+<li><p>Rapid unbounded growth</p></li>
+<li><p>All gas goes to bubbles</p></li>
+</ul>
+<p><strong>Possible Causes:</strong></p>
+<ul class="simple">
+<li><p>Nucleation factors too high</p></li>
+<li><p>Re-solution too weak</p></li>
+<li><p>Dislocation density too high</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p>Decrease Fnb, Fnf parameters</p></li>
+<li><p>Verify re-solution parameters</p></li>
+<li><p>Check dislocation density is reasonable (10¹³-10¹⁵ m⁻²)</p></li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="physical-interpretation-checklist">
+<h2>Physical Interpretation Checklist<a class="headerlink" href="#physical-interpretation-checklist" title="Link to this heading">¶</a></h2>
+<p>Use this checklist to verify your results make physical sense:</p>
+<section id="mass-balance">
+<h3>Mass Balance<a class="headerlink" href="#mass-balance" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Total gas accounted for: <code class="docutils literal notranslate"><span class="pre">gas_in_matrix</span> <span class="pre">+</span> <span class="pre">gas_in_bubbles</span> <span class="pre">+</span> <span class="pre">released_gas</span> <span class="pre">≈</span> <span class="pre">gas_produced</span></code></p></li>
+<li><p>[ ] No negative concentrations</p></li>
+<li><p>[ ] Bubble counts are monotonic increasing or constant</p></li>
+</ul>
+</section>
+<section id="energy-balance">
+<h3>Energy Balance<a class="headerlink" href="#energy-balance" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Gas pressure in bubbles is reasonable (check Pg if available)</p></li>
+<li><p>[ ] Mechanical equilibrium: gas pressure ≈ surface tension / radius</p></li>
+</ul>
+</section>
+<section id="spatial-distribution">
+<h3>Spatial Distribution<a class="headerlink" href="#spatial-distribution" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Boundary bubbles larger than bulk bubbles (Rcf ≫ Rcb)</p></li>
+<li><p>[ ] More gas in boundary bubbles than bulk bubbles (typically)</p></li>
+<li><p>[ ] Defect concentrations reach steady state</p></li>
+</ul>
+</section>
+<section id="time-evolution">
+<h3>Time Evolution<a class="headerlink" href="#time-evolution" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Swelling follows sigmoidal pattern (slow → fast → saturation)</p></li>
+<li><p>[ ] Gas release begins after sufficient swelling</p></li>
+<li><p>[ ] All variables approach steady state or monotonic evolution</p></li>
+</ul>
+</section>
+<section id="comparison-with-expectations">
+<h3>Comparison with Expectations<a class="headerlink" href="#comparison-with-expectations" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>[ ] Final swelling in expected range (0.1-10% for typical conditions)</p></li>
+<li><p>[ ] Temperature dependence matches expectations (peak at 700-800K)</p></li>
+<li><p>[ ] Bubble sizes in expected range (nm-μm scale)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="common-analysis-patterns">
+<h2>Common Analysis Patterns<a class="headerlink" href="#common-analysis-patterns" title="Link to this heading">¶</a></h2>
+<section id="pattern-1-temperature-sweep-analysis">
+<h3>Pattern 1: Temperature Sweep Analysis<a class="headerlink" href="#pattern-1-temperature-sweep-analysis" title="Link to this heading">¶</a></h3>
+<p><strong>Goal:</strong> Understand how temperature affects swelling behavior</p>
+<p><strong>Procedure:</strong></p>
+<ol class="arabic simple">
+<li><p>Run simulations at multiple temperatures (600K, 700K, 800K, 900K)</p></li>
+<li><p>Compare final swelling values</p></li>
+<li><p>Identify peak swelling temperature</p></li>
+<li><p>Analyze gas distribution vs temperature</p></li>
+</ol>
+<p><strong>Expected Result:</strong></p>
+<ul class="simple">
+<li><p>Bell-shaped swelling curve with peak at ~700-800K</p></li>
+<li><p>Low T: Limited diffusion → low swelling</p></li>
+<li><p>High T: Gas release reduces swelling</p></li>
+<li><p>Peak T: Optimal balance for swelling</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="pattern-2-gas-distribution-analysis">
+<h3>Pattern 2: Gas Distribution Analysis<a class="headerlink" href="#pattern-2-gas-distribution-analysis" title="Link to this heading">¶</a></h3>
+<p><strong>Goal:</strong> Track where gas resides over time</p>
+<p><strong>Procedure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># At any time t:</span>
+<span class="n">gas_in_bulk_solution</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Cgb&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+<span class="n">gas_in_bulk_bubbles</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ncb&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+<span class="n">gas_in_boundary_solution</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Cgf&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+<span class="n">gas_in_boundary_bubbles</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ncf&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+<span class="n">gas_released</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;released_gas&#39;</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+
+<span class="n">total_gas</span> <span class="o">=</span> <span class="p">(</span><span class="n">gas_in_bulk_solution</span> <span class="o">+</span> <span class="n">gas_in_bulk_bubbles</span> <span class="o">+</span>
+             <span class="n">gas_in_boundary_solution</span> <span class="o">+</span> <span class="n">gas_in_boundary_bubbles</span> <span class="o">+</span>
+             <span class="n">gas_released</span><span class="p">)</span>
+
+<span class="n">fractions</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;bulk_solution&#39;</span><span class="p">:</span> <span class="n">gas_in_bulk_solution</span> <span class="o">/</span> <span class="n">total_gas</span><span class="p">,</span>
+    <span class="s1">&#39;bulk_bubbles&#39;</span><span class="p">:</span> <span class="n">gas_in_bulk_bubbles</span> <span class="o">/</span> <span class="n">total_gas</span><span class="p">,</span>
+    <span class="s1">&#39;boundary_solution&#39;</span><span class="p">:</span> <span class="n">gas_in_boundary_solution</span> <span class="o">/</span> <span class="n">total_gas</span><span class="p">,</span>
+    <span class="s1">&#39;boundary_bubbles&#39;</span><span class="p">:</span> <span class="n">gas_in_boundary_bubbles</span> <span class="o">/</span> <span class="n">total_gas</span><span class="p">,</span>
+    <span class="s1">&#39;released&#39;</span><span class="p">:</span> <span class="n">gas_released</span> <span class="o">/</span> <span class="n">total_gas</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Expected Evolution:</strong></p>
+<ul class="simple">
+<li><p>Early: Most gas in solution</p></li>
+<li><p>Mid: Gas moves to bubbles</p></li>
+<li><p>Late: Significant gas in boundary bubbles and released</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="pattern-3-swelling-rate-analysis">
+<h3>Pattern 3: Swelling Rate Analysis<a class="headerlink" href="#pattern-3-swelling-rate-analysis" title="Link to this heading">¶</a></h3>
+<p><strong>Goal:</strong> Identify periods of rapid swelling</p>
+<p><strong>Procedure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Calculate swelling rate</span>
+<span class="n">time_days</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">)</span>
+<span class="n">swelling_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span> <span class="n">time_days</span><span class="p">)</span>
+
+<span class="c1"># Find peak swelling rate</span>
+<span class="n">peak_rate_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">swelling_rate</span><span class="p">)</span>
+<span class="n">peak_rate_time</span> <span class="o">=</span> <span class="n">time_days</span><span class="p">[</span><span class="n">peak_rate_idx</span><span class="p">]</span>
+<span class="n">peak_rate_value</span> <span class="o">=</span> <span class="n">swelling_rate</span><span class="p">[</span><span class="n">peak_rate_idx</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Peak swelling rate: </span><span class="si">{</span><span class="n">peak_rate_value</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> %/day at </span><span class="si">{</span><span class="n">peak_rate_time</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> days&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<ul class="simple">
+<li><p>High swelling rate: Active growth phase</p></li>
+<li><p>Low swelling rate: Incubation or saturation</p></li>
+<li><p>Identify when to take action (e.g., fuel management)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="pattern-4-bubble-size-distribution">
+<h3>Pattern 4: Bubble Size Distribution<a class="headerlink" href="#pattern-4-bubble-size-distribution" title="Link to this heading">¶</a></h3>
+<p><strong>Goal:</strong> Understand bubble population characteristics</p>
+<p><strong>Procedure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Effective volume per bubble</span>
+<span class="n">bulk_bubble_volume</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span>
+<span class="n">boundary_bubble_volume</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">]</span><span class="o">**</span><span class="mi">3</span>
+
+<span class="c1"># Volume-weighted vs number-weighted sizes</span>
+<span class="n">final_time</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bulk bubbles:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Number: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccb&#39;</span><span class="p">][</span><span class="n">final_time</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> bubbles/m³&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Radius: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">][</span><span class="n">final_time</span><span class="p">]</span><span class="o">*</span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> nm&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Volume per bubble: </span><span class="si">{</span><span class="n">bulk_bubble_volume</span><span class="p">[</span><span class="n">final_time</span><span class="p">]</span><span class="o">*</span><span class="mf">1e27</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> nm³&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary bubbles:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Number: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Ccf&#39;</span><span class="p">][</span><span class="n">final_time</span><span class="p">]</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> bubbles/m²&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Radius: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;Rcf&#39;</span><span class="p">][</span><span class="n">final_time</span><span class="p">]</span><span class="o">*</span><span class="mf">1e9</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> nm&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Volume per bubble: </span><span class="si">{</span><span class="n">boundary_bubble_volume</span><span class="p">[</span><span class="n">final_time</span><span class="p">]</span><span class="o">*</span><span class="mf">1e27</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> nm³&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<ul class="simple">
+<li><p>Compare bulk vs boundary bubble characteristics</p></li>
+<li><p>Understand which population dominates swelling</p></li>
+<li><p>Identify which bubbles to target for mitigation</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="summary-key-takeaways">
+<h2>Summary: Key Takeaways<a class="headerlink" href="#summary-key-takeaways" title="Link to this heading">¶</a></h2>
+<section id="most-important-variables-for-quick-analysis">
+<h3>Most Important Variables for Quick Analysis<a class="headerlink" href="#most-important-variables-for-quick-analysis" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">swelling</span></code></strong> - Primary output, directly indicates fuel performance</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Rcf</span></code></strong> - Boundary bubble radius, main swelling contributor</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">released_gas</span></code></strong> - Indicates gas release fraction</p></li>
+</ol>
+</section>
+<section id="variables-for-deep-understanding">
+<h3>Variables for Deep Understanding<a class="headerlink" href="#variables-for-deep-understanding" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Cgb</span></code>, <code class="docutils literal notranslate"><span class="pre">Cgf</span></code></strong> - Gas in solution, indicates diffusion balance</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Ncb</span></code>, <code class="docutils literal notranslate"><span class="pre">Ncf</span></code></strong> - Gas per bubble, indicates driving pressure</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">cvb</span></code>, <code class="docutils literal notranslate"><span class="pre">cib</span></code></strong> - Point defects, control growth kinetics</p></li>
+</ol>
+</section>
+<section id="sanity-checks">
+<h3>Sanity Checks<a class="headerlink" href="#sanity-checks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Swelling: 0.1-10% typical</p></li>
+<li><p>Bubble radius: nm-μm range</p></li>
+<li><p>Gas concentrations: 10¹⁹-10²¹ atoms/m³</p></li>
+<li><p>Defect concentrations: 10⁻⁶-10⁻⁴ (fraction of lattice sites)</p></li>
+</ul>
+</section>
+<section id="warning-signs">
+<h3>Warning Signs<a class="headerlink" href="#warning-signs" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Negative values: Numerical error</p></li>
+<li><p>Decreasing bubble count: Physical error</p></li>
+<li><p>Extreme swelling (&gt;20%): Parameter error</p></li>
+<li><p>No steady state: May need longer simulation</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="further-reading">
+<h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../tutorials/rate_theory_fundamentals.html"><span class="std std-doc">Rate Theory Fundamentals</span></a> - Understanding the physics</p></li>
+<li><p><a class="reference internal" href="../tutorials/model_equations_explained.html"><span class="std std-doc">Model Equations Explained</span></a> - Variable meanings</p></li>
+<li><p><a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a> - Parameter guidance</p></li>
+<li><p><a class="reference internal" href="troubleshooting.html"><span class="std std-doc">Troubleshooting Guide</span></a> - Common issues and solutions</p></li>
+<li><p><a class="reference internal" href="../tutorials/30minute_quickstart.html"><span class="std std-doc">30-Minute Quickstart</span></a> - Getting started</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Need Help?</strong> If you encounter unexpected results, check the <a class="reference internal" href="troubleshooting.html"><span class="std std-doc">Troubleshooting Guide</span></a> or consult the validation examples in the Jupyter notebooks.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Interpreting Simulation Results: A Comprehensive Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-reference-result-dictionary-structure">Quick Reference: Result Dictionary Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#primary-output-variables">Primary Output Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-variables-cgf-ccf-ncf-rcf-cvf-cif-kvf-kif">Boundary Variables (Cgf, Ccf, Ncf, Rcf, cvf, cif, kvf, kif)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#derived-quantities">Derived Quantities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interpreting-temporal-evolution">Interpreting Temporal Evolution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#warning-signs-and-troubleshooting">Warning Signs and Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#physical-interpretation-checklist">Physical Interpretation Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-analysis-patterns">Common Analysis Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary-key-takeaways">Summary: Key Takeaways</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../learning_paths.html" title="previous chapter">Learning Paths Guide</a></li>
+      <li>Next: <a href="plot_gallery.html" title="next chapter">Plot Gallery: Code Snippets &amp; Examples</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/guides/interpreting_results.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

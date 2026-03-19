@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sensitivity Analysis Guide for Gas Swelling Model &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=8d563738"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Validation Guide for Gas Swelling Model" href="validation_guide.html" />
+    <link rel="prev" title="Parameter Reference Guide" href="parameter_reference.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="sensitivity-analysis-guide-for-gas-swelling-model">
+<h1>Sensitivity Analysis Guide for Gas Swelling Model<a class="headerlink" href="#sensitivity-analysis-guide-for-gas-swelling-model" title="Link to this heading">¶</a></h1>
+<p>A comprehensive guide to performing parameter sensitivity analysis on the gas swelling model to identify influential parameters, quantify uncertainties, and prioritize experimental measurements.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>Sensitivity analysis is a powerful tool for understanding how model parameters affect predictions. For the gas swelling model, sensitivity analysis can help:</p>
+<ul class="simple">
+<li><p><strong>Identify critical parameters</strong> that most affect swelling predictions</p></li>
+<li><p><strong>Quantify uncertainty</strong> in model outputs due to parameter variations</p></li>
+<li><p><strong>Prioritize experimental work</strong> by highlighting parameters needing better measurement</p></li>
+<li><p><strong>Understand parameter interactions</strong> and nonlinear behavior</p></li>
+<li><p><strong>Validate model robustness</strong> across the parameter space</p></li>
+</ul>
+<section id="why-sensitivity-analysis-matters">
+<h3>Why Sensitivity Analysis Matters<a class="headerlink" href="#why-sensitivity-analysis-matters" title="Link to this heading">¶</a></h3>
+<p>The gas swelling model contains numerous physical parameters (diffusion coefficients, nucleation factors, dislocation density, etc.) with varying levels of experimental uncertainty. Sensitivity analysis helps:</p>
+<ol class="arabic simple">
+<li><p><strong>Focus research efforts</strong> on the most influential parameters</p></li>
+<li><p><strong>Understand confidence intervals</strong> in swelling predictions</p></li>
+<li><p><strong>Support safety cases</strong> with uncertainty quantification</p></li>
+<li><p><strong>Guide model calibration</strong> by identifying sensitive parameters</p></li>
+<li><p><strong>Communicate model limitations</strong> to stakeholders</p></li>
+</ol>
+</section>
+</section>
+<section id="sensitivity-analysis-methods">
+<h2>Sensitivity Analysis Methods<a class="headerlink" href="#sensitivity-analysis-methods" title="Link to this heading">¶</a></h2>
+<p>This guide covers three complementary sensitivity analysis methods:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Cost</p></th>
+<th class="head"><p>Best For</p></th>
+<th class="head"><p>Output</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>OAT</strong></p></td>
+<td><p>Local</p></td>
+<td><p>Low</p></td>
+<td><p>Initial screening, local effects</p></td>
+<td><p>Elasticity coefficients</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Morris</strong></p></td>
+<td><p>Global screening</p></td>
+<td><p>Medium</p></td>
+<td><p>Ranking many parameters, detecting nonlinearity</p></td>
+<td><p>μ, μ*, σ statistics</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Sobol</strong></p></td>
+<td><p>Global variance-based</p></td>
+<td><p>High</p></td>
+<td><p>Quantitative analysis, interaction effects</p></td>
+<td><p>S1, ST indices</p></td>
+</tr>
+</tbody>
+</table>
+<section id="quick-selection-guide">
+<h3>Quick Selection Guide<a class="headerlink" href="#quick-selection-guide" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────┐
+│ Choose your method:                                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  START → Many parameters? (&gt;10)                            │
+│            │                                                │
+│            ├─ Yes → Need quick screening?                  │
+│            │         ├─ Yes → Morris method                │
+│            │         └─ No → Sobol method (expensive)      │
+│            │                                                │
+│            └─ Few parameters (&lt;10) → Need quantitative?    │
+│                              ├─ Yes → Sobol method         │
+│                              └─ No → OAT or Morris         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</pre></div>
+</div>
+</section>
+</section>
+<section id="method-1-one-at-a-time-oat-analysis">
+<h2>Method 1: One-at-a-Time (OAT) Analysis<a class="headerlink" href="#method-1-one-at-a-time-oat-analysis" title="Link to this heading">¶</a></h2>
+<section id="what-is-oat">
+<h3>What is OAT?<a class="headerlink" href="#what-is-oat" title="Link to this heading">¶</a></h3>
+<p>One-at-a-Time (OAT) analysis varies <strong>one parameter at a time</strong> while keeping all other parameters at their nominal (baseline) values. It measures the <strong>local sensitivity</strong> of model outputs to small parameter changes.</p>
+</section>
+<section id="how-it-works">
+<h3>How It Works<a class="headerlink" href="#how-it-works" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Run baseline simulation with nominal parameters</p></li>
+<li><p>For each parameter:</p>
+<ul class="simple">
+<li><p>Vary by ±Δ% (e.g., ±10%)</p></li>
+<li><p>Run simulation with perturbed parameter</p></li>
+<li><p>Calculate sensitivity metrics</p></li>
+</ul>
+</li>
+<li><p>Rank parameters by sensitivity magnitude</p></li>
+</ol>
+</section>
+<section id="sensitivity-metrics">
+<h3>Sensitivity Metrics<a class="headerlink" href="#sensitivity-metrics" title="Link to this heading">¶</a></h3>
+<p>OAT analysis provides several metrics:</p>
+<section id="normalized-sensitivity-elasticity">
+<h4><strong>Normalized Sensitivity (Elasticity)</strong><a class="headerlink" href="#normalized-sensitivity-elasticity" title="Link to this heading">¶</a></h4>
+<p>Measures the percentage change in output per percentage change in input:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>S = (Δy/y₀) / (Δx/x₀)
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">S</span> <span class="pre">=</span> <span class="pre">1.0</span></code>: 1% increase in parameter → 1% increase in output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">S</span> <span class="pre">=</span> <span class="pre">-2.0</span></code>: 1% increase in parameter → 2% decrease in output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">|S|</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>: Output is more sensitive than parameter (amplified)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">|S|</span> <span class="pre">&lt;</span> <span class="pre">1</span></code>: Output is less sensitive than parameter (damped)</p></li>
+</ul>
+</section>
+<section id="absolute-sensitivity">
+<h4><strong>Absolute Sensitivity</strong><a class="headerlink" href="#absolute-sensitivity" title="Link to this heading">¶</a></h4>
+<p>Measures the change in output per unit change in parameter:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">S_abs</span> <span class="o">=</span> <span class="n">Δy</span> <span class="o">/</span> <span class="n">Δx</span>
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong> Physical units of output per physical units of input (e.g., % swelling per K temperature).</p>
+</section>
+</section>
+<section id="when-to-use-oat">
+<h3>When to Use OAT<a class="headerlink" href="#when-to-use-oat" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Good for:</strong></p>
+<ul class="simple">
+<li><p>Initial parameter screening</p></li>
+<li><p>Understanding local parameter effects</p></li>
+<li><p>Quick sensitivity assessment with limited compute</p></li>
+<li><p>Model calibration and parameter ranking</p></li>
+<li><p>Identifying dominant parameters near nominal values</p></li>
+</ul>
+<p>❌ <strong>Not suitable for:</strong></p>
+<ul class="simple">
+<li><p>Capturing parameter interactions</p></li>
+<li><p>Global sensitivity analysis (far from nominal)</p></li>
+<li><p>Highly nonlinear models</p></li>
+<li><p>Uncertainty quantification with correlated parameters</p></li>
+</ul>
+</section>
+<section id="example-oat-analysis">
+<h3>Example: OAT Analysis<a class="headerlink" href="#example-oat-analysis" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">OATAnalyzer</span><span class="p">,</span> <span class="n">create_default_parameter_ranges</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_tornado</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># Step 1: Define parameter ranges</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="n">create_default_parameter_ranges</span><span class="p">()</span>
+
+<span class="c1"># Step 2: Initialize OAT analyzer</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">OATAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;gas_release&#39;</span><span class="p">],</span>  <span class="c1"># Outputs to analyze</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">8.64e6</span><span class="p">,</span>  <span class="c1"># 100 days</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 3: Run OAT analysis (±10% variations)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_oat_analysis</span><span class="p">(</span>
+    <span class="n">percent_variations</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>  <span class="c1"># Vary each parameter by ±10%</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 4: Visualize results</span>
+<span class="n">plot_tornado</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;elasticity&#39;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;OAT Sensitivity Analysis - Swelling&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;oat_tornado_swelling.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 5: Print sensitivity ranking</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Parameter Ranking by Elasticity:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">param</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">elast</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">param</span><span class="si">:</span><span class="s2">25s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">elast</span><span class="si">:</span><span class="s2">8.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="interpreting-oat-results">
+<h3>Interpreting OAT Results<a class="headerlink" href="#interpreting-oat-results" title="Link to this heading">¶</a></h3>
+<p><strong>Tornado Plot Interpretation:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Parameter      Elasticity    Interpretation
+────────────────────────────────────────────────────────
+dislocation_density   2.35   Strong positive: Higher ρ → more swelling
+surface_energy       -1.80   Strong negative: Higher γ → less swelling
+temperature           0.95   Moderate positive: T ~ proportional to swelling
+Fnb                    0.45   Weak positive: Small effect on swelling
+</pre></div>
+</div>
+<p><strong>Key insights:</strong></p>
+<ul class="simple">
+<li><p><strong>Magnitude</strong> (<code class="docutils literal notranslate"><span class="pre">|S|</span></code>): Strength of parameter influence</p></li>
+<li><p><strong>Sign</strong> (+/-): Direction of correlation</p></li>
+<li><p><strong>Ranking</strong>: Most to least important parameters</p></li>
+</ul>
+<p><strong>Example interpretation:</strong></p>
+<blockquote>
+<div><p>“Dislocation density has the strongest effect on swelling (elasticity = 2.35). A 10% increase in dislocation density causes a 23.5% increase in swelling. Surface energy shows a strong negative effect (-1.80), meaning higher surface energy suppresses bubble growth and reduces swelling.”</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="method-2-morris-elementary-effects-screening">
+<h2>Method 2: Morris Elementary Effects Screening<a class="headerlink" href="#method-2-morris-elementary-effects-screening" title="Link to this heading">¶</a></h2>
+<section id="what-is-morris">
+<h3>What is Morris?<a class="headerlink" href="#what-is-morris" title="Link to this heading">¶</a></h3>
+<p>Morris method is a <strong>global screening technique</strong> that computes <strong>elementary effects</strong> by varying one parameter at a time along random trajectories through the parameter space. It’s efficient for screening many parameters.</p>
+</section>
+<section id="id1">
+<h3>How It Works<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>Generate <code class="docutils literal notranslate"><span class="pre">r</span></code> random trajectories through parameter space</p></li>
+<li><p>Each trajectory visits <code class="docutils literal notranslate"><span class="pre">p</span></code> parameters once (p = number of parameters)</p></li>
+<li><p>Compute elementary effect for each parameter along each trajectory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>EE_i = [y(x₁, ..., x_i + Δ, ..., x_p) - y(x)] / Δ
+</pre></div>
+</div>
+</li>
+<li><p>Calculate statistics across all trajectories:</p>
+<ul class="simple">
+<li><p><strong>μ (mu)</strong>: Mean of elementary effects (overall influence)</p></li>
+<li><p><em><em>μ</em> (mu_star)</em>*: Mean of absolute effects (magnitude of influence)</p></li>
+<li><p><strong>σ (sigma)</strong>: Standard deviation (nonlinearity/interactions)</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="morris-statistics">
+<h3>Morris Statistics<a class="headerlink" href="#morris-statistics" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Statistic</p></th>
+<th class="head"><p>Formula</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>μ</strong></p></td>
+<td><p>mean(EE)</p></td>
+<td><p>Overall influence (signed)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>μ</strong>*</p></td>
+<td><p>mean(|EE|)</p></td>
+<td><p>Magnitude of influence</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>σ</strong></p></td>
+<td><p>std(EE)</p></td>
+<td><p>Nonlinearity / interactions</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>μ*</p></th>
+<th class="head"><p>σ</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>High</p></td>
+<td><p>Low</p></td>
+<td><p>Linear, important parameter</p></td>
+</tr>
+<tr class="row-odd"><td><p>High</p></td>
+<td><p>High</p></td>
+<td><p>Nonlinear or interacting parameter</p></td>
+</tr>
+<tr class="row-even"><td><p>Low</p></td>
+<td><p>Low</p></td>
+<td><p>Unimportant parameter</p></td>
+</tr>
+<tr class="row-odd"><td><p>Low</p></td>
+<td><p>High</p></td>
+<td><p>Parameter interacting with others</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Morris Plot:</strong> μ* (x-axis) vs σ (y-axis) with parameter labels.</p>
+</section>
+<section id="when-to-use-morris">
+<h3>When to Use Morris<a class="headerlink" href="#when-to-use-morris" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Good for:</strong></p>
+<ul class="simple">
+<li><p>Screening many parameters (efficient)</p></li>
+<li><p>Identifying influential vs non-influential parameters</p></li>
+<li><p>Understanding nonlinearity and parameter interactions</p></li>
+<li><p>Global sensitivity with limited computational budget</p></li>
+<li><p>Preliminary analysis before detailed Sobol study</p></li>
+</ul>
+<p>❌ <strong>Not suitable for:</strong></p>
+<ul class="simple">
+<li><p>Precise quantitative sensitivity indices</p></li>
+<li><p>Separating interaction effects from higher-order effects</p></li>
+<li><p>Models with very few parameters (use OAT or Sobol instead)</p></li>
+</ul>
+</section>
+<section id="example-morris-analysis">
+<h3>Example: Morris Analysis<a class="headerlink" href="#example-morris-analysis" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MorrisAnalyzer</span><span class="p">,</span> <span class="n">create_default_parameter_ranges</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_morris</span><span class="p">,</span> <span class="n">plot_sensitivity_heatmap</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Step 1: Define parameter ranges</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="n">create_default_parameter_ranges</span><span class="p">()</span>
+
+<span class="c1"># Step 2: Initialize Morris analyzer</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">MorrisAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">8.64e6</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 3: Run Morris analysis</span>
+<span class="c1"># r = number of trajectories (typically 10-50)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_morris_analysis</span><span class="p">(</span>
+    <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>  <span class="c1"># More trajectories = better statistics</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>    <span class="c1"># For reproducibility</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 4: Visualize results</span>
+<span class="c1"># Morris plot (μ* vs σ)</span>
+<span class="n">plot_morris</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Morris Screening - Swelling&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;morris_swelling.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 5: Extract and print statistics</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Morris Statistics (μ* and σ):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Parameter&#39;</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;μ*&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;σ&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Classification&#39;</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">param</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">mu_star</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sigma</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Classify parameter</span>
+    <span class="k">if</span> <span class="n">mu_star</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Linear, Important&quot;</span>
+    <span class="k">elif</span> <span class="n">mu_star</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&gt;=</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Nonlinear/Interacting&quot;</span>
+    <span class="k">elif</span> <span class="n">mu_star</span> <span class="o">&lt;=</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Unimportant&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Interacting&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">param</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">mu_star</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">sigma</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">classification</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="interpreting-morris-results">
+<h3>Interpreting Morris Results<a class="headerlink" href="#interpreting-morris-results" title="Link to this heading">¶</a></h3>
+<p><strong>Morris Plot Quadrants:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>           σ (nonlinearity)
+           ↑
+    High   │  [Quadrant II]    │  [Quadrant I]
+           │  Nonlinear/       │  Nonlinear/
+           │  Interacting      │  Interacting
+           │  Important        │  Unimportant
+           │───────────────────┼──────────────→ μ*
+           │  [Quadrant III]   │  [Quadrant IV]
+    Low    │  Linear           │  Linear
+           │  Important        │  Unimportant
+           │                   │
+</pre></div>
+</div>
+<p><strong>Typical findings for gas swelling model:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Parameter              μ*      σ      Classification
+──────────────────────────────────────────────────────
+dislocation_density   2.45   0.35    Nonlinear, Important
+temperature           1.80   0.85    Nonlinear, Interacting
+surface_energy       1.65   0.20    Linear, Important
+Fnb                   0.45   0.15    Linear, Unimportant
+Fnf                   0.72   0.55    Nonlinear, Interacting
+</pre></div>
+</div>
+<p><strong>Key insights:</strong></p>
+<ul class="simple">
+<li><p><strong>Temperature</strong>: High μ* and σ → strongly influential with nonlinear behavior</p></li>
+<li><p><strong>Dislocation density</strong>: High μ* but moderate σ → important but mostly linear</p></li>
+<li><p><strong>Nucleation factors</strong>: Lower μ* → less influential on overall swelling</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="method-3-sobol-variance-based-analysis">
+<h2>Method 3: Sobol Variance-Based Analysis<a class="headerlink" href="#method-3-sobol-variance-based-analysis" title="Link to this heading">¶</a></h2>
+<section id="what-is-sobol">
+<h3>What is Sobol?<a class="headerlink" href="#what-is-sobol" title="Link to this heading">¶</a></h3>
+<p>Sobol analysis is a <strong>variance-based global sensitivity method</strong> that decomposes the output variance into contributions from individual parameters and their interactions. It provides rigorous <strong>quantitative sensitivity indices</strong>.</p>
+</section>
+<section id="id2">
+<h3>How It Works<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<ol class="arabic">
+<li><p>Generate two independent samples (A and B) of size N using Saltelli’s method</p></li>
+<li><p>Create N × p additional matrices by swapping columns</p></li>
+<li><p>Run simulations for all sample points (total N × (2 + p) runs)</p></li>
+<li><p>Decompose output variance:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">V</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span> <span class="o">=</span> <span class="n">Σ_i</span> <span class="n">V_i</span> <span class="o">+</span> <span class="n">Σ_i</span> <span class="n">Σ_</span><span class="p">{</span><span class="n">j</span><span class="o">&gt;</span><span class="n">i</span><span class="p">}</span> <span class="n">V_</span><span class="p">{</span><span class="n">ij</span><span class="p">}</span> <span class="o">+</span> <span class="n">Σ_i</span> <span class="n">Σ_</span><span class="p">{</span><span class="n">j</span><span class="o">&gt;</span><span class="n">i</span><span class="p">}</span> <span class="n">Σ_</span><span class="p">{</span><span class="n">k</span><span class="o">&gt;</span><span class="n">j</span><span class="p">}</span> <span class="n">V_</span><span class="p">{</span><span class="n">ijk</span><span class="p">}</span> <span class="o">+</span> <span class="o">...</span>
+</pre></div>
+</div>
+</li>
+<li><p>Calculate sensitivity indices:</p>
+<ul class="simple">
+<li><p><strong>S1</strong> (first-order): Main effect of each parameter</p></li>
+<li><p><strong>ST</strong> (total-order): Main effect + all interactions</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="sobol-indices">
+<h3>Sobol Indices<a class="headerlink" href="#sobol-indices" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Index</p></th>
+<th class="head"><p>Formula</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>S1</strong></p></td>
+<td><p>V_i / V(Y)</p></td>
+<td><p>Fraction of variance due to parameter i alone</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>ST</strong></p></td>
+<td><p>1 - V_{~i} / V(Y)</p></td>
+<td><p>Fraction due to parameter i including interactions</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key relationship:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ST - S1 ≈ strength of interactions involving parameter i
+</pre></div>
+</div>
+<p><strong>Interpretation:</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>S1</p></th>
+<th class="head"><p>ST</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>High</p></td>
+<td><p>Low (≈S1)</p></td>
+<td><p>Parameter acts independently</p></td>
+</tr>
+<tr class="row-odd"><td><p>High</p></td>
+<td><p>High (»S1)</p></td>
+<td><p>Parameter has strong interactions</p></td>
+</tr>
+<tr class="row-even"><td><p>Low</p></td>
+<td><p>Low</p></td>
+<td><p>Parameter is unimportant</p></td>
+</tr>
+<tr class="row-odd"><td><p>Low</p></td>
+<td><p>High</p></td>
+<td><p>Parameter mainly through interactions</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="when-to-use-sobol">
+<h3>When to Use Sobol<a class="headerlink" href="#when-to-use-sobol" title="Link to this heading">¶</a></h3>
+<p>✅ <strong>Good for:</strong></p>
+<ul class="simple">
+<li><p>Quantitative sensitivity analysis with precise error estimates</p></li>
+<li><p>Understanding parameter interactions (ST - S1)</p></li>
+<li><p>Models with moderate number of parameters (&lt;20)</p></li>
+<li><p>Validating models with rigorous uncertainty quantification</p></li>
+<li><p>When computational budget allows for extensive sampling</p></li>
+</ul>
+<p>❌ <strong>Not suitable for:</strong></p>
+<ul class="simple">
+<li><p>Quick screening (use Morris instead)</p></li>
+<li><p>Models with many parameters (computational cost scales linearly)</p></li>
+<li><p>Limited computational resources</p></li>
+</ul>
+</section>
+<section id="computational-cost">
+<h3>Computational Cost<a class="headerlink" href="#computational-cost" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Total simulations = N × (2 + p)
+
+where:
+  N = base sample size (typically 500-5000)
+  p = number of parameters
+
+Example: 10 parameters, N=1000 → 1000 × (2 + 10) = 12,000 simulations
+</pre></div>
+</div>
+<p><strong>Rule of thumb:</strong> Use N = 1000-5000 for accurate confidence intervals.</p>
+</section>
+<section id="example-sobol-analysis">
+<h3>Example: Sobol Analysis<a class="headerlink" href="#example-sobol-analysis" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">SobolAnalyzer</span><span class="p">,</span> <span class="n">create_default_parameter_ranges</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_sobol</span><span class="p">,</span> <span class="n">plot_sobol_convergence</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Step 1: Define parameter ranges</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="n">create_default_parameter_ranges</span><span class="p">()</span>
+
+<span class="c1"># Step 2: Initialize Sobol analyzer</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;gas_release&#39;</span><span class="p">],</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">8.64e6</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 3: Run Sobol analysis</span>
+<span class="c1"># n_samples = base sample size (N)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span>
+    <span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>      <span class="c1"># N = 1000 → 1000 × (2 + p) simulations</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>            <span class="c1"># Use all CPU cores for parallel execution</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 4: Visualize results</span>
+<span class="c1"># Sobol bar chart (S1 and ST)</span>
+<span class="n">plot_sobol</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Sobol Sensitivity Indices - Swelling&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;sobol_swelling.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Convergence plot (check if N is large enough)</span>
+<span class="n">plot_sobol_convergence</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Sobol Convergence - Swelling&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;sobol_convergence_swelling.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Step 5: Extract and print indices</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Sobol Sensitivity Indices:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Parameter&#39;</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;S1&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;ST&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;ST-S1&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Type&#39;</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">param</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">S1</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">ST</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ST</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">interaction</span> <span class="o">=</span> <span class="n">ST</span> <span class="o">-</span> <span class="n">S1</span>
+
+    <span class="c1"># Classify parameter</span>
+    <span class="k">if</span> <span class="n">S1</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">interaction</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Interacting&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Independent&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ST</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Pure interaction&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Unimportant&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">param</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">S1</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ST</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">interaction</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">param_type</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="interpreting-sobol-results">
+<h3>Interpreting Sobol Results<a class="headerlink" href="#interpreting-sobol-results" title="Link to this heading">¶</a></h3>
+<p><strong>Understanding S1 and ST:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Parameter          S1      ST    ST-S1    Interpretation
+────────────────────────────────────────────────────────────
+dislocation_density 0.42   0.65   0.23    Strong main effect + interactions
+temperature         0.28   0.55   0.27    Strong interactions with other params
+surface_energy      0.18   0.22   0.04    Mostly independent effect
+Fnb                 0.03   0.05   0.02    Unimportant
+Fnf                 0.08   0.35   0.27    Important through interactions
+</pre></div>
+</div>
+<p><strong>Key insights:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Dislocation density</strong>: S1=0.42 → 42% of output variance explained alone; total 65%</p></li>
+<li><p><strong>Temperature</strong>: Lower S1 (0.28) but high ST (0.55) → strong interactions</p></li>
+<li><p><strong>Surface energy</strong>: S1≈ST (0.18 vs 0.22) → acts mostly independently</p></li>
+<li><p><strong>Nucleation factors</strong>: Low S1 but moderate ST for Fnf → interactions important</p></li>
+</ol>
+<p><strong>Convergence check:</strong> Ensure confidence intervals are small enough for your needs. Increase N if indices have large uncertainty.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="choosing-the-right-method">
+<h2>Choosing the Right Method<a class="headerlink" href="#choosing-the-right-method" title="Link to this heading">¶</a></h2>
+<section id="decision-tree">
+<h3>Decision Tree<a class="headerlink" href="#decision-tree" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>                   START
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+    Quick analysis?          Rigorous analysis?
+        │                         │
+        ├─ Yes                    ├─ Yes
+        │  │                      │  │
+        │  ├─ Many params?        │  ├─ Few params (&lt;10)?
+        │  │  (&gt;10)               │  │
+        │  │  │                   │  │  └─ Yes → Sobol
+        │  │  └─ Yes → Morris     │  │
+        │  │                      │  └─ No (many params)
+        │  └─ No (few params)     │     │
+        │     │                   │     ├─ Need screening → Morris
+        │     └─ OAT              │     └─ Need detailed → Sobol (expensive)
+        │                         │
+        └─ No                     └─ No → OAT
+           (need screening)          (quick local analysis)
+</pre></div>
+</div>
+</section>
+<section id="comparison-summary">
+<h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p>OAT</p></th>
+<th class="head"><p>Morris</p></th>
+<th class="head"><p>Sobol</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Type</strong></p></td>
+<td><p>Local</p></td>
+<td><p>Global screening</p></td>
+<td><p>Global variance-based</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Cost</strong></p></td>
+<td><p>p × k simulations</p></td>
+<td><p>r × p simulations</p></td>
+<td><p>N × (2 + p) simulations</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Output</strong></p></td>
+<td><p>Elasticity</p></td>
+<td><p>μ, μ*, σ</p></td>
+<td><p>S1, ST</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Interactions</strong></p></td>
+<td><p>No</p></td>
+<td><p>Indirectly (via σ)</p></td>
+<td><p>Yes (ST - S1)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Nonlinearity</strong></p></td>
+<td><p>Local only</p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Quantitative</strong></p></td>
+<td><p>Semi</p></td>
+<td><p>Semi</p></td>
+<td><p>Yes</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Best for</strong></p></td>
+<td><p>Initial screening, ranking</p></td>
+<td><p>Screening many params</p></td>
+<td><p>Detailed analysis</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="typical-workflow">
+<h3>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">¶</a></h3>
+<p><strong>Phase 1: Screening (Morris or OAT)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Quick screening to identify important parameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MorrisAnalyzer</span>
+
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">MorrisAnalyzer</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_morris_analysis</span><span class="p">(</span><span class="n">n_trajectories</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+<span class="c1"># Select top parameters for detailed study</span>
+<span class="n">important_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Phase 2: Detailed Analysis (Sobol)</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Detailed Sobol analysis on important parameters only</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">SobolAnalyzer</span>
+
+<span class="c1"># Reduce parameter ranges to important ones</span>
+<span class="n">reduced_ranges</span> <span class="o">=</span> <span class="p">[</span><span class="n">pr</span> <span class="k">for</span> <span class="n">pr</span> <span class="ow">in</span> <span class="n">param_ranges</span> <span class="k">if</span> <span class="n">pr</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">important_params</span><span class="p">]</span>
+
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span><span class="n">reduced_ranges</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Phase 3: Visualization and Reporting</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create comprehensive visualization package</span>
+<span class="n">plot_tornado</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>        <span class="c1"># OAT results</span>
+<span class="n">plot_morris</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>         <span class="c1"># Morris screening</span>
+<span class="n">plot_sobol</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>          <span class="c1"># Sobol indices</span>
+<span class="n">plot_sobol_convergence</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Validate convergence</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="practical-guidelines">
+<h2>Practical Guidelines<a class="headerlink" href="#practical-guidelines" title="Link to this heading">¶</a></h2>
+<section id="setting-parameter-ranges">
+<h3>Setting Parameter Ranges<a class="headerlink" href="#setting-parameter-ranges" title="Link to this heading">¶</a></h3>
+<p><strong>DO:</strong></p>
+<ul class="simple">
+<li><p>Base ranges on experimental uncertainty (e.g., ±20% for well-measured parameters)</p></li>
+<li><p>Use literature values for physical bounds</p></li>
+<li><p>Consider operating conditions (e.g., temperature range in reactor)</p></li>
+<li><p>Include realistic minimum and maximum values</p></li>
+</ul>
+<p><strong>DON’T:</strong></p>
+<ul class="simple">
+<li><p>Use unrealistically wide ranges (results lose meaning)</p></li>
+<li><p>Ignore physical constraints (e.g., negative temperature)</p></li>
+<li><p>Mix parameters with very different uncertainty magnitudes without normalization</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Good: Realistic ranges based on experimental uncertainty</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">ParameterRange</span><span class="p">(</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">900</span><span class="p">,</span> <span class="n">nominal_value</span><span class="o">=</span><span class="mi">800</span><span class="p">),</span>  <span class="c1"># ±200 K</span>
+    <span class="n">ParameterRange</span><span class="p">(</span><span class="s1">&#39;dislocation_density&#39;</span><span class="p">,</span> <span class="mf">1e13</span><span class="p">,</span> <span class="mf">1e15</span><span class="p">),</span>  <span class="c1"># Order of magnitude</span>
+    <span class="n">ParameterRange</span><span class="p">(</span><span class="s1">&#39;surface_energy&#39;</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">),</span>  <span class="c1"># ±20%</span>
+<span class="p">]</span>
+
+<span class="c1"># Avoid: Unrealistic ranges</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">ParameterRange</span><span class="p">(</span><span class="s1">&#39;temperature&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">5000</span><span class="p">),</span>  <span class="c1"># Too wide, includes physically impossible</span>
+    <span class="n">ParameterRange</span><span class="p">(</span><span class="s1">&#39;dislocation_density&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e14</span><span class="p">,</span> <span class="mf">1e16</span><span class="p">),</span>  <span class="c1"># Negative values unphysical</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="sample-size-selection">
+<h3>Sample Size Selection<a class="headerlink" href="#sample-size-selection" title="Link to this heading">¶</a></h3>
+<p><strong>OAT:</strong> Use k=2-5 variations per parameter (e.g., -10%, +10%, -20%, +20%)</p>
+<p><strong>Morris:</strong></p>
+<ul class="simple">
+<li><p>Initial screening: r=10-20 trajectories</p></li>
+<li><p>Better statistics: r=25-50 trajectories</p></li>
+<li><p>Rule: <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">≥</span> <span class="pre">10</span></code> for reasonable estimates</p></li>
+</ul>
+<p><strong>Sobol:</strong></p>
+<ul class="simple">
+<li><p>Minimum: N=500 (for exploratory analysis)</p></li>
+<li><p>Recommended: N=1000-2000 (for publication-quality)</p></li>
+<li><p>High precision: N=5000+ (for small confidence intervals)</p></li>
+</ul>
+<p><strong>Rule of thumb:</strong> Start with smaller N, check convergence, increase if needed.</p>
+</section>
+<section id="computational-efficiency">
+<h3>Computational Efficiency<a class="headerlink" href="#computational-efficiency" title="Link to this heading">¶</a></h3>
+<p><strong>1. Parallel execution:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use all CPU cores</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>2. Reduce simulation time:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use shorter time for screening</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">OATAnalyzer</span><span class="p">(</span>
+    <span class="n">param_ranges</span><span class="p">,</span>
+    <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">3.6e6</span><span class="p">,</span>  <span class="c1"># 40 days instead of 100</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">50</span>  <span class="c1"># Fewer output points</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>3. Select fewer outputs:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Analyze only key outputs</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>  <span class="c1"># Not all 10 variables</span>
+</pre></div>
+</div>
+</section>
+<section id="interpreting-results">
+<h3>Interpreting Results<a class="headerlink" href="#interpreting-results" title="Link to this heading">¶</a></h3>
+<p><strong>Red flags to watch for:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Very high sensitivity (&gt;10)</strong>: May indicate numerical instability or unrealistic parameter range</p></li>
+<li><p><strong>All parameters unimportant</strong>: Parameter ranges too narrow or model insensitive</p></li>
+<li><p><strong>Conflicting results (OAT vs Sobol)</strong>: Strong nonlinearity or interactions present</p></li>
+<li><p><strong>Large confidence intervals</strong>: Need more samples (Sobol) or trajectories (Morris)</p></li>
+</ol>
+<p><strong>Best practices:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Cross-validate</strong>: Compare OAT, Morris, and Sobol results for consistency</p></li>
+<li><p><strong>Check convergence</strong>: Ensure indices are stable with increasing samples</p></li>
+<li><p><strong>Physical interpretation</strong>: Results should make physical sense</p></li>
+<li><p><strong>Document uncertainties</strong>: Report confidence intervals for Sobol indices</p></li>
+<li><p><strong>Iterate</strong>: Refine parameter ranges based on findings</p></li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="advanced-topics">
+<h2>Advanced Topics<a class="headerlink" href="#advanced-topics" title="Link to this heading">¶</a></h2>
+<section id="multi-output-sensitivity">
+<h3>Multi-Output Sensitivity<a class="headerlink" href="#multi-output-sensitivity" title="Link to this heading">¶</a></h3>
+<p>Analyze sensitivity for multiple outputs simultaneously:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span>
+    <span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;gas_release&#39;</span><span class="p">,</span> <span class="s1">&#39;bubble_pressure&#39;</span><span class="p">],</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">8.64e6</span>
+<span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="c1"># Compare parameter rankings across outputs</span>
+<span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;gas_release&#39;</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Top parameters for </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+    <span class="n">sorted_results</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="n">output</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">sorted_results</span><span class="p">[:</span><span class="mi">3</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span><span class="si">}</span><span class="s2">: S1 = </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="n">output</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="time-dependent-sensitivity">
+<h3>Time-Dependent Sensitivity<a class="headerlink" href="#time-dependent-sensitivity" title="Link to this heading">¶</a></h3>
+<p>Track how sensitivity evolves over time:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Extract sensitivity at each time point</span>
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">OATAnalyzer</span><span class="p">(</span>
+    <span class="n">param_ranges</span><span class="p">,</span>
+    <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="mf">8.64e6</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>  <span class="c1"># Multiple time points</span>
+<span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_oat_analysis</span><span class="p">(</span><span class="n">percent_variations</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+
+<span class="c1"># Sensitivity vs time plot</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">time_points</span>  <span class="c1"># Time array</span>
+<span class="n">elasticities_over_time</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+    <span class="c1"># Extract elasticity at this time point</span>
+    <span class="n">elast</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+    <span class="n">elasticities_over_time</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elast</span><span class="p">)</span>
+
+<span class="c1"># Plot sensitivity evolution</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">elasticities_over_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">elasticities_over_time</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="o">/</span><span class="mi">86400</span><span class="p">,</span> <span class="n">elasticities_over_time</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">param_name</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Time (days)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Elasticity&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="parameter-correlation">
+<h3>Parameter Correlation<a class="headerlink" href="#parameter-correlation" title="Link to this heading">¶</a></h3>
+<p>For correlated parameters (e.g., diffusion coefficients with temperature), consider:</p>
+<ol class="arabic simple">
+<li><p><strong>Group parameters</strong>: Treat correlated groups as single parameters</p></li>
+<li><p><strong>Use specialized methods</strong>: Iman-Conover or copula methods for correlation</p></li>
+<li><p><strong>Physical constraints</strong>: Ensure parameter combinations are physically realistic</p></li>
+</ol>
+</section>
+<section id="visualization-best-practices">
+<h3>Visualization Best Practices<a class="headerlink" href="#visualization-best-practices" title="Link to this heading">¶</a></h3>
+<p><strong>1. Tornado plots (OAT):</strong></p>
+<ul class="simple">
+<li><p>Sort by absolute sensitivity</p></li>
+<li><p>Use diverging colors for positive/negative</p></li>
+<li><p>Include confidence intervals if available</p></li>
+</ul>
+<p><strong>2. Morris plots:</strong></p>
+<ul class="simple">
+<li><p>Label top 10 parameters explicitly</p></li>
+<li><p>Use marker size for additional information</p></li>
+<li><p>Add quadrant lines for interpretation</p></li>
+</ul>
+<p><strong>3. Sobol plots:</strong></p>
+<ul class="simple">
+<li><p>Show both S1 and ST on same plot</p></li>
+<li><p>Include error bars (confidence intervals)</p></li>
+<li><p>Use stacked bars to show interactions</p></li>
+</ul>
+<p><strong>4. Heatmaps:</strong></p>
+<ul class="simple">
+<li><p>Useful for multi-output sensitivity</p></li>
+<li><p>Color represents sensitivity magnitude</p></li>
+<li><p>Clear parameter vs output matrix</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="common-pitfalls-and-troubleshooting">
+<h2>Common Pitfalls and Troubleshooting<a class="headerlink" href="#common-pitfalls-and-troubleshooting" title="Link to this heading">¶</a></h2>
+<section id="problem-1-all-parameters-show-low-sensitivity">
+<h3>Problem 1: All Parameters Show Low Sensitivity<a class="headerlink" href="#problem-1-all-parameters-show-low-sensitivity" title="Link to this heading">¶</a></h3>
+<p><strong>Possible causes:</strong></p>
+<ul class="simple">
+<li><p>Parameter ranges too narrow</p></li>
+<li><p>Output variable saturated or insensitive</p></li>
+<li><p>Model time too short for effects to manifest</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul class="simple">
+<li><p>Widen parameter ranges (e.g., ±50% instead of ±10%)</p></li>
+<li><p>Check if output is changing at all</p></li>
+<li><p>Extend simulation time or analyze different outputs</p></li>
+</ul>
+</section>
+<section id="problem-2-conflicting-results-between-methods">
+<h3>Problem 2: Conflicting Results Between Methods<a class="headerlink" href="#problem-2-conflicting-results-between-methods" title="Link to this heading">¶</a></h3>
+<p><strong>Example:</strong> OAT shows parameter A is important, Sobol shows it’s unimportant.</p>
+<p><strong>Possible causes:</strong></p>
+<ul class="simple">
+<li><p>Strong parameter interactions (Sobol captures, OAT doesn’t)</p></li>
+<li><p>Nonlinearity far from nominal point (OAT local, Sobol global)</p></li>
+<li><p>Different parameter ranges used</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul class="simple">
+<li><p>Check ST - S1 in Sobol (large = interactions)</p></li>
+<li><p>Examine Morris σ (high = nonlinearity)</p></li>
+<li><p>Ensure consistent parameter ranges across methods</p></li>
+</ul>
+</section>
+<section id="problem-3-computationally-expensive">
+<h3>Problem 3: Computationally Expensive<a class="headerlink" href="#problem-3-computationally-expensive" title="Link to this heading">¶</a></h3>
+<p><strong>Problem:</strong> Sobol analysis with 20 parameters takes too long.</p>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Screen first with Morris</strong> to reduce parameter set</p></li>
+<li><p><strong>Use smaller N</strong> for exploratory analysis (N=500)</p></li>
+<li><p><strong>Parallelize</strong> with <code class="docutils literal notranslate"><span class="pre">n_jobs=-1</span></code></p></li>
+<li><p><strong>Reduce simulation time</strong> (shorter irradiation period)</p></li>
+<li><p><strong>Use surrogate models</strong> (Gaussian processes, polynomial chaos)</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example workflow for computationally expensive model</span>
+
+<span class="c1"># Step 1: Morris screening (fast)</span>
+<span class="n">morris_analyzer</span> <span class="o">=</span> <span class="n">MorrisAnalyzer</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">morris_results</span> <span class="o">=</span> <span class="n">morris_analyzer</span><span class="o">.</span><span class="n">run_morris_analysis</span><span class="p">(</span><span class="n">n_trajectories</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+<span class="c1"># Step 2: Select top 5 parameters</span>
+<span class="n">top_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">morris_results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)[:</span><span class="mi">5</span><span class="p">]]</span>
+
+<span class="c1"># Step 3: Sobol on reduced set</span>
+<span class="n">reduced_ranges</span> <span class="o">=</span> <span class="p">[</span><span class="n">pr</span> <span class="k">for</span> <span class="n">pr</span> <span class="ow">in</span> <span class="n">param_ranges</span> <span class="k">if</span> <span class="n">pr</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">top_params</span><span class="p">]</span>
+<span class="n">sobol_analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span><span class="n">reduced_ranges</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">])</span>
+<span class="n">sobol_results</span> <span class="o">=</span> <span class="n">sobol_analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="problem-4-numerical-instability">
+<h3>Problem 4: Numerical Instability<a class="headerlink" href="#problem-4-numerical-instability" title="Link to this heading">¶</a></h3>
+<p><strong>Symptoms:</strong></p>
+<ul class="simple">
+<li><p>Very high sensitivity values (&gt;100)</p></li>
+<li><p>Inconsistent results between runs</p></li>
+<li><p>NaN or Inf values</p></li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ul class="simple">
+<li><p>Check for division by zero in output metrics</p></li>
+<li><p>Ensure parameter values stay in physical range</p></li>
+<li><p>Increase numerical precision in solver</p></li>
+<li><p>Use relative changes instead of absolute</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="example-complete-sensitivity-study">
+<h2>Example: Complete Sensitivity Study<a class="headerlink" href="#example-complete-sensitivity-study" title="Link to this heading">¶</a></h2>
+<p>This example shows a complete sensitivity analysis workflow combining all three methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Complete Sensitivity Study for Gas Swelling Model</span>
+<span class="sd">=================================================</span>
+
+<span class="sd">This script performs a comprehensive sensitivity analysis using</span>
+<span class="sd">OAT, Morris, and Sobol methods to identify influential parameters.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OATAnalyzer</span><span class="p">,</span> <span class="n">MorrisAnalyzer</span><span class="p">,</span> <span class="n">SobolAnalyzer</span><span class="p">,</span>
+    <span class="n">create_default_parameter_ranges</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">plot_tornado</span><span class="p">,</span> <span class="n">plot_morris</span><span class="p">,</span> <span class="n">plot_sobol</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># Configuration</span>
+<span class="n">SIM_TIME</span> <span class="o">=</span> <span class="mf">8.64e6</span>  <span class="c1"># 100 days</span>
+<span class="n">OUTPUTS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span> <span class="s1">&#39;Rcb&#39;</span><span class="p">,</span> <span class="s1">&#39;gas_release&#39;</span><span class="p">]</span>
+<span class="n">RANDOM_STATE</span> <span class="o">=</span> <span class="mi">42</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;GAS SWELLING MODEL - COMPLETE SENSITIVITY STUDY&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="c1"># Create parameter ranges</span>
+<span class="n">param_ranges</span> <span class="o">=</span> <span class="n">create_default_parameter_ranges</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Analyzing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">)</span><span class="si">}</span><span class="s2"> parameters:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">pr</span> <span class="ow">in</span> <span class="n">param_ranges</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">name</span><span class="si">:</span><span class="s2">20s</span><span class="si">}</span><span class="s2">: [</span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">min_value</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">pr</span><span class="o">.</span><span class="n">max_value</span><span class="si">:</span><span class="s2">.3g</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+
+<span class="c1"># =============================================================================</span>
+<span class="c1"># PHASE 1: OAT Analysis (Local Sensitivity)</span>
+<span class="c1"># =============================================================================</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PHASE 1: OAT ANALYSIS&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="n">oat_analyzer</span> <span class="o">=</span> <span class="n">OATAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="n">OUTPUTS</span><span class="p">,</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="n">SIM_TIME</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="n">oat_results</span> <span class="o">=</span> <span class="n">oat_analyzer</span><span class="o">.</span><span class="n">run_oat_analysis</span><span class="p">(</span>
+    <span class="n">percent_variations</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+
+<span class="c1"># Visualize OAT results</span>
+<span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">OUTPUTS</span><span class="p">:</span>
+    <span class="n">plot_tornado</span><span class="p">(</span>
+        <span class="n">oat_results</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+        <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;elasticity&#39;</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;OAT Sensitivity - </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">save_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;sensitivity_oat_</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">.png&#39;</span><span class="p">,</span>
+        <span class="n">show</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+<span class="c1"># Print OAT ranking for swelling</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">OAT Parameter Ranking (by |elasticity| for swelling):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">sorted_oat</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+    <span class="n">oat_results</span><span class="p">,</span>
+    <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">]),</span>
+    <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">sorted_oat</span><span class="p">:</span>
+    <span class="n">elast</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span><span class="si">:</span><span class="s2">25s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">elast</span><span class="si">:</span><span class="s2">8.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># =============================================================================</span>
+<span class="c1"># PHASE 2: Morris Screening (Global Sensitivity)</span>
+<span class="c1"># =============================================================================</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PHASE 2: MORRIS SCREENING&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="n">morris_analyzer</span> <span class="o">=</span> <span class="n">MorrisAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">param_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="n">OUTPUTS</span><span class="p">,</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="n">SIM_TIME</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="n">morris_results</span> <span class="o">=</span> <span class="n">morris_analyzer</span><span class="o">.</span><span class="n">run_morris_analysis</span><span class="p">(</span>
+    <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_STATE</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+
+<span class="c1"># Visualize Morris results</span>
+<span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">OUTPUTS</span><span class="p">:</span>
+    <span class="n">plot_morris</span><span class="p">(</span>
+        <span class="n">morris_results</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Morris Screening - </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">save_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;sensitivity_morris_</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">.png&#39;</span><span class="p">,</span>
+        <span class="n">show</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+<span class="c1"># Print Morris statistics for swelling</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Morris Statistics (for swelling):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Parameter&#39;</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;μ*&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;σ&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Classification&#39;</span><span class="si">:</span><span class="s2">&gt;20</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">morris_results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">mu_star</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">sigma</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">mu_star</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Linear, Important&quot;</span>
+    <span class="k">elif</span> <span class="n">mu_star</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&gt;=</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Nonlinear/Interacting&quot;</span>
+    <span class="k">elif</span> <span class="n">mu_star</span> <span class="o">&lt;=</span> <span class="mf">0.5</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Unimportant&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">classification</span> <span class="o">=</span> <span class="s2">&quot;Interacting&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">mu_star</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">sigma</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">classification</span><span class="si">:</span><span class="s2">&gt;20</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># =============================================================================</span>
+<span class="c1"># PHASE 3: Sobol Analysis (Variance-Based Sensitivity)</span>
+<span class="c1"># =============================================================================</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PHASE 3: SOBOL ANALYSIS&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="c1"># Identify important parameters from Morris (μ* &gt; 0.3)</span>
+<span class="n">important_params</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">morris_results</span>
+    <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.3</span>
+<span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Running Sobol analysis on top </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">important_params</span><span class="p">)</span><span class="si">}</span><span class="s2"> parameters&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(Reduced from </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">param_ranges</span><span class="p">)</span><span class="si">}</span><span class="s2"> total parameters)&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create reduced parameter ranges</span>
+<span class="n">reduced_ranges</span> <span class="o">=</span> <span class="p">[</span><span class="n">pr</span> <span class="k">for</span> <span class="n">pr</span> <span class="ow">in</span> <span class="n">param_ranges</span> <span class="k">if</span> <span class="n">pr</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">important_params</span><span class="p">]</span>
+
+<span class="n">sobol_analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="o">=</span><span class="n">reduced_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="o">=</span><span class="n">OUTPUTS</span><span class="p">,</span>
+    <span class="n">sim_time</span><span class="o">=</span><span class="n">SIM_TIME</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span>
+<span class="p">)</span>
+
+<span class="n">sobol_results</span> <span class="o">=</span> <span class="n">sobol_analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span>
+    <span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="n">RANDOM_STATE</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># Parallel execution</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+
+<span class="c1"># Visualize Sobol results</span>
+<span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">OUTPUTS</span><span class="p">:</span>
+    <span class="n">plot_sobol</span><span class="p">(</span>
+        <span class="n">sobol_results</span><span class="p">,</span>
+        <span class="n">output_name</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Sobol Indices - </span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+        <span class="n">save_path</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;sensitivity_sobol_</span><span class="si">{</span><span class="n">output</span><span class="si">}</span><span class="s1">.png&#39;</span><span class="p">,</span>
+        <span class="n">show</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+<span class="c1"># Print Sobol indices for swelling</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Sobol Sensitivity Indices (for swelling):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;Parameter&#39;</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;S1&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;ST&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;ST-S1&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Type&#39;</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">sobol_results</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="n">S1</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">ST</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">ST</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">interaction</span> <span class="o">=</span> <span class="n">ST</span> <span class="o">-</span> <span class="n">S1</span>
+
+    <span class="k">if</span> <span class="n">S1</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">interaction</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Interacting&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Independent&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ST</span> <span class="o">&gt;</span> <span class="mf">0.1</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Pure interaction&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">param_type</span> <span class="o">=</span> <span class="s2">&quot;Unimportant&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span><span class="si">:</span><span class="s2">&lt;25</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">S1</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ST</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">interaction</span><span class="si">:</span><span class="s2">10.3f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">param_type</span><span class="si">:</span><span class="s2">&gt;15</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># =============================================================================</span>
+<span class="c1"># SUMMARY</span>
+<span class="c1"># =============================================================================</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SUMMARY: PARAMETER RANKING&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="c1"># Compare rankings across methods</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Top 5 parameters by method:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="c1"># OAT top 5</span>
+<span class="n">oat_top5</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">sorted_oat</span><span class="p">[:</span><span class="mi">5</span><span class="p">]]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;OAT:        </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">oat_top5</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Morris top 5</span>
+<span class="n">morris_top5</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">morris_results</span><span class="p">,</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span>
+        <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)[:</span><span class="mi">5</span><span class="p">]</span>
+<span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Morris (μ*): </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">morris_top5</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Sobol top 5</span>
+<span class="n">sobol_top5</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">parameter_name</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">sobol_results</span><span class="p">,</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">],</span>
+        <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)[:</span><span class="mi">5</span><span class="p">]</span>
+<span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sobol (S1):  </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sobol_top5</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ANALYSIS COMPLETE&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Results saved to:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  - sensitivity_oat_*.png&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  - sensitivity_morris_*.png&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  - sensitivity_sobol_*.png&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="references-and-further-reading">
+<h2>References and Further Reading<a class="headerlink" href="#references-and-further-reading" title="Link to this heading">¶</a></h2>
+<section id="method-references">
+<h3>Method References<a class="headerlink" href="#method-references" title="Link to this heading">¶</a></h3>
+<p><strong>OAT Method:</strong></p>
+<ul class="simple">
+<li><p>Saltelli, A., et al. (2008). <em>Global Sensitivity Analysis: The Primer</em>. Wiley.</p></li>
+<li><p>Hamby, D. M. (1994). “A review of techniques for parameter sensitivity analysis of environmental models.” <em>Environmental Monitoring and Assessment</em>, 32(2), 135-154.</p></li>
+</ul>
+<p><strong>Morris Method:</strong></p>
+<ul class="simple">
+<li><p>Morris, M. D. (1991). “Factorial sampling plans for preliminary computational experiments.” <em>Technometrics</em>, 33(2), 161-174.</p></li>
+<li><p>Campolongo, F., et al. (2007). “An effective screening design for sensitivity analysis of large models.” <em>Environmental Modelling &amp; Software</em>, 22(10), 1509-1518.</p></li>
+</ul>
+<p><strong>Sobol Method:</strong></p>
+<ul class="simple">
+<li><p>Sobol, I. M. (2001). “Global sensitivity indices for nonlinear mathematical models and their Monte Carlo estimates.” <em>Mathematics and Computers in Simulation</em>, 55(1-3), 271-280.</p></li>
+<li><p>Saltelli, A. (2002). “Making best use of model evaluations to compute sensitivity indices.” <em>Computer Physics Communications</em>, 145(2), 280-297.</p></li>
+</ul>
+</section>
+<section id="gas-swelling-model-references">
+<h3>Gas Swelling Model References<a class="headerlink" href="#gas-swelling-model-references" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Original theoretical framework: <strong>“Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel”</strong></p></li>
+<li><p>Model implementation: See <code class="docutils literal notranslate"><span class="pre">model_design.md</span></code> and <code class="docutils literal notranslate"><span class="pre">CLAUDE.md</span></code></p></li>
+</ul>
+</section>
+<section id="python-libraries">
+<h3>Python Libraries<a class="headerlink" href="#python-libraries" title="Link to this heading">¶</a></h3>
+<p>This implementation uses:</p>
+<ul class="simple">
+<li><p><strong>NumPy</strong>: Numerical computations</p></li>
+<li><p><strong>SciPy</strong>: Statistical distributions and sampling</p></li>
+<li><p><strong>Matplotlib</strong>: Visualization</p></li>
+<li><p><strong>SALib</strong>: Sensitivity analysis algorithms (future integration planned)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="api-quick-reference">
+<h2>API Quick Reference<a class="headerlink" href="#api-quick-reference" title="Link to this heading">¶</a></h2>
+<section id="oatanalyzer">
+<h3>OATAnalyzer<a class="headerlink" href="#oatanalyzer" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">OATAnalyzer</span>
+
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">OATAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="p">,</span>           <span class="c1"># List of ParameterRange objects</span>
+    <span class="n">output_names</span><span class="p">,</span>               <span class="c1"># List of outputs to analyze</span>
+    <span class="n">sim_time</span><span class="p">,</span>                   <span class="c1"># Simulation time (seconds)</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>          <span class="c1"># Number of time points</span>
+    <span class="n">base_params</span><span class="o">=</span><span class="kc">None</span>            <span class="c1"># Base parameters (default: create_default_parameters())</span>
+<span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_oat_analysis</span><span class="p">(</span>
+    <span class="n">percent_variations</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>  <span class="c1"># Percentage variations to test</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>                    <span class="c1"># Print progress</span>
+<span class="p">)</span>
+
+<span class="c1"># Access results</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">param_name</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">elasticity</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sensitivities</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">][</span><span class="s1">&#39;elasticity&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="morrisanalyzer">
+<h3>MorrisAnalyzer<a class="headerlink" href="#morrisanalyzer" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MorrisAnalyzer</span>
+
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">MorrisAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="p">,</span>
+    <span class="n">sim_time</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">base_params</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_morris_analysis</span><span class="p">(</span>
+    <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>        <span class="c1"># Number of trajectories (r)</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>        <span class="c1"># Random seed</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Access results</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">param_name</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">mu_star</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">mu_star</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sigma</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="sobolanalyzer">
+<h3>SobolAnalyzer<a class="headerlink" href="#sobolanalyzer" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.sensitivity</span><span class="w"> </span><span class="kn">import</span> <span class="n">SobolAnalyzer</span>
+
+<span class="n">analyzer</span> <span class="o">=</span> <span class="n">SobolAnalyzer</span><span class="p">(</span>
+    <span class="n">parameter_ranges</span><span class="p">,</span>
+    <span class="n">output_names</span><span class="p">,</span>
+    <span class="n">sim_time</span><span class="p">,</span>
+    <span class="n">t_eval_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">base_params</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">run_sobol_analysis</span><span class="p">(</span>
+    <span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>           <span class="c1"># Base sample size (N)</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>                 <span class="c1"># Parallel jobs (-1 = all cores)</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Access results</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+    <span class="n">param_name</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">parameter_name</span>
+    <span class="n">S1</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">S1</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">ST</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ST</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">S1_conf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">S1_conf</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+    <span class="n">ST_conf</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">ST_conf</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="visualization-functions">
+<h3>Visualization Functions<a class="headerlink" href="#visualization-functions" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.analysis.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">plot_tornado</span><span class="p">,</span>
+    <span class="n">plot_morris</span><span class="p">,</span>
+    <span class="n">plot_sobol</span><span class="p">,</span>
+    <span class="n">plot_sobol_convergence</span>
+<span class="p">)</span>
+
+<span class="c1"># Tornado plot (OAT)</span>
+<span class="n">plot_tornado</span><span class="p">(</span>
+    <span class="n">oat_results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;elasticity&#39;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;OAT Sensitivity&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;oat.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Morris plot</span>
+<span class="n">plot_morris</span><span class="p">(</span>
+    <span class="n">morris_results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Morris Screening&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;morris.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Sobol bar chart</span>
+<span class="n">plot_sobol</span><span class="p">(</span>
+    <span class="n">sobol_results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Sobol Indices&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;sobol.png&#39;</span>
+<span class="p">)</span>
+
+<span class="c1"># Convergence plot</span>
+<span class="n">plot_sobol_convergence</span><span class="p">(</span>
+    <span class="n">sobol_results</span><span class="p">,</span>
+    <span class="n">output_name</span><span class="o">=</span><span class="s1">&#39;swelling&#39;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Sobol Convergence&#39;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s1">&#39;convergence.png&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting-guide">
+<h2>Troubleshooting Guide<a class="headerlink" href="#troubleshooting-guide" title="Link to this heading">¶</a></h2>
+<section id="common-issues">
+<h3>Common Issues<a class="headerlink" href="#common-issues" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Issue</p></th>
+<th class="head"><p>Symptom</p></th>
+<th class="head"><p>Solution</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Import error</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError:</span> <span class="pre">No</span> <span class="pre">module</span> <span class="pre">named</span> <span class="pre">'gas_swelling.analysis'</span></code></p></td>
+<td><p>Install package: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-e</span> <span class="pre">.</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Slow execution</strong></p></td>
+<td><p>Analysis takes hours</p></td>
+<td><p>Reduce <code class="docutils literal notranslate"><span class="pre">n_samples</span></code>, use <code class="docutils literal notranslate"><span class="pre">n_jobs=-1</span></code>, screen parameters first</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Memory error</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MemoryError</span></code> or OOM</p></td>
+<td><p>Reduce <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> or <code class="docutils literal notranslate"><span class="pre">t_eval_points</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Zero variance</strong></p></td>
+<td><p>All sensitivities ~0</p></td>
+<td><p>Check parameter ranges, extend simulation time</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>NaN values</strong></p></td>
+<td><p>Results contain NaN</p></td>
+<td><p>Check solver convergence, ensure physical parameter values</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Poor convergence</strong></p></td>
+<td><p>Large confidence intervals</p></td>
+<td><p>Increase <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> for Sobol, <code class="docutils literal notranslate"><span class="pre">n_trajectories</span></code> for Morris</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="getting-help">
+<h3>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Check examples</strong>: Run scripts in <code class="docutils literal notranslate"><span class="pre">examples/sensitivity_*.py</span></code></p></li>
+<li><p><strong>Read parameter reference</strong>: <code class="docutils literal notranslate"><span class="pre">docs/parameter_reference.md</span></code></p></li>
+<li><p><strong>Review source code</strong>: <code class="docutils literal notranslate"><span class="pre">gas_swelling/analysis/</span></code> for implementation details</p></li>
+<li><p><strong>Model documentation</strong>: <code class="docutils literal notranslate"><span class="pre">model_design.md</span></code> for physics background</p></li>
+</ol>
+<hr class="docutils" />
+<p><strong>Version</strong>: 1.0.0
+<strong>Last Updated</strong>: 2024-01-24
+<strong>Authors</strong>: Gas Swelling Model Development Team</p>
+<hr class="docutils" />
+<p><strong>📘 Documentation Index</strong> | repo-root <code class="docutils literal notranslate"><span class="pre">README.md</span></code> | <strong><a class="reference internal" href="parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></strong> | <strong><a class="reference download internal" download="" href="_downloads/e4dd6f9568c9fc1b9de6db87b0a8b05f/quickstart_tutorial.py"><span class="xref download myst">Quick Start Tutorial</span></a></strong> | repo <code class="docutils literal notranslate"><span class="pre">examples/</span></code></p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/rate_theory_fundamentals.html">Rate Theory Fundamentals: A Gentle Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Sensitivity Analysis Guide for Gas Swelling Model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sensitivity-analysis-methods">Sensitivity Analysis Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#method-1-one-at-a-time-oat-analysis">Method 1: One-at-a-Time (OAT) Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#method-2-morris-elementary-effects-screening">Method 2: Morris Elementary Effects Screening</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#method-3-sobol-variance-based-analysis">Method 3: Sobol Variance-Based Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#choosing-the-right-method">Choosing the Right Method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#practical-guidelines">Practical Guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-topics">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-complete-sensitivity-study">Example: Complete Sensitivity Study</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references-and-further-reading">References and Further Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-quick-reference">API Quick Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting-guide">Troubleshooting Guide</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="parameter_reference.html" title="previous chapter">Parameter Reference Guide</a></li>
+      <li>Next: <a href="validation_guide.html" title="next chapter">Validation Guide for Gas Swelling Model</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/sensitivity_analysis_guide.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

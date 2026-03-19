@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Rate Theory Fundamentals: A Gentle Introduction &#8212; Gas Swelling Model 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Model Equations Explained: The 10 State Variables" href="model_equations_explained.html" />
+    <link rel="prev" title="Repository Guide / 仓库结构与使用说明" href="../guides/repository_guide.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="rate-theory-fundamentals-a-gentle-introduction">
+<h1>Rate Theory Fundamentals: A Gentle Introduction<a class="headerlink" href="#rate-theory-fundamentals-a-gentle-introduction" title="Link to this heading">¶</a></h1>
+<p><strong>Target Audience:</strong> Graduate students and researchers new to rate theory models
+<strong>Reading Time:</strong> ~20 minutes
+<strong>Prerequisites:</strong> Basic understanding of calculus and differential equations</p>
+<p><strong>📚 Navigation:</strong></p>
+<ul class="simple">
+<li><p><strong>Prerequisites</strong>: None (start here if you’re new to rate theory)</p></li>
+<li><p><strong>Next Steps</strong>: <a class="reference internal" href="30minute_quickstart.html"><span class="std std-doc">30-Minute Quickstart</span></a> | <a class="reference download internal" download="" href="../_downloads/c393e497ce2e254b2e421f0d5817995c/01_Basic_Simulation_Walkthrough.ipynb"><span class="xref download myst">Basic Simulation Notebook</span></a></p></li>
+<li><p><strong>Related</strong>: <a class="reference internal" href="model_equations_explained.html"><span class="std std-doc">Model Equations Explained</span></a> | <a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></p></li>
+</ul>
+<hr class="docutils" />
+<section id="learning-objectives">
+<h2>Learning Objectives<a class="headerlink" href="#learning-objectives" title="Link to this heading">¶</a></h2>
+<p>After reading this tutorial, you will understand:</p>
+<ul class="simple">
+<li><p>✓ What rate theory is and why it’s used in nuclear materials science</p></li>
+<li><p>✓ The basic physics of fission gas behavior in nuclear fuel</p></li>
+<li><p>✓ How bubbles nucleate, grow, and cause fuel swelling</p></li>
+<li><p>✓ The key state variables tracked in the model</p></li>
+<li><p>✓ How defect production and evolution drive microstructural changes</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#what-is-rate-theory">What is Rate Theory?</a></p></li>
+<li><p><a class="reference internal" href="#the-physics-of-fission-gas-in-nuclear-fuel">The Physics of Fission Gas in Nuclear Fuel</a></p></li>
+<li><p><a class="reference internal" href="#key-concepts-and-terminology">Key Concepts and Terminology</a></p></li>
+<li><p><a class="reference internal" href="#the-rate-equations-explained">The Rate Equations Explained</a></p></li>
+<li><p><a class="reference internal" href="#from-physics-to-mathematics">From Physics to Mathematics</a></p></li>
+<li><p><a class="reference internal" href="#swelling-the-practical-consequence">Swelling: The Practical Consequence</a></p></li>
+<li><p><a class="reference internal" href="#connecting-to-the-model-implementation">Connecting to the Model Implementation</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="what-is-rate-theory">
+<h2>What is Rate Theory?<a class="headerlink" href="#what-is-rate-theory" title="Link to this heading">¶</a></h2>
+<section id="the-basic-idea">
+<h3>The Basic Idea<a class="headerlink" href="#the-basic-idea" title="Link to this heading">¶</a></h3>
+<p><strong>Rate theory</strong> is a mathematical framework for describing how things change over time. In nuclear materials, we use it to track the evolution of microstructural features—like gas bubbles and voids—that form during irradiation.</p>
+<p>Think of rate theory like a bank account:</p>
+<ul class="simple">
+<li><p><strong>Deposits</strong>: Fission creates gas atoms and defects (vacancies, interstitials)</p></li>
+<li><p><strong>Withdrawals</strong>: Gas atoms get absorbed by bubbles, defects recombine or get trapped</p></li>
+<li><p><strong>Balance</strong>: We track the net change in each “account” over time</p></li>
+</ul>
+</section>
+<section id="why-use-rate-theory">
+<h3>Why Use Rate Theory?<a class="headerlink" href="#why-use-rate-theory" title="Link to this heading">¶</a></h3>
+<p>Nuclear fuel materials undergo complex changes during irradiation:</p>
+<ol class="arabic simple">
+<li><p><strong>Fission</strong> produces gas atoms (mainly xenon and krypton)</p></li>
+<li><p><strong>Radiation damage</strong> creates vacancies (missing atoms) and interstitials (extra atoms)</p></li>
+<li><p><strong>Microstructural evolution</strong> occurs as these defects move, interact, and aggregate</p></li>
+</ol>
+<p>Instead of tracking every individual atom (which would be impossibly complex), rate theory tracks <strong>concentrations</strong>—how many of each type of thing exists per unit volume. This gives us a manageable set of equations that can predict macroscopic behavior.</p>
+</section>
+<section id="the-rate-theory-approach">
+<h3>The Rate Theory Approach<a class="headerlink" href="#the-rate-theory-approach" title="Link to this heading">¶</a></h3>
+<blockquote>
+<div><p><strong>Key Insight:</strong> We don’t need to know where every atom is. We just need to know how many of each type of thing exists and how fast they’re being created or destroyed.</p>
+</div></blockquote>
+<p>For each quantity we track (gas atoms, bubbles, vacancies), we write an equation like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Rate</span> <span class="n">of</span> <span class="n">change</span> <span class="o">=</span> <span class="n">Rate</span> <span class="n">of</span> <span class="n">creation</span> <span class="o">-</span> <span class="n">Rate</span> <span class="n">of</span> <span class="n">loss</span>
+</pre></div>
+</div>
+<p>In mathematical notation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dC</span><span class="o">/</span><span class="n">dt</span> <span class="o">=</span> <span class="n">Production</span> <span class="o">-</span> <span class="n">Loss</span>
+</pre></div>
+</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">C</span></code> is the concentration of something (e.g., gas atoms per cubic meter)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dC/dt</span></code> is how quickly that concentration changes</p></li>
+<li><p>The right side describes all the processes adding or removing that thing</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-physics-of-fission-gas-in-nuclear-fuel">
+<h2>The Physics of Fission Gas in Nuclear Fuel<a class="headerlink" href="#the-physics-of-fission-gas-in-nuclear-fuel" title="Link to this heading">¶</a></h2>
+<section id="what-happens-during-fission">
+<h3>What Happens During Fission?<a class="headerlink" href="#what-happens-during-fission" title="Link to this heading">¶</a></h3>
+<p>When a uranium nucleus splits (fissions):</p>
+<ol class="arabic simple">
+<li><p><strong>Two fission fragments</strong> are created (these become new atoms)</p></li>
+<li><p><strong>Neutrons</strong> are released (sustaining the chain reaction)</p></li>
+<li><p><strong>Fission gas atoms</strong> (Xe, Kr) are produced (~0.25-0.30 gas atoms per fission)</p></li>
+<li><p><strong>Energy</strong> is released as heat</p></li>
+</ol>
+<p>The gas atoms are problematic because:</p>
+<ul class="simple">
+<li><p>They don’t dissolve well in the fuel crystal lattice</p></li>
+<li><p>They migrate and cluster together</p></li>
+<li><p>They form bubbles that cause the fuel to swell</p></li>
+</ul>
+</section>
+<section id="where-do-the-gas-atoms-go">
+<h3>Where Do the Gas Atoms Go?<a class="headerlink" href="#where-do-the-gas-atoms-go" title="Link to this heading">¶</a></h3>
+<p>Gas atoms produced in the fuel have several possible fates:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Destination</p></th>
+<th class="head"><p>What Happens</p></th>
+<th class="head"><p>Why It Matters</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Stay in matrix</strong></p></td>
+<td><p>Wander randomly through crystal</p></td>
+<td><p>Temporary storage, but unstable</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Meet another gas atom</strong></p></td>
+<td><p>May form a bubble nucleus</p></td>
+<td><p>First step toward bubble formation</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Find existing bubble</strong></p></td>
+<td><p>Get absorbed, making bubble grow</p></td>
+<td><p>Increases swelling</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Reach grain boundary</strong></p></td>
+<td><p>Accumulate at boundary</p></td>
+<td><p>Boundary bubbles grow larger</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Escape to plenum</strong></p></td>
+<td><p>Released from fuel entirely</p></td>
+<td><p>Reduces internal pressure</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="the-two-main-locations">
+<h3>The Two Main Locations<a class="headerlink" href="#the-two-main-locations" title="Link to this heading">¶</a></h3>
+<p>The model tracks gas behavior in <strong>two distinct regions</strong>:</p>
+<section id="bulk-matrix-inside-the-fuel-grains">
+<h4>1. Bulk Matrix (inside the fuel grains)<a class="headerlink" href="#bulk-matrix-inside-the-fuel-grains" title="Link to this heading">¶</a></h4>
+<p>Imagine a grain of fuel as a room:</p>
+<ul class="simple">
+<li><p>Gas atoms move around randomly inside (diffusion)</p></li>
+<li><p>They occasionally collide and may form tiny bubble clusters</p></li>
+<li><p>Radiation can knock gas atoms <em>out</em> of bubbles (re-solution)</p></li>
+<li><p>Bubble growth is limited because re-solution is strong here</p></li>
+</ul>
+</section>
+<section id="phase-boundaries-grain-and-phase-boundaries">
+<h4>2. Phase Boundaries (grain and phase boundaries)<a class="headerlink" href="#phase-boundaries-grain-and-phase-boundaries" title="Link to this heading">¶</a></h4>
+<p>Think of boundaries as the walls and corners of the room:</p>
+<ul class="simple">
+<li><p>Gas atoms that reach boundaries tend to stick there</p></li>
+<li><p>Re-solution is weaker at boundaries (knocked-out atoms are quickly recaptured)</p></li>
+<li><p>Bubbles here grow much larger</p></li>
+<li><p>Eventually, bubbles interconnect and gas escapes</p></li>
+</ul>
+<p><strong>Why the difference?</strong> At boundaries, gas atoms are close to the “surface” of their capture zone, so even if fission fragments knock them out of a bubble, they don’t get far before being recaptured.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="key-concepts-and-terminology">
+<h2>Key Concepts and Terminology<a class="headerlink" href="#key-concepts-and-terminology" title="Link to this heading">¶</a></h2>
+<section id="point-defects">
+<h3>Point Defects<a class="headerlink" href="#point-defects" title="Link to this heading">¶</a></h3>
+<p>Radiation damage creates two types of point defects:</p>
+<section id="vacancies-missing-atoms">
+<h4>Vacancies (missing atoms)<a class="headerlink" href="#vacancies-missing-atoms" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Analogy</strong>: Imagine a parking space with a missing car. Other cars can shift into the empty space.</p></li>
+<li><p><strong>Physical effect</strong>: Allow atoms to move more easily (enhances diffusion)</p></li>
+<li><p><strong>Role in swelling</strong>: When vacancies accumulate in bubbles, the bubble grows</p></li>
+</ul>
+</section>
+<section id="interstitials-extra-atoms-squeezed-into-the-lattice">
+<h4>Interstitials (extra atoms squeezed into the lattice)<a class="headerlink" href="#interstitials-extra-atoms-squeezed-into-the-lattice" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p><strong>Analogy</strong>: An extra person squeezed into a crowded elevator. Everyone’s a bit uncomfortable.</p></li>
+<li><p><strong>Physical effect</strong>: Cause lattice distortion and stress</p></li>
+<li><p><strong>Fate</strong>: Preferentially absorbed by dislocations (defects in the crystal structure)</p></li>
+</ul>
+</section>
+</section>
+<section id="bias-the-secret-sauce-of-void-swelling">
+<h3>Bias: The Secret Sauce of Void Swelling<a class="headerlink" href="#bias-the-secret-sauce-of-void-swelling" title="Link to this heading">¶</a></h3>
+<p>Different “sinks” (things that absorb defects) have different preferences:</p>
+<ul class="simple">
+<li><p><strong>Dislocations</strong> preferentially absorb interstitials (dislocation bias)</p></li>
+<li><p><strong>Voids/bubbles</strong> absorb more vacancies than interstitials</p></li>
+</ul>
+<p>This unequal absorption creates an <strong>excess of vacancies</strong> that flow to voids, causing them to grow. This is called <strong>bias-driven growth</strong> and is the primary mechanism of void swelling.</p>
+<blockquote>
+<div><p><strong>Analogy</strong>: Imagine two restaurants—one attracts 60% of vegetarians, the other attracts 60% of meat-eaters. Even if equal numbers of each type arrive, one restaurant ends up with more vegetarians, the other with more meat-eaters. The “bias” creates an imbalance.</p>
+</div></blockquote>
+</section>
+<section id="bubble-vs-void">
+<h3>Bubble vs. Void<a class="headerlink" href="#bubble-vs-void" title="Link to this heading">¶</a></h3>
+<p>The model can represent two types of cavities:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Gas Content</p></th>
+<th class="head"><p>Pressure</p></th>
+<th class="head"><p>Growth Mechanism</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Bubble</strong></p></td>
+<td><p>High</p></td>
+<td><p>Overpressurized</p></td>
+<td><p>Gas pushes outward, drawing in vacancies</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Void</strong></p></td>
+<td><p>Low/None</p></td>
+<td><p>Underpressurized</p></td>
+<td><p>Bias-driven vacancy influx</p></td>
+</tr>
+</tbody>
+</table>
+<p>The transition from bubble to void happens when:</p>
+<ul class="simple">
+<li><p>The cavity grows large enough that surface tension can’t contain the gas</p></li>
+<li><p>Or when gas escapes faster than it accumulates</p></li>
+</ul>
+</section>
+<section id="critical-radius">
+<h3>Critical Radius<a class="headerlink" href="#critical-radius" title="Link to this heading">¶</a></h3>
+<p>Every cavity has a <strong>critical radius</strong> that determines its fate:</p>
+<ul class="simple">
+<li><p><strong>Below critical</strong>: Thermal emission of vacancies exceeds absorption → cavity shrinks</p></li>
+<li><p><strong>Above critical</strong>: Absorption exceeds emission → cavity grows</p></li>
+<li><p><strong>At critical</strong>: Perfect balance → stable size</p></li>
+</ul>
+<p>The critical radius depends on:</p>
+<ul class="simple">
+<li><p>Temperature (higher T → larger critical radius)</p></li>
+<li><p>Gas pressure (more gas → easier to grow)</p></li>
+<li><p>Surface energy (higher surface energy → smaller critical radius)</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-rate-equations-explained">
+<h2>The Rate Equations Explained<a class="headerlink" href="#the-rate-equations-explained" title="Link to this heading">¶</a></h2>
+<p>Now let’s look at the actual equations the model solves. Don’t worry if the math looks intimidating—we’ll explain what each part means physically.</p>
+<section id="the-10-state-variables">
+<h3>The 10 State Variables<a class="headerlink" href="#the-10-state-variables" title="Link to this heading">¶</a></h3>
+<p>The model tracks 10 coupled variables:</p>
+<p><strong>Bulk (inside grains):</strong></p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Cgb</span></code> - Gas atom concentration in bulk matrix (atoms/m³)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Ccb</span></code> - Cavity/bubble concentration in bulk (cavities/m³)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Ncb</span></code> - Gas atoms per bulk cavity (atoms/cavity)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cvb</span></code> - Vacancy concentration in bulk</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cib</span></code> - Interstitial concentration in bulk</p></li>
+</ol>
+<p><strong>Phase boundaries:</strong>
+6. <code class="docutils literal notranslate"><span class="pre">Cgf</span></code> - Gas atom concentration at phase boundaries
+7. <code class="docutils literal notranslate"><span class="pre">Ccf</span></code> - Cavity concentration at phase boundaries
+8. <code class="docutils literal notranslate"><span class="pre">Ncf</span></code> - Gas atoms per boundary cavity
+9. <code class="docutils literal notranslate"><span class="pre">cvf</span></code> - Vacancy concentration at boundaries
+10. <code class="docutils literal notranslate"><span class="pre">cif</span></code> - Interstitial concentration at boundaries</p>
+</section>
+<section id="equation-1-gas-atoms-in-bulk-matrix">
+<h3>Equation 1: Gas Atoms in Bulk Matrix<a class="headerlink" href="#equation-1-gas-atoms-in-bulk-matrix" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>dCgb/dt = -16πFnb·Rcb·Dgb·Cgb² - 4πRcb·Dgb·Cgb·Ccb - ġ₀(t) + βḟ + BNcb·Ccb
+</pre></div>
+</div>
+<p>Let’s break down each term:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Term</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Physical Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-16πFnb·Rcb·Dgb·Cgb²</span></code></p></td>
+<td><p>Loss due to nucleation</p></td>
+<td><p>Two gas atoms meet and start a new bubble</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-4πRcb·Dgb·Cgb·Ccb</span></code></p></td>
+<td><p>Loss to existing bubbles</p></td>
+<td><p>Gas atoms diffuse to and get absorbed by existing bubbles</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-ġ₀(t)</span></code></p></td>
+<td><p>Loss to boundaries</p></td>
+<td><p>Gas atoms diffuse out of the grain and reach phase boundaries</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">+βḟ</span></code></p></td>
+<td><p>Production by fission</p></td>
+<td><p>New gas atoms created by fission (source term)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">+BNcb·Ccb</span></code></p></td>
+<td><p>Re-solution from bubbles</p></td>
+<td><p>Fission fragments knock gas atoms out of bubbles back into matrix</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> This equation tracks the balance between gas production (fission) and gas loss (nucleation, absorption, boundary escape).</p>
+</section>
+<section id="equation-3-bubble-concentration-in-bulk">
+<h3>Equation 3: Bubble Concentration in Bulk<a class="headerlink" href="#equation-3-bubble-concentration-in-bulk" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>dCcb/dt = 16πFnb·Rcb·Dgb·Cgb² / Ncb
+</pre></div>
+</div>
+<p><strong>Only one term!</strong> Bubbles are only created (by nucleation), never destroyed in the bulk.</p>
+<p><strong>Physical interpretation:</strong> New bubbles form when two gas atoms collide in the presence of vacancies. The division by <code class="docutils literal notranslate"><span class="pre">Ncb</span></code> accounts for the fact that we’re tracking <em>concentration of bubbles</em>, not total gas in bubbles.</p>
+</section>
+<section id="equation-5-gas-atoms-per-bubble">
+<h3>Equation 5: Gas Atoms per Bubble<a class="headerlink" href="#equation-5-gas-atoms-per-bubble" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dNcb</span><span class="o">/</span><span class="n">dt</span> <span class="o">=</span> <span class="mi">4</span><span class="n">πRcb·Dgb·Cgb</span> <span class="o">-</span> <span class="n">BCcb</span>
+</pre></div>
+</div>
+<p>Two competing processes:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Term</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">4πRcb·Dgb·Cgb</span></code></p></td>
+<td><p>Absorption</p></td>
+<td><p>Gas atoms diffuse to bubble → Ncb increases</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-BCcb</span></code></p></td>
+<td><p>Re-solution</p></td>
+<td><p>Fission knocks gas out → Ncb decreases</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Physical interpretation:</strong> Individual bubbles grow by absorbing gas but shrink when fission fragments knock gas atoms out.</p>
+</section>
+<section id="equations-17-18-defect-kinetics">
+<h3>Equations 17-18: Defect Kinetics<a class="headerlink" href="#equations-17-18-defect-kinetics" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>dcv/dt = φḟ - kv²·Dv·cv - α·ci·cv
+dcidt = φḟ - ki²·Di·ci - α·ci·cv
+</pre></div>
+</div>
+<p>These describe vacancy and interstitial evolution:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Term</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">φḟ</span></code></p></td>
+<td><p>Production</p></td>
+<td><p>Radiation creates defects (dpa rate)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-k²·D·c</span></code></p></td>
+<td><p>Loss to sinks</p></td>
+<td><p>Defects get absorbed by dislocations, voids, etc.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-α·ci·cv</span></code></p></td>
+<td><p>Recombination</p></td>
+<td><p>Vacancies and interstitials annihilate each other</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> Vacancies and interstitials are produced in equal pairs, but they’re lost at different rates due to bias. This creates a vacancy surplus that drives void growth.</p>
+</section>
+<section id="equation-14-cavity-growth">
+<h3>Equation 14: Cavity Growth<a class="headerlink" href="#equation-14-cavity-growth" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>dRc/dt = (1/4πRc²Cc) [kvc²·Dv·cv - kil²·Di·ci - kvc²·Dv·cv*(Rc)]
+</pre></div>
+</div>
+<p>This is the <strong>heart of swelling</strong>. It determines how fast cavities grow:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Term</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Physical Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">kvc²·Dv·cv</span></code></p></td>
+<td><p>Vacancy influx</p></td>
+<td><p>Vacancies arrive → cavity grows</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-kil²·Di·ci</span></code></p></td>
+<td><p>Interstitial influx</p></td>
+<td><p>Interstitials arrive → cavity shrinks</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-kvc²·Dv·cv*(Rc)</span></code></p></td>
+<td><p>Thermal emission</p></td>
+<td><p>Vacancies leave due to thermal fluctuations</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> The cavity grows when the first term (vacancy influx) exceeds the sum of the other two (interstitial absorption + thermal emission). This happens when:</p>
+<ol class="arabic simple">
+<li><p>Vacancy concentration is high (irradiation creates excess)</p></li>
+<li><p>The cavity is large enough (thermal emission decreases with size)</p></li>
+<li><p>The bias favors vacancy absorption</p></li>
+</ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="from-physics-to-mathematics">
+<h2>From Physics to Mathematics<a class="headerlink" href="#from-physics-to-mathematics" title="Link to this heading">¶</a></h2>
+<section id="how-diffusion-appears-in-equations">
+<h3>How Diffusion Appears in Equations<a class="headerlink" href="#how-diffusion-appears-in-equations" title="Link to this heading">¶</a></h3>
+<p>You’ll see terms like <code class="docutils literal notranslate"><span class="pre">4πR·D·C</span></code> throughout the equations. This comes from <strong>Fick’s first law</strong> of diffusion:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Flux = -D × (Concentration gradient)
+</pre></div>
+</div>
+<p>For a spherical bubble of radius R:</p>
+<ul class="simple">
+<li><p>The surface area is <code class="docutils literal notranslate"><span class="pre">4πR²</span></code></p></li>
+<li><p>The concentration gradient scales as <code class="docutils literal notranslate"><span class="pre">C/R</span></code></p></li>
+<li><p>Multiplying: Flux ≈ <code class="docutils literal notranslate"><span class="pre">4πR²</span> <span class="pre">×</span> <span class="pre">D</span> <span class="pre">×</span> <span class="pre">C/R</span> <span class="pre">=</span> <span class="pre">4πR·D·C</span></code></p></li>
+</ul>
+<p><strong>Physical meaning:</strong> Gas atoms arrive at the bubble surface at a rate proportional to:</p>
+<ul class="simple">
+<li><p>Bubble size (R) - bigger target = more arrivals</p></li>
+<li><p>Diffusivity (D) - faster diffusion = more arrivals</p></li>
+<li><p>Gas concentration (C) - more gas available = more arrivals</p></li>
+</ul>
+</section>
+<section id="why-so-many-coupled-equations">
+<h3>Why So Many Coupled Equations?<a class="headerlink" href="#why-so-many-coupled-equations" title="Link to this heading">¶</a></h3>
+<p>All 10 equations are <strong>coupled</strong>, meaning they depend on each other:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Gas concentration (Cg) affects:
+→ Bubble nucleation rate
+→ Bubble growth rate
+→ Gas pressure
+→ Critical radius
+
+Bubble radius (R) affects:
+→ Gas absorption rate
+→ Thermal emission rate
+→ Swelling
+
+Defect concentrations (cv, ci) affect:
+→ Cavity growth rate
+→ Swelling rate
+→ Gas bubble stability
+</pre></div>
+</div>
+<p>This coupling is why we need computers to solve these equations—there’s no simple analytical solution!</p>
+</section>
+<section id="timescales-a-challenge-for-numerical-solution">
+<h3>Timescales: A Challenge for Numerical Solution<a class="headerlink" href="#timescales-a-challenge-for-numerical-solution" title="Link to this heading">¶</a></h3>
+<p>The system involves processes happening at vastly different rates:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Process</p></th>
+<th class="head"><p>Timescale</p></th>
+<th class="head"><p>Example</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Defect recombination</p></td>
+<td><p>~nanoseconds</p></td>
+<td><p>Two defects meet and annihilate</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gas atom diffusion</p></td>
+<td><p>~microseconds to seconds</p></td>
+<td><p>Gas travels to bubble</p></td>
+</tr>
+<tr class="row-even"><td><p>Bubble growth</p></td>
+<td><p>~hours to days</p></td>
+<td><p>Bubble accumulates enough gas to grow</p></td>
+</tr>
+<tr class="row-odd"><td><p>Swelling</p></td>
+<td><p>~days to months</p></td>
+<td><p>Significant volume change</p></td>
+</tr>
+</tbody>
+</table>
+<p>This <strong>stiffness</strong> (widely varying timescales) makes numerical solution challenging. The model uses adaptive RK23 integration that takes small steps when things change fast and large steps when things change slowly.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="swelling-the-practical-consequence">
+<h2>Swelling: The Practical Consequence<a class="headerlink" href="#swelling-the-practical-consequence" title="Link to this heading">¶</a></h2>
+<section id="what-is-swelling">
+<h3>What is Swelling?<a class="headerlink" href="#what-is-swelling" title="Link to this heading">¶</a></h3>
+<p><strong>Swelling</strong> is the volume increase of fuel material due to cavity formation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Swelling (%) = (Total cavity volume / Total fuel volume) × 100%
+</pre></div>
+</div>
+<p>For a population of spherical cavities:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Swelling = Σ(4/3 × π × R³) × Cc
+</pre></div>
+</div>
+<p>Where:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">R</span></code> is the cavity radius</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Cc</span></code> is the cavity concentration</p></li>
+</ul>
+</section>
+<section id="why-swelling-matters">
+<h3>Why Swelling Matters<a class="headerlink" href="#why-swelling-matters" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Fuel-cladding interaction</strong>: Swelling fuel presses against cladding, potentially causing failure</p></li>
+<li><p><strong>Dimensional changes</strong>: Fuel pins elongate, affecting core geometry</p></li>
+<li><p><strong>Thermal conductivity</strong>: Bubbles reduce heat transfer, leading to higher temperatures</p></li>
+<li><p><strong>Gas release</strong>: Interconnected bubbles provide pathways for gas escape</p></li>
+</ol>
+</section>
+<section id="the-swelling-curve">
+<h3>The Swelling Curve<a class="headerlink" href="#the-swelling-curve" title="Link to this heading">¶</a></h3>
+<p>Swelling typically follows a characteristic pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Swelling</span> <span class="o">%</span>
+    <span class="o">^</span>
+    <span class="o">|</span>         <span class="n">_________</span>
+    <span class="o">|</span>        <span class="o">/</span>         \<span class="n">_______</span>
+    <span class="o">|</span>       <span class="o">/</span>
+    <span class="o">|</span>      <span class="o">/</span>
+    <span class="o">|</span>     <span class="o">/</span>
+    <span class="o">|</span>    <span class="o">/</span>   <span class="p">(</span><span class="n">bias</span><span class="o">-</span><span class="n">driven</span> <span class="n">void</span> <span class="n">swelling</span><span class="p">)</span>
+    <span class="o">|</span>   <span class="o">/</span><span class="n">___</span> <span class="p">(</span><span class="n">incubation</span> <span class="n">period</span><span class="p">)</span>
+    <span class="o">|</span>
+    <span class="o">+--------------------------&gt;</span> <span class="n">Time</span><span class="o">/</span><span class="n">Burnup</span>
+</pre></div>
+</div>
+<ol class="arabic simple">
+<li><p><strong>Incubation period</strong>: Bubbles nucleate but don’t grow much</p></li>
+<li><p><strong>Rapid growth</strong>: Bubbles reach critical size, bias-driven growth begins</p></li>
+<li><p><strong>Saturation</strong>: Growth slows as vacancy supersaturation decreases</p></li>
+</ol>
+</section>
+<section id="temperature-dependence">
+<h3>Temperature Dependence<a class="headerlink" href="#temperature-dependence" title="Link to this heading">¶</a></h3>
+<p>Swelling exhibits a <strong>bell-shaped</strong> temperature dependence:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Swelling</span>
+    <span class="o">^</span>
+    <span class="o">|</span>       <span class="n">___</span>
+    <span class="o">|</span>      <span class="o">/</span>   \      <span class="n">Peak</span> <span class="o">~</span><span class="mi">700</span><span class="o">-</span><span class="mi">800</span> <span class="n">K</span>
+    <span class="o">|</span>     <span class="o">/</span>     \
+    <span class="o">|</span>    <span class="o">/</span>       \
+    <span class="o">|</span><span class="n">___</span><span class="o">/</span>         \<span class="n">___</span>
+    <span class="o">|</span>
+    <span class="o">+----------------------&gt;</span> <span class="n">Temperature</span>
+    <span class="n">Low</span>          <span class="n">High</span>
+</pre></div>
+</div>
+<p><strong>Why?</strong></p>
+<ul class="simple">
+<li><p><strong>Low T</strong>: Defects can’t move (low diffusion) → no growth</p></li>
+<li><p><strong>Medium T</strong>: Defects mobile, thermal emission not too strong → maximum growth</p></li>
+<li><p><strong>High T</strong>: Thermal emission depletes vacancies → reduced growth</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="connecting-to-the-model-implementation">
+<h2>Connecting to the Model Implementation<a class="headerlink" href="#connecting-to-the-model-implementation" title="Link to this heading">¶</a></h2>
+<section id="from-equations-to-code">
+<h3>From Equations to Code<a class="headerlink" href="#from-equations-to-code" title="Link to this heading">¶</a></h3>
+<p>Here’s how the mathematical model translates to Python code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># The rate equations are implemented in the ODE system</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ode_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="c1"># Unpack state vector</span>
+    <span class="n">Cgb</span><span class="p">,</span> <span class="n">Ccb</span><span class="p">,</span> <span class="n">Ncb</span><span class="p">,</span> <span class="n">cvb</span><span class="p">,</span> <span class="n">cib</span><span class="p">,</span> <span class="n">Cgf</span><span class="p">,</span> <span class="n">Ccf</span><span class="p">,</span> <span class="n">Ncf</span><span class="p">,</span> <span class="n">cvf</span><span class="p">,</span> <span class="n">cif</span> <span class="o">=</span> <span class="n">y</span>
+
+    <span class="c1"># Calculate rates (physical processes)</span>
+    <span class="n">gas_nucleation_rate</span> <span class="o">=</span> <span class="mi">16</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Fnb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Rcb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Dgb</span> <span class="o">*</span> <span class="n">Cgb</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">gas_absorption_rate</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Rcb</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">Dgb</span> <span class="o">*</span> <span class="n">Cgb</span> <span class="o">*</span> <span class="n">Ccb</span>
+
+    <span class="c1"># ... (calculate other rates)</span>
+
+    <span class="c1"># Assemble ODEs</span>
+    <span class="n">dCgbdt</span> <span class="o">=</span> <span class="o">-</span><span class="n">gas_nucleation_rate</span> <span class="o">-</span> <span class="n">gas_absorption_rate</span> <span class="o">+</span> <span class="n">fission_production</span> <span class="o">-</span> <span class="o">...</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">dCgbdt</span><span class="p">,</span> <span class="n">dCcbdt</span><span class="p">,</span> <span class="n">dNcbdt</span><span class="p">,</span> <span class="n">dcvbdt</span><span class="p">,</span> <span class="n">dcibdt</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="running-a-simulation">
+<h3>Running a Simulation<a class="headerlink" href="#running-a-simulation" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling</span><span class="w"> </span><span class="kn">import</span> <span class="n">GasSwellingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">gas_swelling.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_default_parameters</span>
+
+<span class="c1"># 1. Set up parameters</span>
+<span class="n">params</span> <span class="o">=</span> <span class="n">create_default_parameters</span><span class="p">()</span>  <span class="c1"># Uses reasonable defaults</span>
+
+<span class="c1"># 2. Create model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">GasSwellingModel</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># 3. Solve over time</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">t_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="n">_days</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">time_points</span><span class="p">)</span>
+
+<span class="c1"># 4. Access results</span>
+<span class="n">swelling</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;swelling&#39;</span><span class="p">]</span>      <span class="c1"># Volume fraction vs time</span>
+<span class="n">bubble_radius</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;Rcb&#39;</span><span class="p">]</span>      <span class="c1"># Bulk bubble radius vs time</span>
+<span class="n">gas_release</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;gas_release&#39;</span><span class="p">]</span><span class="c1"># Fraction of gas released</span>
+</pre></div>
+</div>
+</section>
+<section id="interpreting-output-variables">
+<h3>Interpreting Output Variables<a class="headerlink" href="#interpreting-output-variables" title="Link to this heading">¶</a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Typical Range</p></th>
+<th class="head"><p>What to Look For</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">swelling</span></code></p></td>
+<td><p>Volume fraction of cavities</p></td>
+<td><p>0.001 - 0.10 (0.1% - 10%)</p></td>
+<td><p>Increase over time</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Rcb</span></code></p></td>
+<td><p>Bulk bubble radius</p></td>
+<td><p>1e-9 - 1e-7 m (1-100 nm)</p></td>
+<td><p>Growth to ~10 nm</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Rcf</span></code></p></td>
+<td><p>Boundary bubble radius</p></td>
+<td><p>1e-8 - 1e-6 m (10-1000 nm)</p></td>
+<td><p>Much larger than bulk</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Pg</span></code></p></td>
+<td><p>Gas pressure in bubbles</p></td>
+<td><p>1e6 - 1e9 Pa</p></td>
+<td><p>Higher than external</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gas_release</span></code></p></td>
+<td><p>Fraction of gas released</p></td>
+<td><p>0.0 - 0.8 (0% - 80%)</p></td>
+<td><p>Rapid increase after interconnection</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="summary-and-key-takeaways">
+<h2>Summary and Key Takeaways<a class="headerlink" href="#summary-and-key-takeaways" title="Link to this heading">¶</a></h2>
+<section id="what-you-ve-learned">
+<h3>What You’ve Learned<a class="headerlink" href="#what-you-ve-learned" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Rate theory</strong> tracks concentrations of gas atoms, defects, and bubbles over time</p></li>
+<li><p><strong>Fission</strong> produces gas atoms that migrate and form bubbles</p></li>
+<li><p><strong>Two locations</strong> matter: bulk matrix (where re-solution limits growth) and boundaries (where bubbles grow large)</p></li>
+<li><p><strong>Bias</strong> in defect absorption creates vacancy excess that drives void growth</p></li>
+<li><p><strong>Coupled ODEs</strong> describe the complex interactions between all species</p></li>
+<li><p><strong>Swelling</strong> is the practical consequence—fuel volume increase that affects reactor performance</p></li>
+</ol>
+</section>
+<section id="the-big-picture">
+<h3>The Big Picture<a class="headerlink" href="#the-big-picture" title="Link to this heading">¶</a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Fission → Gas production → Bubble nucleation → Bubble growth → Swelling
+          ↓                ↓                    ↓
+       Defect        Bias-driven           Gas release
+     production     void growth
+</pre></div>
+</div>
+</section>
+<section id="next-steps">
+<h3>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h3>
+<p>Now that you understand the fundamentals:</p>
+<p><strong>📘 Tutorial Series:</strong></p>
+<ul class="simple">
+<li><p><strong><a class="reference internal" href="30minute_quickstart.html"><span class="std std-doc">30-Minute Quickstart</span></a></strong> - Get the model running on your computer (hands-on installation and first simulation)</p></li>
+<li><p><strong><a class="reference internal" href="model_equations_explained.html"><span class="std std-doc">Model Equations Explained</span></a></strong> - Deep dive into all 10 state variables and their equations</p></li>
+<li><p><strong><a class="reference download internal" download="" href="../_downloads/c393e497ce2e254b2e421f0d5817995c/01_Basic_Simulation_Walkthrough.ipynb"><span class="xref download myst">Basic Simulation Notebook</span></a></strong> - Interactive walkthrough with live code execution</p></li>
+</ul>
+<p><strong>🔬 Advanced Notebooks:</strong></p>
+<ul class="simple">
+<li><p><strong><a class="reference download internal" download="" href="../_downloads/ec14be2166d835ff01892e0bdc0a4632/02_Parameter_Sweep_Studies.ipynb"><span class="xref download myst">Parameter Sweep Studies</span></a></strong> - Systematic exploration of parameter effects</p></li>
+<li><p><strong><a class="reference download internal" download="" href="../_downloads/55cd3a266d937e53446166dd9e295d25/03_Gas_Distribution_Analysis.ipynb"><span class="xref download myst">Gas Distribution Analysis</span></a></strong> - Track where gas goes (matrix, bubbles, boundaries)</p></li>
+<li><p><strong><a class="reference download internal" download="" href="../_downloads/a39d415d86b0ae5c2b4a45e15bcade8b/04_Experimental_Data_Comparison.ipynb"><span class="xref download myst">Experimental Data Comparison</span></a></strong> - Validate model against experimental data</p></li>
+</ul>
+<p><strong>📖 Reference Documentation:</strong></p>
+<ul class="simple">
+<li><p><strong><a class="reference internal" href="../parameter_reference.html"><span class="std std-doc">Parameter Reference</span></a></strong> - All 40+ parameters explained</p></li>
+<li><p><strong><a class="reference internal" href="../guides/interpreting_results.html"><span class="std std-doc">Interpreting Results Guide</span></a></strong> - Understand simulation output</p></li>
+<li><p><strong><a class="reference internal" href="../guides/plot_gallery.html"><span class="std std-doc">Plot Gallery</span></a></strong> - Publication-quality visualization examples</p></li>
+<li><p><strong><a class="reference internal" href="../guides/troubleshooting.html"><span class="std std-doc">Troubleshooting Guide</span></a></strong> - Solve common issues</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="further-reading">
+<h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">¶</a></h2>
+<section id="primary-literature">
+<h3>Primary Literature<a class="headerlink" href="#primary-literature" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>“Kinetics of fission-gas-bubble-nucleated void swelling of the alpha-uranium phase of irradiated U-Zr and U-Pu-Zr fuel” (original paper)</p></li>
+</ul>
+</section>
+<section id="textbooks">
+<h3>Textbooks<a class="headerlink" href="#textbooks" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Was, G.S., <em>Fundamentals of Radiation Materials Science</em></p></li>
+<li><p>Olander, D.R., <em>Fundamental Aspects of Nuclear Reactor Fuel Elements</em></p></li>
+</ul>
+</section>
+<section id="review-articles">
+<h3>Review Articles<a class="headerlink" href="#review-articles" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>“Rate theory of fission gas release in nuclear fuels” - Various authors</p></li>
+<li><p>“Void swelling in irradiated metals” - Review articles in Journal of Nuclear Materials</p></li>
+</ul>
+<hr class="docutils" />
+<p><strong>Document Version:</strong> 1.0
+<strong>Last Updated:</strong> 2024
+<strong>Feedback:</strong> Please report any confusion or suggestions for improvement via GitHub issues</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Gas Swelling Model</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../1d_radial_model.html">1D Radial Gas Swelling Model: Theory and Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="30minute_quickstart.html">30-Minute Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/repository_guide.html">Repository Guide / 仓库结构与使用说明</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Rate Theory Fundamentals: A Gentle Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#learning-objectives">Learning Objectives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-is-rate-theory">What is Rate Theory?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-physics-of-fission-gas-in-nuclear-fuel">The Physics of Fission Gas in Nuclear Fuel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#key-concepts-and-terminology">Key Concepts and Terminology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-rate-equations-explained">The Rate Equations Explained</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#from-physics-to-mathematics">From Physics to Mathematics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#swelling-the-practical-consequence">Swelling: The Practical Consequence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#connecting-to-the-model-implementation">Connecting to the Model Implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary-and-key-takeaways">Summary and Key Takeaways</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="model_equations_explained.html">Model Equations Explained: The 10 State Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../learning_paths.html">Learning Paths Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/interpreting_results.html">Interpreting Simulation Results: A Comprehensive Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/plot_gallery.html">Plot Gallery: Code Snippets &amp; Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/troubleshooting.html">Troubleshooting Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parameter_reference.html">Parameter Reference Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sensitivity_analysis_guide.html">Sensitivity Analysis Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../validation_guide.html">Validation Guide for Gas Swelling Model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../adaptive_stepping.html">Adaptive Time Stepping Guide</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../guides/repository_guide.html" title="previous chapter">Repository Guide / 仓库结构与使用说明</a></li>
+      <li>Next: <a href="model_equations_explained.html" title="next chapter">Model Equations Explained: The 10 State Variables</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Gas Swelling Model Contributors.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.0.4</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/tutorials/rate_theory_fundamentals.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
