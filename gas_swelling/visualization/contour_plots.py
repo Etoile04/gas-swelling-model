@@ -22,10 +22,31 @@ Examples:
 """
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List, Union
 import warnings
+
+
+def _harden_log_axis(ax, axis: str = 'x') -> None:
+    """Replace log-axis tick formatters with plain FuncFormatters to avoid mathtext rendering."""
+    def _fmt(val, pos):
+        if val <= 0:
+            return ''
+        exp = int(np.floor(np.log10(val)))
+        mantissa = val / (10 ** exp)
+        if abs(mantissa - 1.0) < 1e-9:
+            return f'1e{exp}'
+        return f'{mantissa:.2g}e{exp}'
+
+    formatter = mticker.FuncFormatter(_fmt)
+    if axis in ('x', 'both'):
+        ax.xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_minor_formatter(mticker.NullFormatter())
+    if axis in ('y', 'both'):
+        ax.yaxis.set_major_formatter(formatter)
+        ax.yaxis.set_minor_formatter(mticker.NullFormatter())
 
 from .utils import (
     save_figure,
@@ -308,6 +329,7 @@ def plot_2d_parameter_sweep(
     # Use log scale for x-axis if parameter spans multiple orders of magnitude
     if np.max(param1_values) / np.min(param1_values) > 100:
         ax.set_xscale('log')
+        _harden_log_axis(ax, axis='x')
 
     # Set axis limits if provided
     if 'xlim' in kwargs:
