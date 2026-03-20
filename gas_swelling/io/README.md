@@ -568,4 +568,4 @@ Potential additions to the I/O module:
 
 **For model usage, see:** `../models/README.md`
 **For solver configuration, see:** `../solvers/README.md`
-**For parameter definitions, see:** `../params/README.md`
+**For parameter definitions, see:** `gas_swelling/params/parameters.py`

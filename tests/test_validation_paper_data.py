@@ -490,7 +490,7 @@ def test_figure_6_u10zr_model_runs(temperature_k, expected_behavior):
     sim_time = 10000  # Short simulation for testing
     params['fission_rate'] = 5.0e19  # fissions/m^3/s
 
-    # Add gas diffusion parameters from examples/run_simulation.py
+    # Add gas diffusion parameters from the historical validation example workflow
     params['Dgb_prefactor'] = 8.55e-12  # m^2/s
     params['Dgb_fission_term'] = 1.0e-40
     params['Dgf_multiplier'] = 1.0
@@ -794,7 +794,7 @@ def test_figure_7_upuzr_model_runs(temperature_k, expected_behavior):
     sim_time = 10000  # Short simulation for testing
     params['fission_rate'] = 5.0e19  # fissions/m^3/s
 
-    # Add gas diffusion parameters from examples/run_simulation.py
+    # Add gas diffusion parameters from the historical validation example workflow
     params['Dgb_prefactor'] = 8.55e-12  # m^2/s
     params['Dgb_fission_term'] = 1.0e-40
     params['Dgf_multiplier'] = 1.0
@@ -1158,7 +1158,7 @@ def test_figure_9_10_pure_uranium_model_runs(temperature_k, expected_behavior):
     sim_time = 10000  # Short simulation for testing
     params['fission_rate'] = 5.0e19  # fissions/m^3/s
 
-    # Add gas diffusion parameters from examples/run_simulation.py
+    # Add gas diffusion parameters from the historical validation example workflow
     params['Dgb_prefactor'] = 8.55e-12  # m^2/s
     params['Dgb_fission_term'] = 1.0e-40
     params['Dgf_multiplier'] = 1.0

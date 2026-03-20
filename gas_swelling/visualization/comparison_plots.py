@@ -486,7 +486,12 @@ def plot_gas_distribution_evolution(result: Dict[str, np.ndarray],
 
     # Normalize to get fractions
     total_gas = np.sum(gas_arrays, axis=0)
-    gas_fractions = np.divide(gas_arrays, total_gas, where=total_gas>0)
+    gas_fractions = np.divide(
+        gas_arrays,
+        total_gas,
+        out=np.zeros_like(gas_arrays, dtype=float),
+        where=total_gas > 0
+    )
 
     labels = [
         'Bulk Solution',
@@ -552,7 +557,7 @@ def calculate_gas_distribution_analysis(result: Dict[str, np.ndarray],
         >>> print(f"Released: {analysis['gas_release_fraction']:.2%}")
 
     Notes:
-        This matches the analysis pattern from examples/run_simulation.py
+        This matches the analysis pattern from the packaged validation/analysis workflow
         where gas is categorized into three main reservoirs.
     """
     # Validate required keys
@@ -789,7 +794,7 @@ def plot_gas_distribution_pie_simple(result: Dict[str, np.ndarray],
 
     This function creates a pie chart showing how gas is distributed among
     three main reservoirs: solution, bubbles, and released gas. This matches
-    the pattern from examples/run_simulation.py.
+    the pattern from the packaged validation/analysis workflow.
 
     Args:
         result: Dictionary containing simulation results with keys:
@@ -821,7 +826,7 @@ def plot_gas_distribution_pie_simple(result: Dict[str, np.ndarray],
         ... )
 
     Notes:
-        This follows the pattern from examples/run_simulation.py lines 1386-1392
+        This follows the pattern from the packaged validation/analysis workflow in the historical validation workflow
         with three categories:
         - Solution: Gas atoms dissolved in bulk + interface matrix
         - In Bubbles: Gas atoms in bulk + interface cavities
@@ -888,7 +893,7 @@ def plot_gas_release_fraction(results: Dict[str, Any],
     Plot gas release fraction vs temperature from temperature sweep results.
 
     This function creates a line plot showing how gas release fraction varies
-    with temperature, following the pattern from examples/run_simulation.py.
+    with temperature, following the pattern from the packaged validation/analysis workflow.
 
     Args:
         results: Dictionary containing temperature sweep results with keys:
@@ -915,7 +920,7 @@ def plot_gas_release_fraction(results: Dict[str, Any],
         ... )
 
     Notes:
-        This follows the pattern from examples/run_simulation.py lines 1394-1400
+        This follows the pattern from the packaged validation/analysis workflow in the historical validation workflow
         showing gas release fraction as a function of temperature.
         Gas release fraction typically increases with temperature.
     """

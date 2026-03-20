@@ -108,7 +108,7 @@ gas_swelling/
 │   ├── qssa_model.py         # Reduced-order QSSA variant
 │   ├── hybrid_qssa_model.py  # Hybrid reduced-order variant
 │   └── radial_model.py       # 1D radial model
-└── params/           # Parameter management
+└── gas_swelling/params/   # Parameter dataclasses and defaults
     └── parameters.py      # Default dict builders + parameter dataclasses
 ```
 

@@ -249,6 +249,6 @@ Potential additions to the physics module:
 
 ---
 
-**For parameter definitions, see:** `../params/README.md`
+**For parameter definitions, see:** `gas_swelling/params/parameters.py`
 **For ODE system, see:** `../ode/README.md`
 **For solvers, see:** `../solvers/README.md`

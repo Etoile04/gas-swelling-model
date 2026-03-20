@@ -350,4 +350,4 @@ Potential improvements to the ODE module:
 
 **For physics calculations, see:** `../physics/README.md`
 **For numerical solvers, see:** `../solvers/README.md`
-**For parameter definitions, see:** `../params/README.md`
+**For parameter definitions, see:** `gas_swelling/params/parameters.py`

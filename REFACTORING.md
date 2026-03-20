@@ -21,7 +21,7 @@ gas_swelling/
 ├── solvers/          # Numerical solver wrappers (RK23, Euler)
 ├── io/               # Debug output and visualization
 ├── models/           # Model orchestration classes
-└── params/           # Parameter management (already modular)
+└── gas_swelling/params/   # Parameter management (modular package path)
 ```
 
 ### Why This Refactoring?

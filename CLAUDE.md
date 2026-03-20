@@ -72,7 +72,7 @@ gas_swelling/
 ├── physics/          # Pressure, transport, thermal calculations
 ├── ode/              # Rate equation systems (full, qssa, hybrid)
 ├── solvers/          # Numerical solvers (RK23, Euler)
-├── params/           # Parameter dataclasses and defaults
+├── gas_swelling/params/   # Parameter dataclasses and defaults
 ├── analysis/         # Sensitivity analysis (OAT, Morris, Sobol)
 ├── visualization/    # Plotting utilities
 ├── io/               # Debug output helpers
