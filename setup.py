@@ -19,18 +19,18 @@ if os.path.exists(readme_path):
 # Package metadata - should match pyproject.toml
 setup(
     name="gas-swelling-model",
-    version="0.1.0",
+    version="0.3.0",
     description="A scientific computing package for modeling fission gas bubble evolution and void swelling behavior in irradiated metallic fuels",
     long_description=long_description,
     long_description_content_type='text/markdown',
     author="Gas Swelling Model Contributors",
     author_email="",
-    url="https://github.com/yourusername/gas-swelling-model",
+    url="https://github.com/Etoile04/gas-swelling-model",
     project_urls={
-        "Homepage": "https://github.com/yourusername/gas-swelling-model",
-        "Documentation": "https://github.com/yourusername/gas-swelling-model/blob/main/README.md",
-        "Repository": "https://github.com/yourusername/gas-swelling-model",
-        "Issues": "https://github.com/yourusername/gas-swelling-model/issues",
+        "Homepage": "https://github.com/Etoile04/gas-swelling-model",
+        "Documentation": "https://github.com/Etoile04/gas-swelling-model/blob/main/README.md",
+        "Repository": "https://github.com/Etoile04/gas-swelling-model",
+        "Issues": "https://github.com/Etoile04/gas-swelling-model/issues",
     },
     packages=['gas_swelling', 'gas_swelling.models', 'gas_swelling.params', 'gas_swelling.physics', 'gas_swelling.ode', 'gas_swelling.solvers', 'gas_swelling.io', 'gas_swelling.validation'],
     package_data={

@@ -10,7 +10,7 @@ def test_import_package():
     import gas_swelling
     assert gas_swelling is not None
     assert hasattr(gas_swelling, '__version__')
-    assert gas_swelling.__version__ == "0.1.0"
+    assert gas_swelling.__version__ == "0.3.0"
 
 
 def test_import_gas_swelling_model():
@@ -78,10 +78,34 @@ def test_import_refactored_model():
     assert RefactoredGasSwellingModel is not None
 
 
+def test_import_qssa_model():
+    """Test that QSSAGasSwellingModel can be imported"""
+    from gas_swelling import QSSAGasSwellingModel
+    assert QSSAGasSwellingModel is not None
+
+
+def test_import_hybrid_qssa_model():
+    """Test that HybridQSSAGasSwellingModel can be imported"""
+    from gas_swelling import HybridQSSAGasSwellingModel
+    assert HybridQSSAGasSwellingModel is not None
+
+
 def test_import_refactored_model_from_models():
     """Test that RefactoredGasSwellingModel can be imported from models submodule"""
     from gas_swelling.models import RefactoredGasSwellingModel
     assert RefactoredGasSwellingModel is not None
+
+
+def test_import_qssa_model_from_models():
+    """Test that QSSAGasSwellingModel can be imported from models submodule"""
+    from gas_swelling.models import QSSAGasSwellingModel
+    assert QSSAGasSwellingModel is not None
+
+
+def test_import_hybrid_qssa_model_from_models():
+    """Test that HybridQSSAGasSwellingModel can be imported from models submodule"""
+    from gas_swelling.models import HybridQSSAGasSwellingModel
+    assert HybridQSSAGasSwellingModel is not None
 
 
 def test_import_physics_functions():

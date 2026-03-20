@@ -517,7 +517,7 @@ conda install -c conda-forge numpy scipy matplotlib
 pip install gas-swelling-model
 
 # From source
-git clone https://github.com/yourusername/gas-swelling-model.git
+git clone https://github.com/Etoile04/gas-swelling-model.git
 cd gas-swelling-model
 pip install -e .
 ```
@@ -526,7 +526,7 @@ pip install -e .
 
 - **Documentation**: Start with [INSTALL.md](INSTALL.md) and [Parameter Reference](docs/parameter_reference.md)
 - **Examples**: Run [quickstart_tutorial.py](examples/quickstart_tutorial.py) or explore [notebooks/](notebooks/)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/yourusername/gas-swelling-model/issues)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/Etoile04/gas-swelling-model/issues)
 - **Physics Questions**: See [model_design.md](model_design.md) and [original paper](original paper of swelling rate theory.md)
 
 ## Citation
@@ -538,7 +538,7 @@ If you use this model in your research, please cite:
   title = {Gas Swelling Model for U-Zr and U-Pu-Zr Nuclear Fuels},
   author = {Your Name},
   year = {2024},
-  url = {https://github.com/yourusername/gas-swelling-model}
+  url = {https://github.com/Etoile04/gas-swelling-model}
 }
 ```
 

@@ -73,7 +73,7 @@ If you want to modify the code or contribute:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gas-swelling-model.git
+git clone https://github.com/Etoile04/gas-swelling-model.git
 cd gas-swelling-model
 
 # Install in editable mode with dev dependencies
@@ -162,7 +162,7 @@ conda install -c conda-forge build
 #### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/gas-swelling-model.git
+git clone https://github.com/Etoile04/gas-swelling-model.git
 cd gas-swelling-model
 ```
 
@@ -212,8 +212,8 @@ To create distributable packages:
 python -m build
 
 # Output files:
-# - dist/gas_swelling_model-0.1.0.tar.gz   (source distribution)
-# - dist/gas_swelling_model-0.1.0-py3-none-any.whl  (wheel)
+# - dist/gas_swelling_model-0.3.0.tar.gz   (source distribution)
+# - dist/gas_swelling_model-0.3.0-py3-none-any.whl  (wheel)
 ```
 
 ---
@@ -471,7 +471,7 @@ pip install gas-swelling-model
 If you encounter issues not covered here:
 
 1. **Check the documentation**: [README.md](README.md)
-2. **Search existing issues**: [GitHub Issues](https://github.com/yourusername/gas-swelling-model/issues)
+2. **Search existing issues**: [GitHub Issues](https://github.com/Etoile04/gas-swelling-model/issues)
 3. **Create a new issue**: Include your OS, Python version, and full error message
 4. **Discussion forum**: Ask questions in GitHub Discussions
 
@@ -592,4 +592,4 @@ Write-Host "Installation complete. Activate with: .\gas-swelling-env\Scripts\Act
 
 ---
 
-For more information, visit the [project repository](https://github.com/yourusername/gas-swelling-model).
+For more information, visit the [project repository](https://github.com/Etoile04/gas-swelling-model).

@@ -51,7 +51,7 @@ Examples:
   # Generate quick validation report
   python -m gas_swelling.analysis.cli validation --format quick --output quick_report.pdf
 
-For more information, see: https://github.com/yourusername/gas-swelling-model
+For more information, see: https://github.com/Etoile04/gas-swelling-model
         """
     )
 
@@ -251,7 +251,7 @@ For more information, see: https://github.com/yourusername/gas-swelling-model
     parser.add_argument(
         '--version',
         action='version',
-        version='%(prog)s 0.1.0'
+        version='%(prog)s 0.3.0'
     )
     parser.add_argument(
         '--verbose',
@@ -899,7 +899,7 @@ def main(args: Optional[list] = None) -> int:
     parsed_args = parse_args(args)
 
     if parsed_args.verbose:
-        print(f"Gas Swelling Model CLI v0.1.0")
+        print(f"Gas Swelling Model CLI v0.3.0")
         print(f"Command: {parsed_args.command}")
         print()
 

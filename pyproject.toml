@@ -59,10 +59,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/gas-swelling-model"
-Documentation = "https://github.com/yourusername/gas-swelling-model/blob/main/README.md"
-Repository = "https://github.com/yourusername/gas-swelling-model"
-Issues = "https://github.com/yourusername/gas-swelling-model/issues"
+Homepage = "https://github.com/Etoile04/gas-swelling-model"
+Documentation = "https://github.com/Etoile04/gas-swelling-model/blob/main/README.md"
+Repository = "https://github.com/Etoile04/gas-swelling-model"
+Issues = "https://github.com/Etoile04/gas-swelling-model/issues"
 
 [project.scripts]
 gas-swelling-model = "gas_swelling.analysis.cli:main"

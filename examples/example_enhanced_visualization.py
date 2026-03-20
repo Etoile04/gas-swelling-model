@@ -30,7 +30,7 @@ Usage:
     python examples/example_enhanced_visualization.py --example uncertainty
 
 Author: Gas Swelling Model Team
-Version: 0.1.0
+Version: 0.3.0
 """
 
 import argparse
@@ -659,7 +659,7 @@ Examples:
     # Run examples
     print("\n" + "=" * 70)
     print("  ENHANCED VISUALIZATION EXAMPLES")
-    print("  Gas Swelling Model v0.1.0")
+    print("  Gas Swelling Model v0.3.0")
     print("=" * 70)
 
     examples_to_run = []
