@@ -33,17 +33,10 @@ from datetime import datetime
 import warnings
 
 # Import validation components
-try:
-    from gas_swelling.models.modelrk23 import GasSwellingModel
-    from gas_swelling.params.parameters import create_default_parameters
-    from gas_swelling.validation import metrics
-    from gas_swelling.validation import datasets
-except ImportError:
-    # Fallback for development environment
-    from models.modelrk23 import GasSwellingModel
-    from params.parameters import create_default_parameters
-    import gas_swelling.validation.metrics as metrics
-    import gas_swelling.validation.datasets as datasets
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
+from gas_swelling.validation import metrics
+from gas_swelling.validation import datasets
 
 
 # ============================================================================

@@ -8,7 +8,7 @@ during gas swelling simulations.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Iterator, ItemsView, KeysView, ValuesView
 from dataclasses import dataclass, field
 import numpy as np
 
@@ -68,6 +68,32 @@ class DebugHistory:
     def __len__(self) -> int:
         """返回记录的数据点数量"""
         return len(self.time)
+
+    def __contains__(self, key: str) -> bool:
+        """Provide dict-like membership checks for backward compatibility."""
+        return hasattr(self, key)
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over history field names like a mapping."""
+        return iter(self.__dict__)
+
+    def __getitem__(self, key: str) -> List[float]:
+        """Allow legacy code/tests to access series via history['time'] style."""
+        if not hasattr(self, key):
+            raise KeyError(key)
+        return getattr(self, key)
+
+    def keys(self) -> KeysView[str]:
+        """Return mapping-style keys view."""
+        return self.__dict__.keys()
+
+    def items(self) -> ItemsView[str, List[float]]:
+        """Return mapping-style items view."""
+        return self.__dict__.items()
+
+    def values(self) -> ValuesView[List[float]]:
+        """Return mapping-style values view."""
+        return self.__dict__.values()
 
 
 def format_debug_output(state: Dict[str, float],
@@ -272,9 +298,10 @@ def load_debug_history(filepath: str,
 
 
 def update_debug_history(history: DebugHistory,
-                        state: Dict[str, float],
-                        time: float,
-                        derived: Optional[Dict[str, float]] = None):
+                        state: Optional[Dict[str, float]] = None,
+                        time: Optional[float] = None,
+                        derived: Optional[Dict[str, float]] = None,
+                        **legacy_values):
     """
     更新调试历史数据
 
@@ -298,17 +325,44 @@ def update_debug_history(history: DebugHistory,
     >>> len(history)
     1
     """
-    # 记录时间
-    history.time.append(time)
-
-    # 记录状态变量
     state_mapping = {
         'Cgb': 'Cgb', 'Ccb': 'Ccb', 'Ncb': 'Ncb', 'Rcb': 'Rcb',
         'Cgf': 'Cgf', 'Ccf': 'Ccf', 'Ncf': 'Ncf', 'Rcf': 'Rcf',
         'cvb': 'cvb', 'cib': 'cib', 'cvf': 'cvf', 'cif': 'cif',
         'released_gas': 'released_gas', 'swelling': 'swelling'
     }
+    derived_mapping = {
+        'Pg_b': 'Pg_b', 'Pg_f': 'Pg_f',
+        'Pext_b': 'Pext_b', 'Pext_f': 'Pext_f',
+        'cv_star_b': 'cv_star_b', 'cv_star_f': 'cv_star_f',
+        'dRcb_dt': 'dRcb_dt', 'dRcf_dt': 'dRcf_dt',
+        'dCgb_dt': 'dCgb_dt', 'dCgf_dt': 'dCgf_dt'
+    }
 
+    if legacy_values:
+        if time is None and 't' in legacy_values:
+            time = legacy_values.pop('t')
+
+        state = {} if state is None else dict(state)
+        derived = {} if derived is None else dict(derived)
+
+        for key, value in legacy_values.items():
+            if key in state_mapping:
+                state[key] = value
+            elif key in derived_mapping:
+                derived[key] = value
+
+    if state is None:
+        state = {}
+    if derived is None:
+        derived = {}
+    if time is None:
+        raise ValueError("time must be provided when updating debug history")
+
+    # 记录时间
+    history.time.append(time)
+
+    # 记录状态变量
     for state_key, history_key in state_mapping.items():
         if state_key in state:
             value = state[state_key]
@@ -317,14 +371,6 @@ def update_debug_history(history: DebugHistory,
 
     # 记录派生变量
     if derived:
-        derived_mapping = {
-            'Pg_b': 'Pg_b', 'Pg_f': 'Pg_f',
-            'Pext_b': 'Pext_b', 'Pext_f': 'Pext_f',
-            'cv_star_b': 'cv_star_b', 'cv_star_f': 'cv_star_f',
-            'dRcb_dt': 'dRcb_dt', 'dRcf_dt': 'dRcf_dt',
-            'dCgb_dt': 'dCgb_dt', 'dCgf_dt': 'dCgf_dt'
-        }
-
         for derived_key, history_key in derived_mapping.items():
             if derived_key in derived:
                 value = derived[derived_key]
@@ -332,7 +378,7 @@ def update_debug_history(history: DebugHistory,
                     getattr(history, history_key).append(value)
 
 
-def print_simulation_summary(history: DebugHistory,
+def print_simulation_summary(history: Any,
                            params: Dict[str, Any]):
     """
     打印模拟结果摘要
@@ -356,7 +402,29 @@ def print_simulation_summary(history: DebugHistory,
     Total time: 1.00e+02 s
     Final swelling: 1.50%
     """
-    if not history.time:
+    def _get_series(name: str):
+        if isinstance(history, DebugHistory):
+            return getattr(history, name, [])
+        if isinstance(history, dict):
+            return history.get(name, [])
+        return getattr(history, name, [])
+
+    def _final_scalar(name: str) -> Optional[float]:
+        series = _get_series(name)
+        if series is None:
+            return None
+
+        arr = np.asarray(series)
+        if arr.size == 0:
+            return None
+
+        last = arr[-1]
+        if np.ndim(last) == 0:
+            return float(last)
+        return float(np.mean(np.asarray(last)))
+
+    time_series = _get_series('time')
+    if len(time_series) == 0:
         logger.warning("No simulation data to summarize")
         return
 
@@ -365,23 +433,25 @@ def print_simulation_summary(history: DebugHistory,
     print("="*50)
 
     # 时间信息
-    total_time = history.time[-1]
+    total_time = float(np.asarray(time_series)[-1])
     print(f"Total time: {total_time:.3e} s ({total_time/86400:.2f} days)")
 
     # 肿胀信息
-    if history.swelling:
-        final_swelling = history.swelling[-1]
+    final_swelling = _final_scalar('swelling')
+    if final_swelling is not None:
         print(f"Final swelling: {final_swelling:.3f}%")
 
     # 气泡半径信息
-    if history.Rcb:
-        print(f"Final bulk bubble radius: {history.Rcb[-1]:.3e} m")
-    if history.Rcf:
-        print(f"Final boundary bubble radius: {history.Rcf[-1]:.3e} m")
+    final_rcb = _final_scalar('Rcb')
+    final_rcf = _final_scalar('Rcf')
+    if final_rcb is not None:
+        print(f"Final bulk bubble radius: {final_rcb:.3e} m")
+    if final_rcf is not None:
+        print(f"Final boundary bubble radius: {final_rcf:.3e} m")
 
     # 气体释放信息
-    if history.released_gas:
-        released = history.released_gas[-1]
+    released = _final_scalar('released_gas')
+    if released is not None:
         print(f"Total gas released: {released:.3e} atoms/m³")
 
     print("="*50 + "\n")

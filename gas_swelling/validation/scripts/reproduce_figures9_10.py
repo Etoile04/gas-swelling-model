@@ -47,18 +47,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
 # Import model components
-try:
-    from gas_swelling.models.modelrk23 import GasSwellingModel
-    from gas_swelling.params.parameters import create_default_parameters
-    from gas_swelling.validation.datasets import get_high_purity_u_data
-    from gas_swelling.validation.metrics import calculate_rmse, calculate_r2
-except ImportError:
-    # Fallback for development environment
-    from models.modelrk23 import GasSwellingModel
-    from params.parameters import create_default_parameters
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from validation.datasets import get_high_purity_u_data
-    from validation.metrics import calculate_rmse, calculate_r2
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
+from gas_swelling.validation.datasets import get_high_purity_u_data
+from gas_swelling.validation.metrics import calculate_rmse, calculate_r2
 
 # Set up matplotlib for publication-quality plotting
 matplotlib.rcParams['figure.dpi'] = 100
