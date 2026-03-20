@@ -25,6 +25,7 @@ Supported Methods:
 import numpy as np
 from typing import Callable, Dict, Tuple, Optional
 from scipy.integrate import solve_ivp
+from scipy.sparse import csr_matrix
 
 
 class RK23Solver:
@@ -127,6 +128,68 @@ class RK23Solver:
         """
         return self.rate_equations(t, y, self.params)
 
+    def _select_first_step(
+        self,
+        dt: Optional[float],
+        t_span: Tuple[float, float],
+        solver_method: str
+    ) -> Optional[float]:
+        """
+        Choose a physically sensible first step.
+
+        The legacy default `dt=1e-9` is appropriate for old fixed-step logic,
+        but it can severely slow adaptive stiff solvers. For implicit/stiff
+        methods we usually let solve_ivp estimate its own first step.
+        """
+        if dt is None or dt <= 0:
+            return None
+
+        total_time = t_span[1] - t_span[0]
+        if total_time <= 0:
+            return None
+
+        if solver_method in {'LSODA', 'BDF', 'Radau'}:
+            return None
+
+        if np.isclose(dt, 1e-9) and total_time > 1.0:
+            return None
+
+        return min(dt, total_time)
+
+    def _build_jacobian_sparsity(self) -> csr_matrix:
+        """
+        Approximate Jacobian sparsity for the 17-variable rate system.
+
+        This does not need to be exact; a conservative sparsity pattern is still
+        useful for Radau/BDF finite-difference Jacobian assembly.
+        """
+        pattern = np.zeros((17, 17), dtype=bool)
+
+        dependencies = {
+            0: [0, 1, 2, 3, 4],          # Cgb
+            1: [0, 2],                   # Ccb
+            2: [0, 1, 2, 3],             # Ncb
+            3: [1, 2, 3, 8, 9],          # Rcb
+            4: [0, 4, 5, 6, 7],          # Cgf
+            5: [4, 6],                   # Ccf
+            6: [4, 5, 6, 7],             # Ncf
+            7: [5, 6, 7, 10, 11],        # Rcf
+            8: [1, 3, 8, 9],             # cvb
+            9: [1, 3, 8, 9],             # cib
+            10: [5, 7, 10, 11],          # cvf
+            11: [5, 7, 10, 11],          # cif
+            12: [4, 5, 6, 7],            # released_gas
+            13: [13],
+            14: [14],
+            15: [15],
+            16: [16],
+        }
+
+        for row, cols in dependencies.items():
+            pattern[row, cols] = True
+
+        return csr_matrix(pattern)
+
     def solve(
         self,
         t_span: Tuple[float, float],
@@ -207,19 +270,26 @@ class RK23Solver:
             )
 
         # Solve ODE system with error handling (求解ODE系统，带错误处理)
+        first_step = self._select_first_step(dt, t_span, solver_method)
+        jac_sparsity = self._build_jacobian_sparsity() if solver_method in {'BDF', 'Radau'} else None
+
+        solve_kwargs = {
+            'fun': self._equations_wrapper,
+            't_span': t_span,
+            'y0': y0_clipped,
+            't_eval': t_eval,
+            'method': solver_method,
+            'rtol': rtol,
+            'atol': atol,
+            'max_step': max_dt,
+        }
+        if first_step is not None:
+            solve_kwargs['first_step'] = first_step
+        if jac_sparsity is not None:
+            solve_kwargs['jac_sparsity'] = jac_sparsity
+
         try:
-            sol = solve_ivp(
-                fun=self._equations_wrapper,
-                t_span=t_span,
-                y0=y0_clipped,
-                t_eval=t_eval,
-                method=solver_method,
-                rtol=rtol,
-                atol=atol,
-                first_step=dt,
-                max_step=max_dt,
-                max_steps=max_steps
-            )
+            sol = solve_ivp(**solve_kwargs)
             self.success = sol.success
 
         except Exception as e:

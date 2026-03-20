@@ -32,6 +32,18 @@ class TestRadialGasSwellingModelInitialization:
         assert model.params['temperature'] == 773.15
         assert model.params['fission_rate'] == 1e19
 
+    def test_default_solver_mode_initialization(self):
+        """Test that radial model defaults to the fast decoupled solve path"""
+        model = RadialGasSwellingModel()
+        assert model.params['radial_solver_mode'] == 'decoupled'
+
+    def test_custom_solver_mode_initialization(self):
+        """Test that radial solver mode can be configured explicitly"""
+        params = create_default_parameters()
+        params['radial_solver_mode'] = 'coupled'
+        model = RadialGasSwellingModel(params)
+        assert model.params['radial_solver_mode'] == 'coupled'
+
     def test_custom_nodes_initialization(self):
         """Test that model can be initialized with custom number of nodes"""
         model = RadialGasSwellingModel(n_nodes=5)
@@ -116,6 +128,7 @@ class TestRadialGasSwellingModelInitialization:
         repr_str = repr(model)
         assert 'RadialGasSwellingModel' in repr_str
         assert 'n_nodes' in repr_str
+        assert 'solver_mode' in repr_str
         assert 'temperature' in repr_str
         assert 'fission_rate' in repr_str
 
@@ -270,6 +283,15 @@ class TestRadialGasSwellingModelPhysics:
 
 class TestRadialGasSwellingModelSolve:
     """Test ODE solving functionality"""
+
+    def test_invalid_solver_mode_raises(self):
+        """Test that invalid radial solver modes fail clearly"""
+        params = create_default_parameters()
+        params['radial_solver_mode'] = 'not-a-mode'
+        model = RadialGasSwellingModel(params, n_nodes=3)
+
+        with pytest.raises(ValueError, match="radial_solver_mode"):
+            model.solve(t_span=(0, 1.0), t_eval=np.linspace(0, 1.0, 3))
 
     @pytest.mark.slow
     def test_solve_with_default_parameters(self):
@@ -435,6 +457,18 @@ class TestRadialGasSwellingModelSolve:
         for method in ['RK23', 'RK45', 'BDF']:
             results = model.solve(t_span=t_span, t_eval=time_points, method=method)
             assert 'swelling' in results
+
+    def test_coupled_mode_smoke(self):
+        """Test that the original coupled radial path remains available"""
+        params = create_default_parameters()
+        params['radial_solver_mode'] = 'coupled'
+        model = RadialGasSwellingModel(params, n_nodes=2)
+        t_span = (0, 1.0)
+        time_points = np.linspace(t_span[0], t_span[1], 3)
+
+        results = model.solve(t_span=t_span, t_eval=time_points, method='LSODA')
+        assert 'swelling' in results
+        assert results['swelling'].shape == (len(time_points), model.n_nodes)
 
 
 class TestRadialGasSwellingModelDebug:

@@ -446,7 +446,8 @@ def calculate_gas_concentration_derivatives(
       = 4πRDgCg - hNc
 
     - dh/dt (Eq. 12): 累积气体释放率
-      = h (气体释放系数)
+      = h × (Cgf + Ccf×Ncf)
+      即从晶界游离气体和晶界气泡中释放出去的总气体通量
     """
     # 数值保护 (Numerical protection)
     Rcb_safe = np.clip(Rcb, 1e-12, 1e-4)
@@ -493,7 +494,9 @@ def calculate_gas_concentration_derivatives(
     dNcf_dt = absorption_f / Ccf - h0 * Ncf if Ccf > 0 else 0
 
     # 7. 累积气体释放率 (Cumulative gas release rate)
-    dh_dt = h0
+    # Released gas must track the gas removed from the boundary gas pool and
+    # boundary bubbles, otherwise total gas inventory appears to "disappear".
+    dh_dt = h0 * (max(Cgf, 0.0) + max(Ccf, 0.0) * max(Ncf, 0.0))
 
     return dCgb_dt, dCcb_dt, dNcb_dt, dCgf_dt, dCcf_dt, dNcf_dt, dh_dt
 
@@ -671,7 +674,12 @@ def swelling_ode_system(
     )
 
     # 计算热平衡空位浓度 (Calculate thermal equilibrium vacancy concentration, Eq. 16)
-    cv0 = calculate_cv0(T, params['Evf_coeffs'], params['Evfmuti'], kB_ev)
+    cv0 = calculate_cv0(
+        temperature=T,
+        Evf_coeffs=params['Evf_coeffs'],
+        kB_ev=kB_ev,
+        Evfmuti=params.get('Evfmuti', 1.0),
+    )
 
     # 计算空腔半径变化率 (Calculate cavity radius derivatives)
     dRcb_dt, dRcf_dt, cv_star_b, cv_star_f = calculate_cavity_radius_derivatives(
@@ -716,7 +724,7 @@ def swelling_ode_system(
         np.clip(dcib_dt, -1e8, 5e20),      # 9: dcib_dt
         np.clip(dcvf_dt, -1e8, 1e8),       # 10: dcvf_dt
         np.clip(dcif_dt, -1e8, 1e8),       # 11: dcif_dt
-        np.clip(dh_dt, -1e5, 1e5),         # 12: dh_dt (released_gas)
+        np.clip(dh_dt, -1e30, 1e30),       # 12: dh_dt (released_gas)
         0.0,                                # 13: dkvb_dt (常数, constant)
         0.0,                                # 14: dkib_dt (常数, constant)
         0.0,                                # 15: dkvf_dt (常数, constant)

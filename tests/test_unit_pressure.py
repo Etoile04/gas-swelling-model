@@ -194,6 +194,14 @@ class TestModifiedVanDerWaalsPressure:
         pressure = model._calculate_modifiedvongas_pressure(Rc, Nc)
         assert pressure == 0.0
 
+    def test_modified_vdw_alias_consistency(self, model):
+        """Test canonical method and legacy typo alias return identical values."""
+        Rc = 1e-8
+        Nc = 100
+        pressure_new = model._calculate_modified_vdw_pressure(Rc, Nc)
+        pressure_legacy = model._calculate_modifiedvongas_pressure(Rc, Nc)
+        assert pressure_new == pytest.approx(pressure_legacy)
+
 
 class TestVirialEOSPressure:
     """Test suite for Virial EOS pressure calculation"""
@@ -256,6 +264,14 @@ class TestVirialEOSPressure:
         Nc = 100
         pressure = model._calculate_VirialEOSgas_pressure(Rc, Nc)
         assert pressure == 0.0
+
+    def test_virial_alias_consistency(self, model):
+        """Test canonical Virial method and legacy alias return identical values."""
+        Rc = 1e-8
+        Nc = 100
+        pressure_new = model._calculate_virial_eos_pressure(Rc, Nc)
+        pressure_legacy = model._calculate_VirialEOSgas_pressure(Rc, Nc)
+        assert pressure_new == pytest.approx(pressure_legacy)
 
 
 class TestRonchiPressure:
