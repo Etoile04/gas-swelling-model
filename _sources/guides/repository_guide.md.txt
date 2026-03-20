@@ -35,7 +35,7 @@ gas_swelling/
 ├── visualization/  plotting and post-processing
 ├── analysis/       sensitivity analysis and metrics
 ├── validation/     datasets, metrics, reproduction scripts
-├── params/         parameter defaults and dataclasses
+├── gas_swelling/params/  parameter defaults and dataclasses
 └── io/             debug/history/output helpers
 
 examples/           runnable examples and tutorials

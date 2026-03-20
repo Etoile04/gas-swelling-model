@@ -89,6 +89,16 @@ class SimulationParameters:
     show_progress: bool = True  # 是否显示进度指示器
     progress_interval: int = 100  # 每N步输出一次进度
 
+    # Model backend selection
+    model_backend: str = 'full'  # 'full', 'qssa', or 'hybrid_qssa'
+    hybrid_dynamic_pair: str = 'auto'  # 'auto', 'bulk', or 'boundary'
+    hybrid_relaxation_factor: float = 5.0
+    hybrid_min_relaxation_time: float = 1e-6
+    hybrid_max_relaxation_time: float = 1e4
+
+    # Radial model execution mode
+    radial_solver_mode: str = 'decoupled'  # 'decoupled' (fast default) or 'coupled'
+
     # 气体扩散系数参数
     Dgb_prefactor: float = 1.2e-7  # 晶内扩散系数前因子
     Dgb_activation_energy: float = 1.16  # eV, 晶内扩散激活能
@@ -101,7 +111,21 @@ class SimulationParameters:
     eos_model: str = 'ideal' # Default to ideal gas law
 
 def create_default_parameters() -> Dict:
-    """创建默认参数集合"""
+    """
+    创建默认参数集合。
+
+    Notes
+    -----
+    The returned dictionary includes both 0D model settings and optional
+    radial-model controls. In particular:
+
+    - ``model_backend`` selects the 0D kinetics backend:
+      ``'full'``, ``'qssa'``, or ``'hybrid_qssa'``.
+    - ``radial_solver_mode`` selects how ``RadialGasSwellingModel.solve()``
+      advances radial problems:
+      ``'decoupled'`` uses a fast node-wise 0D solve by default,
+      while ``'coupled'`` enables the original fully coupled radial ODE path.
+    """
     material = MaterialParameters()
     sim = SimulationParameters()
     

@@ -819,4 +819,4 @@ params['adaptive_stepping_enabled'] = False
 
 ---
 
-*For questions or issues, please refer to the [GitHub repository](https://github.com/your-org/gas-swelling-model) or contact the development team.*
+*For questions or issues, please refer to the [GitHub repository](https://github.com/Etoile04/gas-swelling-model) or contact the development team.*

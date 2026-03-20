@@ -58,6 +58,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.integrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">solve_ivp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">csr_matrix</span>
 
 
 <div class="viewcode-block" id="RK23Solver">
@@ -165,6 +166,68 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_equations</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_select_first_step</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">t_span</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">solver_method</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Choose a physically sensible first step.</span>
+
+<span class="sd">        The legacy default `dt=1e-9` is appropriate for old fixed-step logic,</span>
+<span class="sd">        but it can severely slow adaptive stiff solvers. For implicit/stiff</span>
+<span class="sd">        methods we usually let solve_ivp estimate its own first step.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dt</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">dt</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">total_time</span> <span class="o">=</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">total_time</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">solver_method</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;LSODA&#39;</span><span class="p">,</span> <span class="s1">&#39;BDF&#39;</span><span class="p">,</span> <span class="s1">&#39;Radau&#39;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">)</span> <span class="ow">and</span> <span class="n">total_time</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">total_time</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_jacobian_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Approximate Jacobian sparsity for the 17-variable rate system.</span>
+
+<span class="sd">        This does not need to be exact; a conservative sparsity pattern is still</span>
+<span class="sd">        useful for Radau/BDF finite-difference Jacobian assembly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pattern</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">17</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+        <span class="n">dependencies</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>          <span class="c1"># Cgb</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>                   <span class="c1"># Ccb</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>             <span class="c1"># Ncb</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>          <span class="c1"># Rcb</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>          <span class="c1"># Cgf</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>                   <span class="c1"># Ccf</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>             <span class="c1"># Ncf</span>
+            <span class="mi">7</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>        <span class="c1"># Rcf</span>
+            <span class="mi">8</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>             <span class="c1"># cvb</span>
+            <span class="mi">9</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">],</span>             <span class="c1"># cib</span>
+            <span class="mi">10</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>          <span class="c1"># cvf</span>
+            <span class="mi">11</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>          <span class="c1"># cif</span>
+            <span class="mi">12</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>            <span class="c1"># released_gas</span>
+            <span class="mi">13</span><span class="p">:</span> <span class="p">[</span><span class="mi">13</span><span class="p">],</span>
+            <span class="mi">14</span><span class="p">:</span> <span class="p">[</span><span class="mi">14</span><span class="p">],</span>
+            <span class="mi">15</span><span class="p">:</span> <span class="p">[</span><span class="mi">15</span><span class="p">],</span>
+            <span class="mi">16</span><span class="p">:</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">dependencies</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">pattern</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">cols</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">return</span> <span class="n">csr_matrix</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span>
+
 <div class="viewcode-block" id="RK23Solver.solve">
 <a class="viewcode-back" href="../../../api.html#gas_swelling.solvers.rk23_solver.RK23Solver.solve">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span>
@@ -247,19 +310,26 @@
             <span class="p">)</span>
 
         <span class="c1"># Solve ODE system with error handling (求解ODE系统，带错误处理)</span>
+        <span class="n">first_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_first_step</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">solver_method</span><span class="p">)</span>
+        <span class="n">jac_sparsity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_jacobian_sparsity</span><span class="p">()</span> <span class="k">if</span> <span class="n">solver_method</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;BDF&#39;</span><span class="p">,</span> <span class="s1">&#39;Radau&#39;</span><span class="p">}</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">solve_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;fun&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">,</span>
+            <span class="s1">&#39;t_span&#39;</span><span class="p">:</span> <span class="n">t_span</span><span class="p">,</span>
+            <span class="s1">&#39;y0&#39;</span><span class="p">:</span> <span class="n">y0_clipped</span><span class="p">,</span>
+            <span class="s1">&#39;t_eval&#39;</span><span class="p">:</span> <span class="n">t_eval</span><span class="p">,</span>
+            <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">solver_method</span><span class="p">,</span>
+            <span class="s1">&#39;rtol&#39;</span><span class="p">:</span> <span class="n">rtol</span><span class="p">,</span>
+            <span class="s1">&#39;atol&#39;</span><span class="p">:</span> <span class="n">atol</span><span class="p">,</span>
+            <span class="s1">&#39;max_step&#39;</span><span class="p">:</span> <span class="n">max_dt</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">first_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">solve_kwargs</span><span class="p">[</span><span class="s1">&#39;first_step&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">first_step</span>
+        <span class="k">if</span> <span class="n">jac_sparsity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">solve_kwargs</span><span class="p">[</span><span class="s1">&#39;jac_sparsity&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">jac_sparsity</span>
+
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span>
-                <span class="n">fun</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_equations_wrapper</span><span class="p">,</span>
-                <span class="n">t_span</span><span class="o">=</span><span class="n">t_span</span><span class="p">,</span>
-                <span class="n">y0</span><span class="o">=</span><span class="n">y0_clipped</span><span class="p">,</span>
-                <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
-                <span class="n">method</span><span class="o">=</span><span class="n">solver_method</span><span class="p">,</span>
-                <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span>
-                <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">,</span>
-                <span class="n">first_step</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
-                <span class="n">max_step</span><span class="o">=</span><span class="n">max_dt</span><span class="p">,</span>
-                <span class="n">max_steps</span><span class="o">=</span><span class="n">max_steps</span>
-            <span class="p">)</span>
+            <span class="n">sol</span> <span class="o">=</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="o">**</span><span class="n">solve_kwargs</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="n">sol</span><span class="o">.</span><span class="n">success</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>

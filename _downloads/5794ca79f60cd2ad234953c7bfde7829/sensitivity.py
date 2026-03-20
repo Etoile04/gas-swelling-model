@@ -302,6 +302,7 @@ class SensitivityAnalyzer:
         """
         return {
             'n_parameters': len(self.parameter_ranges),
+            'n_parameters_analyzed': len(self.parameter_ranges),
             'parameter_names': self.get_parameter_names(),
             'output_names': self.output_names,
             'base_parameter_keys': list(self.base_parameters.keys())
@@ -784,7 +785,7 @@ class OATAnalyzer(SensitivityAnalyzer):
 
         if results is not None:
             summary_dict['n_parameters_analyzed'] = len(results)
-            summary_dict['parameter_ranking'] = {}
+            rankings_by_output = {}
 
             for output_name in self.output_names:
                 # Rank parameters by absolute elasticity
@@ -794,10 +795,12 @@ class OATAnalyzer(SensitivityAnalyzer):
                 ]
                 param_sensitivities.sort(key=lambda x: x[1], reverse=True)
 
-                summary_dict['parameter_ranking'][output_name] = [
-                    {'name': name, 'elasticity': sens}
-                    for name, sens in param_sensitivities
-                ]
+                rankings_by_output[output_name] = param_sensitivities
+
+            if len(self.output_names) == 1:
+                summary_dict['parameter_ranking'] = rankings_by_output[self.output_names[0]]
+            else:
+                summary_dict['parameter_ranking'] = rankings_by_output
 
         return summary_dict
 
@@ -812,7 +815,7 @@ class MorrisResult:
         mu_star: Mean of absolute elementary effects (measures overall influence magnitude)
         sigma: Standard deviation of elementary effects (measures nonlinearity/interactions)
         elementary_effects: Dictionary mapping output names to arrays of elementary effects
-            Shape: (n_parameters, n_trajectories) for each output
+            Shape: (n_trajectories, n_parameters) for each output
         output_names: List of output names analyzed
         n_trajectories: Number of trajectories used in the analysis
 
@@ -833,7 +836,7 @@ class MorrisResult:
     mu: np.ndarray  # Shape: (n_parameters,)
     mu_star: np.ndarray  # Shape: (n_parameters,)
     sigma: np.ndarray  # Shape: (n_parameters,)
-    elementary_effects: Dict[str, np.ndarray]  # Shape: (n_parameters, n_trajectories) for each output
+    elementary_effects: Dict[str, np.ndarray]  # Shape: (n_trajectories, n_parameters) for each output
     output_names: List[str]
     n_trajectories: int
 
@@ -901,6 +904,7 @@ class MorrisAnalyzer(SensitivityAnalyzer):
         output_names: Optional[List[str]] = None,
         sim_time: float = 7200000.0,
         t_eval_points: int = 100,
+        num_trajectories: int = 10,
         num_levels: int = 10,
         delta: Optional[float] = None
     ):
@@ -912,12 +916,14 @@ class MorrisAnalyzer(SensitivityAnalyzer):
             output_names: Model outputs to analyze (default: ['swelling'])
             sim_time: Simulation time in seconds (default: 83.3 days)
             t_eval_points: Number of time points for simulation output
+            num_trajectories: Default number of trajectories for Morris sampling
             num_levels: Number of discretization levels for parameter space (p)
             delta: Step size for parameter variations (Δ). Defaults to p/(2(p-1))
         """
         super().__init__(base_parameters, parameter_ranges, output_names)
         self.sim_time = sim_time
         self.t_eval_points = t_eval_points
+        self.num_trajectories = num_trajectories
         self.num_levels = num_levels
 
         # Calculate default delta if not provided
@@ -1149,7 +1155,7 @@ class MorrisAnalyzer(SensitivityAnalyzer):
 
     def run_morris_analysis(
         self,
-        n_trajectories: int = 10,
+        n_trajectories: Optional[int] = None,
         verbose: bool = True,
         random_state: Optional[int] = None
     ) -> MorrisResult:
@@ -1160,7 +1166,8 @@ class MorrisAnalyzer(SensitivityAnalyzer):
         and aggregates statistics (μ, μ*, σ) across all trajectories.
 
         Args:
-            n_trajectories: Number of trajectories to generate (default: 10)
+            n_trajectories: Number of trajectories to generate. Uses the value
+                configured at initialization when None.
             verbose: Whether to print progress messages
             random_state: Random seed for reproducibility
 
@@ -1182,6 +1189,9 @@ class MorrisAnalyzer(SensitivityAnalyzer):
                 "No parameter ranges defined. Use add_parameter_range() to add parameters."
             )
 
+        if n_trajectories is None:
+            n_trajectories = self.num_trajectories
+
         n_params = len(self.parameter_ranges)
         param_names = self.get_parameter_names()
 
@@ -1197,7 +1207,7 @@ class MorrisAnalyzer(SensitivityAnalyzer):
 
         # Initialize storage for elementary effects
         all_elementary_effects = {
-            output_name: np.zeros((n_params, n_trajectories))
+            output_name: np.zeros((n_trajectories, n_params))
             for output_name in self.output_names
         }
 
@@ -1245,7 +1255,7 @@ class MorrisAnalyzer(SensitivityAnalyzer):
             # Compute elementary effects for this trajectory
             for output_name in self.output_names:
                 ee = self.compute_elementary_effects(trajectory_outputs[output_name])
-                all_elementary_effects[output_name][:, traj_idx] = ee
+                all_elementary_effects[output_name][traj_idx, :] = ee
 
             if verbose:
                 print(f"  Complete!")
@@ -1259,9 +1269,9 @@ class MorrisAnalyzer(SensitivityAnalyzer):
         reference_output = self.output_names[0]
         ee_ref = all_elementary_effects[reference_output]
 
-        mu = np.mean(ee_ref, axis=1)
-        mu_star = np.mean(np.abs(ee_ref), axis=1)
-        sigma = np.std(ee_ref, axis=1, ddof=1)
+        mu = np.mean(ee_ref, axis=0)
+        mu_star = np.mean(np.abs(ee_ref), axis=0)
+        sigma = np.std(ee_ref, axis=0, ddof=1)
 
         if verbose:
             print("Morris Analysis complete!")
@@ -1302,7 +1312,8 @@ class MorrisAnalyzer(SensitivityAnalyzer):
 
         if results is not None:
             summary_dict['n_trajectories'] = results.n_trajectories
-            summary_dict['parameter_ranking'] = {}
+            summary_dict['n_parameters_analyzed'] = len(results.parameter_names)
+            rankings_by_output = {}
 
             for output_name in self.output_names:
                 if output_name in results.elementary_effects:
@@ -1313,10 +1324,12 @@ class MorrisAnalyzer(SensitivityAnalyzer):
                     ]
                     param_effects.sort(key=lambda x: x[1], reverse=True)
 
-                    summary_dict['parameter_ranking'][output_name] = [
-                        {'name': name, 'mu_star': mu_s}
-                        for name, mu_s in param_effects
-                    ]
+                    rankings_by_output[output_name] = param_effects
+
+            if len(self.output_names) == 1 and self.output_names[0] in rankings_by_output:
+                summary_dict['parameter_ranking'] = rankings_by_output[self.output_names[0]]
+            else:
+                summary_dict['parameter_ranking'] = rankings_by_output
 
         return summary_dict
 
@@ -1652,7 +1665,6 @@ class SobolAnalyzer(SensitivityAnalyzer):
             Tuple of (S1, ST) arrays, each of shape (n_parameters,)
         """
         n_params = Y_AB.shape[0]
-        n_samples = len(Y_A)
 
         # Compute total variance
         Y_all = np.concatenate([Y_A, Y_B])
@@ -1667,20 +1679,18 @@ class SobolAnalyzer(SensitivityAnalyzer):
         ST = np.zeros(n_params)
 
         for i in range(n_params):
-            # First-order index S1
-            # S1 = (1/N) * Σ_j Y_A_j * (Y_AB_i_j - Y_B_j) / V_Y
-            numerator_S1 = np.mean(Y_A * (Y_AB[i] - Y_B))
+            # First-order index S1 (Saltelli 2010 estimator).
+            numerator_S1 = np.mean(Y_B * (Y_AB[i] - Y_A))
             S1[i] = numerator_S1 / V_Y
 
-            # Total-order index ST
-            # ST = 1 - (1/N) * Σ_j Y_B_j * (Y_AB_i_j - Y_A_j) / V_Y
-            numerator_ST = np.mean(Y_B * (Y_AB[i] - Y_A))
-            ST[i] = 1 - numerator_ST / V_Y
+            # Total-order index ST (Jansen estimator).
+            ST[i] = 0.5 * np.mean((Y_A - Y_AB[i]) ** 2) / V_Y
 
         # Ensure indices are in valid range [0, 1]
         # Small negative values or values > 1 can occur due to numerical errors
         S1 = np.clip(S1, 0, 1)
         ST = np.clip(ST, 0, 1)
+        ST = np.maximum(ST, S1)
 
         return S1, ST
 
@@ -1866,7 +1876,8 @@ class SobolAnalyzer(SensitivityAnalyzer):
 
         if results is not None:
             summary_dict['n_samples'] = results.n_samples
-            summary_dict['parameter_ranking'] = {}
+            summary_dict['n_parameters_analyzed'] = len(results.parameter_names)
+            rankings_by_output = {}
 
             for output_name in self.output_names:
                 output_idx = results.output_names.index(output_name)
@@ -1878,9 +1889,11 @@ class SobolAnalyzer(SensitivityAnalyzer):
                 ]
                 param_effects.sort(key=lambda x: x[1], reverse=True)
 
-                summary_dict['parameter_ranking'][output_name] = [
-                    {'name': name, 'ST': st, 'S1': results.S1[i, output_idx]}
-                    for i, (name, st) in enumerate(param_effects)
-                ]
+                rankings_by_output[output_name] = param_effects
+
+            if len(self.output_names) == 1 and self.output_names[0] in rankings_by_output:
+                summary_dict['parameter_ranking'] = rankings_by_output[self.output_names[0]]
+            else:
+                summary_dict['parameter_ranking'] = rankings_by_output
 
         return summary_dict

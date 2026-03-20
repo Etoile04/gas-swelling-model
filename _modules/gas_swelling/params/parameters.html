@@ -127,6 +127,16 @@
     <span class="n">show_progress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 是否显示进度指示器</span>
     <span class="n">progress_interval</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># 每N步输出一次进度</span>
 
+    <span class="c1"># Model backend selection</span>
+    <span class="n">model_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;full&#39;</span>  <span class="c1"># &#39;full&#39;, &#39;qssa&#39;, or &#39;hybrid_qssa&#39;</span>
+    <span class="n">hybrid_dynamic_pair</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span>  <span class="c1"># &#39;auto&#39;, &#39;bulk&#39;, or &#39;boundary&#39;</span>
+    <span class="n">hybrid_relaxation_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>
+    <span class="n">hybrid_min_relaxation_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
+    <span class="n">hybrid_max_relaxation_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e4</span>
+
+    <span class="c1"># Radial model execution mode</span>
+    <span class="n">radial_solver_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;decoupled&#39;</span>  <span class="c1"># &#39;decoupled&#39; (fast default) or &#39;coupled&#39;</span>
+
     <span class="c1"># 气体扩散系数参数</span>
     <span class="n">Dgb_prefactor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.2e-7</span>  <span class="c1"># 晶内扩散系数前因子</span>
     <span class="n">Dgb_activation_energy</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.16</span>  <span class="c1"># eV, 晶内扩散激活能</span>
@@ -142,7 +152,21 @@
 <div class="viewcode-block" id="create_default_parameters">
 <a class="viewcode-back" href="../../../api.html#gas_swelling.params.parameters.create_default_parameters">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_default_parameters</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;创建默认参数集合&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    创建默认参数集合。</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The returned dictionary includes both 0D model settings and optional</span>
+<span class="sd">    radial-model controls. In particular:</span>
+
+<span class="sd">    - ``model_backend`` selects the 0D kinetics backend:</span>
+<span class="sd">      ``&#39;full&#39;``, ``&#39;qssa&#39;``, or ``&#39;hybrid_qssa&#39;``.</span>
+<span class="sd">    - ``radial_solver_mode`` selects how ``RadialGasSwellingModel.solve()``</span>
+<span class="sd">      advances radial problems:</span>
+<span class="sd">      ``&#39;decoupled&#39;`` uses a fast node-wise 0D solve by default,</span>
+<span class="sd">      while ``&#39;coupled&#39;`` enables the original fully coupled radial ODE path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">material</span> <span class="o">=</span> <span class="n">MaterialParameters</span><span class="p">()</span>
     <span class="n">sim</span> <span class="o">=</span> <span class="n">SimulationParameters</span><span class="p">()</span>
     
