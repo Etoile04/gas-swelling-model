@@ -18,7 +18,9 @@ Examples:
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, NullLocator
 import numpy as np
+import inspect
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List, Union
 import warnings
@@ -40,6 +42,18 @@ from .utils import (
     VARIABLE_LABELS,
     apply_publication_style
 )
+
+
+def _resolve_hist_bins(bins: Union[int, str], weighted: bool = False) -> Union[int, str]:
+    """
+    Return a histogram bin setting that is compatible with the plotted data.
+
+    NumPy does not support automatic string-based bin estimators for weighted
+    histograms, so fall back to a fixed bin count in that case.
+    """
+    if weighted and isinstance(bins, str):
+        return 20
+    return bins
 
 
 def plot_bubble_size_distribution(
@@ -145,7 +159,7 @@ def plot_bubble_size_distribution(
 
     # Create figure
     if plot_type == 'both':
-        fig, axes = create_figure_grid(1, 2, figsize=(figsize[0]*2, figsize[1]), style=style)
+        fig, axes = create_figure_grid(1, 2, figsize=figsize, style=style)
         ax1, ax2 = axes[0, 0], axes[0, 1]
     else:
         fig, ax = plt.subplots(figsize=figsize)
@@ -153,16 +167,18 @@ def plot_bubble_size_distribution(
 
     alpha = kwargs.get('alpha', 0.6)
 
+    histogram_bins = _resolve_hist_bins(bins, weighted=True)
+
     # Plot histogram
     if plot_type in ['histogram', 'both']:
         # Create weighted histogram based on concentration
         weights_b = np.array([Ccb])
         weights_f = np.array([Ccf])
 
-        ax1.hist([Rcb], bins=bins, weights=weights_b,
+        ax1.hist([Rcb], bins=histogram_bins, weights=weights_b,
                 label=f'Bulk Bubbles (R={Rcb:.2f} {length_unit})',
                 color=colors[0], alpha=alpha, edgecolor='black')
-        ax1.hist([Rcf], bins=bins, weights=weights_f,
+        ax1.hist([Rcf], bins=histogram_bins, weights=weights_f,
                 label=f'Interface Bubbles (R={Rcf:.2f} {length_unit})',
                 color=colors[1], alpha=alpha, edgecolor='black')
 
@@ -305,12 +321,20 @@ def plot_bubble_radius_distribution(
     validate_result_data(result, required_keys)
 
     # Normalize time_points to list of indices
-    if isinstance(time_points, str):
-        time_points = [_get_time_index(result, time_points)]
-    elif isinstance(time_points, (int, float)):
-        time_points = [_get_time_index(result, time_points)]
+    if isinstance(time_points, (str, int, float)):
+        time_points = [time_points]
 
-    time_indices = [_get_time_index(result, tp) for tp in time_points]
+    time_indices = []
+    for tp in time_points:
+        try:
+            time_indices.append(_get_time_index(result, tp))
+        except ValueError:
+            # For lists like [0, 50, 99], treat out-of-range integers as
+            # physical time values rather than array indices.
+            if isinstance(tp, int):
+                time_indices.append(_get_time_index(result, float(tp)))
+            else:
+                raise
 
     # Get color palette
     colors = get_color_palette('bulk_interface')
@@ -364,7 +388,10 @@ def plot_bubble_radius_distribution(
                 data_for_box.append(sample)
                 labels_for_box.append(f"{region_name}\n{time_label}")
 
-        bp = ax.boxplot(data_for_box, labels=labels_for_box, patch_artist=True)
+        boxplot_kwargs = {'patch_artist': True}
+        label_param = 'tick_labels' if 'tick_labels' in inspect.signature(ax.boxplot).parameters else 'labels'
+        boxplot_kwargs[label_param] = labels_for_box
+        bp = ax.boxplot(data_for_box, **boxplot_kwargs)
 
         # Color the boxes
         for i, (patch, region_info) in enumerate(zip(bp['boxes'], regions_to_plot * len(time_indices))):
@@ -383,8 +410,7 @@ def plot_bubble_radius_distribution(
             axes = [ax]
         else:
             fig, axes = create_figure_grid(1, len(time_indices), figsize=figsize, style=style)
-            if not isinstance(axes, np.ndarray):
-                axes = np.array([axes])
+            axes = np.asarray(axes).ravel()
 
         for i, idx in enumerate(time_indices):
             ax = axes[i] if len(time_indices) > 1 else axes[0]
@@ -500,6 +526,13 @@ def plot_gas_distribution_histogram(
         if region in ['interface', 'both']:
             ax.semilogy(time_data, result['Ncf'], label='Interface Bubbles',
                        color=colors[1], linewidth=kwargs.get('linewidth', 2.0))
+
+        # Avoid mathtext-dependent default log tick formatting on environments
+        # with incomplete font fallbacks (seen on some macOS/Python 3.14 setups).
+        plain_log_formatter = FuncFormatter(lambda y, _: f'{y:g}')
+        ax.yaxis.set_major_formatter(plain_log_formatter)
+        ax.yaxis.set_minor_formatter(plain_log_formatter)
+        ax.yaxis.set_minor_locator(NullLocator())
 
         ax.set_xlabel(get_time_unit_label('minutes'))
         ax.set_ylabel('Gas Atoms per Bubble')

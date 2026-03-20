@@ -55,6 +55,8 @@ def get_publication_style(style: str = 'default') -> Dict[str, Any]:
             'font.family': 'serif',
             'font.serif': ['Times New Roman', 'DejaVu Serif', 'serif'],
             'font.sans-serif': ['Arial', 'DejaVu Sans', 'sans-serif'],
+            'mathtext.fontset': 'dejavusans',
+            'mathtext.default': 'regular',
             'font.size': 12,
             'axes.titlesize': 14,
             'axes.labelsize': 12,
@@ -105,6 +107,8 @@ def get_publication_style(style: str = 'default') -> Dict[str, Any]:
             'savefig.dpi': 300,
             'savefig.bbox': 'tight',
             'font.family': 'sans-serif',
+            'mathtext.fontset': 'dejavusans',
+            'mathtext.default': 'regular',
             'font.size': 14,
             'axes.titlesize': 16,
             'axes.labelsize': 14,
@@ -124,6 +128,8 @@ def get_publication_style(style: str = 'default') -> Dict[str, Any]:
             'savefig.dpi': 300,
             'savefig.bbox': 'tight',
             'font.family': 'sans-serif',
+            'mathtext.fontset': 'dejavusans',
+            'mathtext.default': 'regular',
             'font.size': 18,
             'axes.titlesize': 20,
             'axes.labelsize': 18,
@@ -143,6 +149,8 @@ def get_publication_style(style: str = 'default') -> Dict[str, Any]:
             'savefig.dpi': 300,
             'savefig.bbox': 'tight',
             'font.family': 'serif',
+            'mathtext.fontset': 'dejavusans',
+            'mathtext.default': 'regular',
             'font.size': 12,
             'axes.titlesize': 14,
             'axes.labelsize': 12,
@@ -614,14 +622,20 @@ def calculate_confidence_interval(data: Union[np.ndarray, List[np.ndarray]],
     # Calculate mean
     mean = np.mean(data, axis=axis)
 
-    # Calculate standard error
-    sem = stats.sem(data, axis=axis)
-
     # Calculate degrees of freedom
     if axis is None:
         n = data.size
     else:
         n = data.shape[axis]
+
+    # A single run has zero spread and a degenerate confidence interval.
+    # Return the mean directly instead of delegating to scipy.stats.sem,
+    # which emits divide-by-zero warnings for n <= 1.
+    if n <= 1:
+        return mean, mean, mean
+
+    # Calculate standard error
+    sem = stats.sem(data, axis=axis)
 
     # Calculate t-value for confidence interval
     t_value = stats.t.ppf((1 + confidence) / 2, n - 1)
