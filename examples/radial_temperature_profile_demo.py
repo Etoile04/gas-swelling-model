@@ -42,15 +42,9 @@ import csv
 from typing import List, Dict, Optional, Tuple
 
 # Import model components
-try:
-    from gas_swelling.models.radial_model import RadialGasSwellingModel
-    from gas_swelling.params.parameters import create_default_parameters
-    from gas_swelling.visualization.radial_plots import RadialProfilePlotter
-except ImportError:
-    # Fallback for development environment
-    from models.radial_model import RadialGasSwellingModel
-    from params.parameters import create_default_parameters
-    from visualization.radial_plots import RadialProfilePlotter
+from gas_swelling.models.radial_model import RadialGasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
+from gas_swelling.visualization.radial_plots import RadialProfilePlotter
 
 # Set up matplotlib for publication-quality plotting
 matplotlib.rcParams['figure.dpi'] = 100

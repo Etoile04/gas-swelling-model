@@ -40,13 +40,8 @@ import csv
 from typing import List, Tuple, Dict, Optional
 
 # Import model components
-try:
-    from gas_swelling.models.modelrk23 import GasSwellingModel
-    from gas_swelling.params.parameters import create_default_parameters
-except ImportError:
-    # Fallback for development environment
-    from models.modelrk23 import GasSwellingModel
-    from params.parameters import create_default_parameters
+from gas_swelling.models.modelrk23 import GasSwellingModel
+from gas_swelling.params.parameters import create_default_parameters
 
 # Set up matplotlib for publication-quality plotting
 matplotlib.rcParams['figure.dpi'] = 100

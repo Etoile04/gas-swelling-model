@@ -89,36 +89,35 @@ jupyter-lab notebooks/Temperature_Sweep_Example.ipynb
 
 ## 🔧 Advanced Examples
 
-### [test4_run_rk23.py](../test4_run_rk23.py)
+### [plotting_examples.py](plotting_examples.py)
 
 **Difficulty:** Advanced | **Time:** Variable
 
-A comprehensive test and demonstration script showcasing advanced features of the model. This script is used for validation and includes parameter sweep studies.
+A comprehensive plotting-focused example suite showcasing advanced visualization and post-processing workflows on top of the packaged model API.
 
 **What you'll learn:**
-- Advanced parameter configuration
-- Temperature sweep studies
-- Batch simulation workflows
+- Advanced result visualization
+- Temperature sweep post-processing
+- Multi-panel publication figures
 - Custom analysis routines
-- Model validation techniques
+- Reusable plotting patterns
 
 **Key features:**
-- Temperature sweep function
+- Multiple plotting recipes
 - Publication-quality plotting
-- Comparison with experimental data
-- Performance benchmarking
+- Result interpretation patterns
+- Example styling customizations
 - Extensive customization options
 
 **Run it:**
 ```bash
-python test4_run_rk23.py
+python examples/plotting_examples.py --example basic
 ```
 
 **Perfect for:**
-- Model validation and benchmarking
 - Generating publication figures
-- Batch processing simulations
-- Custom analysis workflows
+- Building custom analysis workflows
+- Learning the visualization API
 - Advanced users and researchers
 
 ---
@@ -129,7 +128,7 @@ python test4_run_rk23.py
 |---------|--------|---------------|------------|----------|
 | **quickstart_tutorial.py** | Python script | Low (console output) | Beginner | Learning basics, understanding workflow |
 | **Temperature_Sweep_Example.ipynb** | Jupyter notebook | High (interactive cells) | Intermediate | Exploration, experimentation, teaching |
-| **test4_run_rk23.py** | Python script | Low (modify code) | Advanced | Validation, batch processing, research |
+| **plotting_examples.py** | Python script | Low (modify code) | Advanced | Visualization, analysis, publication figures |
 
 ## How to Choose an Example
 
@@ -145,10 +144,10 @@ python test4_run_rk23.py
 - ✅ You need to iterate quickly on different parameters
 - ✅ You want to create custom visualizations
 
-### Use `test4_run_rk23.py` if:
-- ✅ You need to run parameter sweeps
-- ✅ You're validating the model
+### Use `plotting_examples.py` if:
 - ✅ You want publication-quality figures
+- ✅ You need reusable plotting patterns
+- ✅ You're analyzing saved simulation outputs
 - ✅ You're working on a research project
 
 ## Common Workflows
@@ -170,7 +169,7 @@ python test4_run_rk23.py
 ### Workflow 3: Research Project
 
 1. Complete the quickstart tutorial
-2. Study `test4_run_rk23.py` for advanced patterns
+2. Study `plotting_examples.py` and `temperature_sweep_plotting.py` for advanced patterns
 3. Create your own analysis script based on these examples
 4. Use the [Jupyter notebook](../notebooks/Temperature_Sweep_Example.ipynb) for exploratory analysis
 5. Implement production code in Python scripts

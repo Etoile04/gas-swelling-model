@@ -9,7 +9,7 @@ bubble evolution in nuclear fuel materials using the RadialGasSwellingModel.
 
 What this model does:
 - Extends the 0D model to capture spatial variations across the fuel pellet radius
-- Each radial node solves an independent ODE system with spatial coupling
+- Uses a fast node-wise solve by default, with an optional fully coupled mode
 - Calculates radial profiles of swelling, temperature, gas pressure, and more
 - Simulates realistic conditions with temperature gradients and flux depression
 
@@ -22,7 +22,7 @@ Physics background:
 Key differences from 0D model:
 - Uses RadialMesh for spatial discretization (multiple nodes across radius)
 - Each node has its own temperature and fission rate
-- Gas transport between nodes via radial diffusion
+- Optional fully coupled mode includes explicit radial diffusion between nodes
 - Results are radial profiles instead of single values
 
 Author: Gas Swelling Model Team
@@ -94,6 +94,7 @@ def run_basic_radial_simulation():
     print(f"  Temperature: {params['temperature']} K (uniform)")
     print(f"  Fission rate: {params['fission_rate']:.2e} fissions/(m³·s)")
     print(f"  Pellet radius: 3.0 mm")
+    print(f"  Radial solver mode: {params['radial_solver_mode']}")
 
     print_section_header("STEP 3: Create Radial Model")
 
@@ -109,6 +110,7 @@ def run_basic_radial_simulation():
     print(f"  Number of radial nodes: {model.n_nodes}")
     print(f"  State variables per node: 17")
     print(f"  Total state variables: {len(model.initial_state)}")
+    print(f"  Solve mode: {model.params['radial_solver_mode']}")
 
     print_section_header("STEP 4: Set Up Simulation Time")
 
@@ -125,14 +127,14 @@ def run_basic_radial_simulation():
 
     print_section_header("STEP 5: Run the Simulation")
 
-    print("Solving the radial ODE system...")
-    print("(This may take a moment due to multiple radial nodes...)")
+    print("Solving the radial model...")
+    print("(Default mode uses a fast node-wise backend.)")
+    print("(Set params['radial_solver_mode'] = 'coupled' to enable the original coupled solve.)")
 
     # Solve the system
     result = model.solve(
         t_span=(0, simulation_time_seconds),
-        t_eval=t_eval,
-        method='RK23'
+        t_eval=t_eval
     )
 
     print("Simulation completed successfully!")
@@ -376,9 +378,10 @@ def main():
     print("gas swelling simulations with spatial discretization.")
     print("\nKey features of the radial model:")
     print("  - Spatial discretization across fuel pellet radius")
-    print("  - Each radial node solves independent ODE system")
+    print("  - Fast node-wise solve is the default execution mode")
+    print("  - Original fully coupled radial ODE solve remains available")
     print("  - Temperature gradients affect swelling distribution")
-    print("  - Radial diffusion coupling between nodes")
+    print("  - Coupled mode includes explicit radial diffusion between nodes")
     print()
 
     if args.dry_run:

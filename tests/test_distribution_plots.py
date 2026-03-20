@@ -246,7 +246,7 @@ class TestBubbleSizeDistribution:
                 save_path=None
             )
 
-    def test_plot_save_to_file(self, sample_result, sample_params, tmp_path):
+    def test_plot_save_to_file(self, mock_result, sample_params, tmp_path):
         """Test saving plot to file"""
         save_path = tmp_path / "test_bubble_size.png"
         fig = plot_bubble_size_distribution(
@@ -435,7 +435,7 @@ class TestBubbleRadiusDistribution:
                 save_path=None
             )
 
-    def test_plot_save_to_file(self, sample_result, sample_params, tmp_path):
+    def test_plot_save_to_file(self, mock_result, sample_params, tmp_path):
         """Test saving plot to file"""
         save_path = tmp_path / "test_radius_dist.png"
         fig = plot_bubble_radius_distribution(
@@ -617,7 +617,7 @@ class TestGasDistributionHistogram:
             assert fig is not None
             plt.close(fig)
 
-    def test_plot_save_to_file(self, sample_result, sample_params, tmp_path):
+    def test_plot_save_to_file(self, mock_result, sample_params, tmp_path):
         """Test saving plot to file"""
         save_path = tmp_path / "test_gas_dist.png"
         fig = plot_gas_distribution_histogram(
@@ -636,9 +636,9 @@ class TestIntegration:
     def test_all_functions_with_same_data(self, mock_result, sample_params):
         """Test that all plotting functions work with the same data"""
         functions = [
-            lambda: plot_bubble_size_distribution(sample_result, sample_params, bins=20, save_path=None),
-            lambda: plot_bubble_radius_distribution(sample_result, sample_params, save_path=None),
-            lambda: plot_gas_distribution_histogram(sample_result, sample_params, save_path=None)
+            lambda: plot_bubble_size_distribution(mock_result, sample_params, bins=20, save_path=None),
+            lambda: plot_bubble_radius_distribution(mock_result, sample_params, save_path=None),
+            lambda: plot_gas_distribution_histogram(mock_result, sample_params, save_path=None)
         ]
 
         for func in functions:

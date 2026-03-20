@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 import argparse
 import numpy as np
+import pytest
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
@@ -87,6 +88,8 @@ from gas_swelling.visualization import (
 
 class TestResults:
     """Track test results"""
+    __test__ = False
+
     def __init__(self):
         self.passed = 0
         self.failed = 0
@@ -172,6 +175,24 @@ def create_mock_result(n_points=20):
 
     print(f"  Mock data created: {n_points} time points")
     return result
+
+
+@pytest.fixture(scope="session")
+def result():
+    """Use mock data to keep visualization tests deterministic and fast."""
+    return create_mock_result()
+
+
+@pytest.fixture
+def results():
+    """Collect pass/fail details during a single test."""
+    return TestResults()
+
+
+@pytest.fixture(scope="session")
+def formats():
+    """Export formats covered by visualization tests."""
+    return ["png", "pdf", "svg"]
 
 
 def test_evolution_plots(result, formats, results):

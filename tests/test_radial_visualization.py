@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import argparse
 import numpy as np
+import pytest
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for testing
 import matplotlib.pyplot as plt
@@ -196,6 +197,18 @@ def create_real_radial_result(n_nodes=5, sim_time_days=10):
     print(f"  Simulation completed: {sim_time_days} days, {len(t_eval)} time points")
 
     return result, model.mesh, model
+
+
+@pytest.fixture
+def results():
+    """Collect pass/fail details for a single pytest case."""
+    return ResultTracker()
+
+
+@pytest.fixture(scope="session")
+def test_data():
+    """Use deterministic mock data so radial visualization tests stay fast."""
+    return create_mock_radial_result()
 
 
 def test_radial_plotter_instantiation(results, test_data):

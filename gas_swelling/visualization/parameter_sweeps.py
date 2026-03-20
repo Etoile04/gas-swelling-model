@@ -464,7 +464,7 @@ def plot_arrhenius_analysis(
             label='Linear Fit')
 
     # Styling
-    ax.set_xlabel('1000/T (K⁻¹)')
+    ax.set_xlabel(r'1000/T (K$^{-1}$)')
     ax.set_ylabel('ln(Swelling Rate)')
     ax.grid(True, linestyle='--', alpha=0.3)
     ax.legend()
